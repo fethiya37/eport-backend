@@ -1,0 +1,193 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Enums ----------
+enum UserType {
+  Superadmin
+  Admin
+  Association
+  Driver
+  Controller
+  Owner
+}
+
+enum AssociationStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum OwnerStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum DriverStatus {
+  AVAILABLE
+  ON_TRIP
+  OFFLINE
+  SUSPENDED
+}
+
+enum VehicleStatus {
+  ACTIVE
+  MAINTENANCE
+  RETIRED
+  SUSPENDED
+  RESIGNED
+}
+
+// ---------- Core Models ----------
+model User {
+  id             Int      @id @default(autoincrement())
+  phone_number   String   @unique @db.VarChar(20)
+  user_type      UserType
+  name           String?  @db.VarChar(100)
+  password_hash  String?  @db.VarChar(255)
+  is_locked      Boolean  @default(false)
+  association_id Int? // 👈 nullable; required only for user_type = Association
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  association Association? @relation(fields: [association_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  tokens UserToken[]
+  Owner  Owner?
+  Driver Driver?
+
+  @@map("users")
+}
+
+model UserToken {
+  id         Int      @id @default(autoincrement())
+  user_id    Int
+  token_hash String
+  expires_at DateTime
+  revoked    Boolean  @default(false)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@map("user_tokens")
+}
+
+model RevokedToken {
+  jti        String   @id
+  user_id    Int
+  expires_at DateTime
+
+  @@index([user_id])
+  @@map("revoked_tokens")
+}
+
+// ---------- Associations / Owners / Drivers ----------
+model Association {
+  id           Int               @id @default(autoincrement())
+  name         String            @db.VarChar(100)
+  phone_number String?           @db.VarChar(20) // 👈 NEW (nullable)
+  logo         String?           @db.VarChar(255)
+  status       AssociationStatus @default(ACTIVE)
+  created_at   DateTime          @default(now())
+  updated_at   DateTime          @updatedAt
+
+  users       User[]
+  owners      Owner[]
+  drivers     Driver[]
+  vehicles    Vehicle[]
+  assignments VehicleAssignment[]
+
+  @@map("associations")
+}
+
+model Owner {
+  id             Int         @id @default(autoincrement())
+  user_id        Int         @unique
+  association_id Int
+  full_name      String      @db.VarChar(100)
+  phone_number   String      @db.VarChar(20)
+  status         OwnerStatus @default(ACTIVE)
+  created_at     DateTime    @default(now())
+  updated_at     DateTime    @updatedAt
+
+  user        User        @relation(fields: [user_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  association Association @relation(fields: [association_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  vehicles    Vehicle[]
+
+  // Optional but useful: prevent duplicate phone within same association
+  @@unique([association_id, phone_number])
+  @@map("owners")
+}
+
+model Driver {
+  id             Int          @id @default(autoincrement())
+  user_id        Int          @unique
+  association_id Int
+  full_name      String       @db.VarChar(100)
+  license_no     String?
+  license_expiry DateTime?
+  phone_number   String       @db.VarChar(20)
+  status         DriverStatus @default(AVAILABLE)
+  created_at     DateTime     @default(now())
+  updated_at     DateTime     @updatedAt
+
+  user        User                @relation(fields: [user_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  association Association         @relation(fields: [association_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  assignments VehicleAssignment[]
+
+  // Optional but useful: prevent duplicate phone within same association
+  @@unique([association_id, phone_number])
+  @@map("drivers")
+}
+
+// ---------- Vehicles & Linking ----------
+model Vehicle {
+  id             Int           @id @default(autoincrement())
+  plate_number   String        @unique @db.VarChar(20)
+  libre_no       String?
+  owner_id       Int
+  association_id Int
+  make           String?
+  model          String?
+  color          String?
+  capacity       Int?
+  status         VehicleStatus @default(ACTIVE)
+  started_at     DateTime      @default(now()) // NEW: when vehicle became ACTIVE in this association
+  ended_at       DateTime? // NEW: when SUSPENDED/RESIGNED/RETIRED (association link ended)
+  created_at     DateTime      @default(now())
+  updated_at     DateTime      @updatedAt
+  deleted_at     DateTime?
+
+  owner       Owner               @relation(fields: [owner_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  association Association         @relation(fields: [association_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  assignments VehicleAssignment[]
+
+  @@map("vehicles")
+}
+
+model VehicleAssignment {
+  id             Int       @id @default(autoincrement())
+  driver_id      Int
+  vehicle_id     Int
+  association_id Int
+  active         Boolean   @default(true)
+  started_at     DateTime  @default(now())
+  ended_at       DateTime?
+
+  driver      Driver      @relation(fields: [driver_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  vehicle     Vehicle     @relation(fields: [vehicle_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  association Association @relation(fields: [association_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  // A driver can have only one active assignment per vehicle
+  @@unique([driver_id, vehicle_id, active])
+  @@index([driver_id])
+  @@index([vehicle_id])
+  @@index([association_id])
+  @@map("vehicle_assignments")
+}
