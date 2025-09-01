@@ -1,6 +1,5 @@
-export type RequestContext = { associationId?: number };
-declare global {
-  namespace Express {
-    interface Request { context?: RequestContext }
-  }
-}
+import { UserContext } from "./user-context";
+
+export type RequestContext = {
+  user?: UserContext;
+};

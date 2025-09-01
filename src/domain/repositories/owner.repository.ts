@@ -1,32 +1,26 @@
-import { Owner } from '../entities/owner.entity';
+import { Owner, OwnerStatus, Prisma } from '@prisma/client';
+import { UserContext } from 'src/common/context/user-context';
 
 export const OWNER_REPOSITORY = Symbol('OWNER_REPOSITORY');
 
 export interface IOwnerRepository {
-  create(data: {
-    user_id: number;
-    association_id: number;
-    full_name: string;
-    phone_number: string;
-    status: 'ACTIVE' | 'SUSPENDED';
-  }): Promise<Owner>;
+  create(
+    ctx: UserContext,
+    data: {
+      association_id: number;
+      full_name: string;
+      phone_number: string;
+      user_id: number; // linked user created in service
+    },
+    tx: Prisma.TransactionClient,   // <<< add tx
+  ): Promise<Owner>;
 
-  findById(id: number): Promise<Owner | null>;
+  findAll(ctx: UserContext): Promise<Owner[]>;
+  findById(ctx: UserContext, id: number): Promise<Owner | null>;
 
-  list(params?: {
-    skip?: number;
-    take?: number;
-    association_id?: number;
-    status?: 'ACTIVE' | 'SUSPENDED';
-    search?: string; // by name or phone (optional)
-  }): Promise<Owner[]>;
-
-  update(id: number, data: {
-    association_id?: number;
-    full_name?: string;
-    phone_number?: string;
-    status?: 'ACTIVE' | 'SUSPENDED';
-  }): Promise<Owner>;
-
-  delete(id: number): Promise<void>;
+  update(
+    ctx: UserContext,
+    id: number,
+    data: Partial<{ full_name: string; phone_number: string; status: OwnerStatus }>
+  ): Promise<Owner>;
 }

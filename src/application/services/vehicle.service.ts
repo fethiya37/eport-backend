@@ -1,163 +1,115 @@
 import {
-    BadRequestException,
-    ConflictException,
-    Injectable,
-    NotFoundException,
+  Inject,
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
-import { Inject } from '@nestjs/common';
-import { PrismaService } from '../../infrastructure/prisma/prisma.service';
-import { VEHICLE_REPOSITORY } from '../../domain/repositories/vehicle.repository';
+
 import type { IVehicleRepository } from '../../domain/repositories/vehicle.repository';
-
-import { Vehicle } from '../../domain/entities/vehicle.entity';
-
-type CreateVehicleInput = {
-    association_id: number; // from URL/JWT via guard
-    plate_number: string;
-    libre_no?: string | null;
-    owner_id: number;
-    make?: string | null;
-    model?: string | null;
-    color?: string | null;
-    capacity?: number | null;
-};
-
-type UpdateVehicleInput = {
-    id: number;
-    association_id: number; // scope
-    plate_number?: string;
-    libre_no?: string | null;
-    owner_id?: number;
-    make?: string | null;
-    model?: string | null;
-    color?: string | null;
-    capacity?: number | null;
-    status?: Vehicle['status']; // ACTIVE | MAINTENANCE | RETIRED | SUSPENDED | RESIGNED
-};
+import type { IVehicleAssociationRepository } from '../../domain/repositories/vehicle-association.repository';
+import { VEHICLE_REPOSITORY, VehicleFilter } from '../../domain/repositories/vehicle.repository';
+import { VEHICLE_ASSOC_REPOSITORY } from '../../domain/repositories/vehicle-association.repository';
+import { CreateVehicleDto } from '../../presentation/vehicle/dto/create-vehicle.dto';
+import { UpdateVehicleDto } from '../../presentation/vehicle/dto/update-vehicle.dto';
+import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { VehicleAssociationStatus } from '@prisma/client';
+import { isAdminLike } from '../../common/auth/roles.util';
+import { UserContext } from 'src/common/context/user-context';
 
 @Injectable()
 export class VehicleService {
-    constructor(
-        private readonly prisma: PrismaService,
-        @Inject(VEHICLE_REPOSITORY) private readonly vehicles: IVehicleRepository,
-    ) { }
+  constructor(
+    @Inject(VEHICLE_REPOSITORY) private readonly vehicles: IVehicleRepository,
+    @Inject(VEHICLE_ASSOC_REPOSITORY) private readonly vehAssoc: IVehicleAssociationRepository,
+    private readonly prisma: PrismaService,
+  ) {}
 
-    async createVehicle(input: CreateVehicleInput) {
-        // 0) association exists
-        const assoc = await this.prisma.association.findUnique({ where: { id: input.association_id } });
-        if (!assoc) throw new BadRequestException('association not found');
+  async create(ctx: UserContext, dto: CreateVehicleDto) {
+    // Only Association users may create
+    if (isAdminLike(ctx.user_type)) throw new ForbiddenException('Admin/Superadmin cannot create vehicles');
+    if (!ctx.association_id) throw new BadRequestException('association_id is required');
 
-        // 1) plate unique (global)
-        const dupPlate = await this.vehicles.findByPlate(input.plate_number);
-        if (dupPlate) throw new ConflictException('plate_number already exists');
+    // Create Vehicle + initial VehicleAssociation in a txn
+    return this.prisma.$transaction(async () => {
+      const vehicle = await this.vehicles.create(ctx, {
+        plate_number: dto.plate_number,
+        libre_no: dto.libre_no ?? null,
+        owner_id: dto.owner_id,
+        association_id: ctx.association_id!,
+        make: dto.make ?? null,
+        model: dto.model ?? null,
+        color: dto.color ?? null,
+        capacity: dto.capacity ?? null,
+      });
 
-        // 2) owner exists & belongs to same association
-        const owner = await this.prisma.owner.findUnique({ where: { id: input.owner_id } });
-        if (!owner || owner.association_id !== input.association_id) {
-            throw new BadRequestException('owner not found in this association');
-        }
+      // Open first ACTIVE association record
+      await this.vehAssoc.create({
+        vehicle_id: vehicle.id,
+        association_id: vehicle.association_id,
+        status: 'ACTIVE',
+        started_at: new Date(),
+      });
 
-        // 3) create (status ACTIVE, started_at now)
-        return this.vehicles.create({
-            plate_number: input.plate_number,
-            libre_no: input.libre_no ?? null,
-            owner_id: input.owner_id,
-            association_id: input.association_id,
-            make: input.make ?? null,
-            model: input.model ?? null,
-            color: input.color ?? null,
-            capacity: input.capacity ?? null,
+      return vehicle;
+    });
+  }
+
+  findAll(ctx: UserContext, filter: VehicleFilter) {
+    return this.vehicles.findAll(ctx, filter);
+  }
+
+  async findOne(ctx: UserContext, id: number) {
+    const v = await this.vehicles.findById(ctx, id);
+    if (!v) throw new NotFoundException('Vehicle not found');
+    return v;
+  }
+
+  async update(ctx: UserContext, id: number, dto: UpdateVehicleDto) {
+    // Only Association users may update
+    if (isAdminLike(ctx.user_type)) throw new ForbiddenException('Admin/Superadmin cannot update vehicles');
+
+    const existing = await this.vehicles.findById(ctx, id);
+    if (!existing) throw new NotFoundException('Vehicle not found');
+
+    // 1) Update VEHICLE row fields (vehicle_status is optional)
+    const updated = await this.vehicles.update(ctx, id, {
+      libre_no: dto.libre_no,
+      owner_id: dto.owner_id,
+      make: dto.make,
+      model: dto.model,
+      color: dto.color,
+      capacity: dto.capacity,
+      status: dto.vehicle_status, // ACTIVE | MAINTENANCE | RETIRED
+    });
+
+    // 2) Update ASSOCIATION history if requested (association_status is optional)
+    if (dto.association_status) {
+      const now = new Date();
+      const currentActive = await this.vehAssoc.findCurrentActive(updated.id);
+
+      if (dto.association_status === 'ACTIVE') {
+        // If there is no active association row, open a new one
+        if (!currentActive) {
+          await this.vehAssoc.create({
+            association_id: updated.association_id,
+            vehicle_id: updated.id,
             status: 'ACTIVE',
-            started_at: new Date(),
-        });
+            started_at: now,
+          });
+        }
+      } else if (
+        dto.association_status === VehicleAssociationStatus.SUSPENDED ||
+        dto.association_status === VehicleAssociationStatus.RESIGNED
+      ) {
+        // If there is an active association row, close it with the final status
+        if (currentActive) {
+          await this.vehAssoc.closeActiveForVehicle(updated.id, dto.association_status, now);
+        }
+      }
+      // (No-op for anything else)
     }
 
-    async getByIdScoped(id: number, association_id: number) {
-        const v = await this.vehicles.findById(id);
-        if (!v || v.association_id !== association_id || v.deleted_at) {
-            throw new NotFoundException('vehicle not found');
-        }
-        return v;
-    }
-
-    async list(params: {
-        association_id: number;
-        skip?: number;
-        take?: number;
-        status?: Vehicle['status'];
-        search?: string;
-        include_deleted?: boolean;
-    }) {
-        return this.vehicles.list({
-            association_id: params.association_id,
-            skip: params.skip,
-            take: params.take,
-            status: params.status,
-            search: params.search,
-            include_deleted: params.include_deleted,
-        });
-    }
-
-    async updateVehicle(input: UpdateVehicleInput) {
-        const current = await this.vehicles.findById(input.id);
-        if (!current || current.association_id !== input.association_id || current.deleted_at) {
-            throw new NotFoundException('vehicle not found');
-        }
-
-        // plate uniqueness
-        if (input.plate_number && input.plate_number !== current.plate_number) {
-            const dup = await this.vehicles.findByPlate(input.plate_number);
-            if (dup) throw new ConflictException('plate_number already exists');
-        }
-
-        // owner must stay in same association
-        if (input.owner_id && input.owner_id !== current.owner_id) {
-            const owner = await this.prisma.owner.findUnique({ where: { id: input.owner_id } });
-            if (!owner || owner.association_id !== input.association_id) {
-                throw new BadRequestException('owner not found in this association');
-            }
-        }
-
-        // status transitions control started_at / ended_at
-        let started_at: Date | undefined;
-        let ended_at: Date | undefined;
-
-        if (input.status && input.status !== current.status) {
-            const now = new Date();
-            const to = input.status;
-
-            // If becoming INACTIVE-like (SUSPENDED/RESIGNED/RETIRED) and not already ended
-            if ((to === 'SUSPENDED' || to === 'RESIGNED' || to === 'RETIRED') && !current.ended_at) {
-                ended_at = now;
-            }
-
-            // If re-activating (ACTIVE or MAINTENANCE from ended state) — reset the association link window
-            if ((to === 'ACTIVE' || to === 'MAINTENANCE') && current.ended_at) {
-                started_at = now;
-                ended_at = null as any; // clear
-            }
-        }
-
-        return this.vehicles.update(input.id, {
-            plate_number: input.plate_number,
-            libre_no: input.libre_no,
-            owner_id: input.owner_id,
-            make: input.make,
-            model: input.model,
-            color: input.color,
-            capacity: input.capacity,
-            status: input.status,
-            ...(started_at !== undefined ? { started_at } : {}),
-            ...(ended_at !== undefined ? { ended_at } : {}),
-        });
-    }
-
-    async deleteVehicle(id: number, association_id: number) {
-        const v = await this.vehicles.findById(id);
-        if (!v || v.association_id !== association_id || v.deleted_at) {
-            throw new NotFoundException('vehicle not found');
-        }
-        // retire vehicle & close association window
-        await this.vehicles.softDelete(id);
-    }
+    return updated;
+  }
 }

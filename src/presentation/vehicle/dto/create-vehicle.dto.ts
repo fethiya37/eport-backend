@@ -1,32 +1,44 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsInt, IsNotEmpty, IsOptional, IsPositive, IsString, MaxLength } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsInt, IsNotEmpty, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateVehicleDto {
-  @ApiProperty({ example: 'AB-12345' })
-  @IsString() @IsNotEmpty() @MaxLength(20)
+  @ApiProperty({ example: 'ABC-12345' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(20)
   plate_number!: string;
 
-  @ApiProperty({ example: 'LBR-7890', required: false })
-  @IsOptional() @IsString() @MaxLength(100)
+  @ApiPropertyOptional({ example: 'LIBRE-0099' })
+  @IsOptional()
+  @IsString()
   libre_no?: string | null;
 
-  @ApiProperty({ example: 10, description: 'Owner id (must belong to this association)' })
+  @ApiProperty({ example: 10, description: 'Owner ID in your association' })
+  @Type(() => Number)
   @IsInt()
+  @Min(1)
   owner_id!: number;
 
-  @ApiProperty({ example: 'Toyota', required: false })
-  @IsOptional() @IsString() @MaxLength(100)
+  @ApiPropertyOptional({ example: 'Toyota' })
+  @IsOptional()
+  @IsString()
   make?: string | null;
 
-  @ApiProperty({ example: 'Yaris', required: false })
-  @IsOptional() @IsString() @MaxLength(100)
+  @ApiPropertyOptional({ example: 'Yaris' })
+  @IsOptional()
+  @IsString()
   model?: string | null;
 
-  @ApiProperty({ example: 'White', required: false })
-  @IsOptional() @IsString() @MaxLength(50)
+  @ApiPropertyOptional({ example: 'White' })
+  @IsOptional()
+  @IsString()
   color?: string | null;
 
-  @ApiProperty({ example: 4, required: false })
-  @IsOptional() @IsInt() @IsPositive()
+  @ApiPropertyOptional({ example: 4 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
   capacity?: number | null;
 }

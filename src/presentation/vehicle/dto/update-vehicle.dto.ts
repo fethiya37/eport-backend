@@ -1,36 +1,55 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsIn, IsInt, IsOptional, IsPositive, IsString, MaxLength } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsEnum, IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { Type } from 'class-transformer';
+import { VehicleStatus, VehicleAssociationStatus } from '@prisma/client';
 
 export class UpdateVehicleDto {
-  @ApiProperty({ example: 'AB-54321', required: false })
-  @IsOptional() @IsString() @MaxLength(20)
-  plate_number?: string;
-
-  @ApiProperty({ example: 'LBR-0001', required: false })
-  @IsOptional() @IsString() @MaxLength(100)
+  @ApiPropertyOptional({ example: 'LIBRE-1122' })
+  @IsOptional()
+  @IsString()
   libre_no?: string | null;
 
-  @ApiProperty({ example: 11, required: false })
-  @IsOptional() @IsInt()
+  @ApiPropertyOptional({ example: 11 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
   owner_id?: number;
 
-  @ApiProperty({ example: 'Hyundai', required: false })
-  @IsOptional() @IsString() @MaxLength(100)
+  @ApiPropertyOptional({ example: 'Hyundai' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
   make?: string | null;
 
-  @ApiProperty({ example: 'i10', required: false })
-  @IsOptional() @IsString() @MaxLength(100)
+  @ApiPropertyOptional({ example: 'i10' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
   model?: string | null;
 
-  @ApiProperty({ example: 'Blue', required: false })
-  @IsOptional() @IsString() @MaxLength(50)
+  @ApiPropertyOptional({ example: 'Black' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
   color?: string | null;
 
-  @ApiProperty({ example: 4, required: false })
-  @IsOptional() @IsInt() @IsPositive()
+  @ApiPropertyOptional({ example: 5 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
   capacity?: number | null;
 
-  @ApiProperty({ enum: ['ACTIVE','MAINTENANCE','RETIRED','SUSPENDED','RESIGNED'], required: false })
-  @IsOptional() @IsIn(['ACTIVE','MAINTENANCE','RETIRED','SUSPENDED','RESIGNED'])
-  status?: 'ACTIVE' | 'MAINTENANCE' | 'RETIRED' | 'SUSPENDED' | 'RESIGNED';
+  // VEHICLE status (matches VehicleStatus in Prisma: ACTIVE | MAINTENANCE | RETIRED)
+  @ApiPropertyOptional({ enum: VehicleStatus, example: 'MAINTENANCE' })
+  @IsOptional()
+  @IsEnum(VehicleStatus)
+  vehicle_status?: VehicleStatus;
+
+  // ASSOCIATION status (history table): ACTIVE | SUSPENDED | RESIGNED
+  @ApiPropertyOptional({ enum: VehicleAssociationStatus, example: 'SUSPENDED' })
+  @IsOptional()
+  @IsEnum(VehicleAssociationStatus)
+  association_status?: VehicleAssociationStatus;
 }

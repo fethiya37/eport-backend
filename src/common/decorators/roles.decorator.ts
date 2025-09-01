@@ -1,6 +1,13 @@
 import { SetMetadata } from '@nestjs/common';
 
-export const ROLES_KEY = 'roles';
-export type AllowedRole = 'Superadmin' | 'Admin' | 'Association' | 'Driver' | 'Controller' | 'Owner';
+// Keep it string-based to avoid circular deps; values align with @prisma/client UserType
+export type Role =
+  | 'Superadmin'
+  | 'Admin'
+  | 'Association'
+  | 'Driver'
+  | 'Controller'
+  | 'Owner';
 
-export const Roles = (...roles: AllowedRole[]) => SetMetadata(ROLES_KEY, roles);
+export const ROLES_KEY = 'roles';
+export const Roles = (...roles: Role[]) => SetMetadata(ROLES_KEY, roles);

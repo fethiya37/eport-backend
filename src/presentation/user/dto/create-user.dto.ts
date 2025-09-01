@@ -1,27 +1,30 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsIn, IsNotEmpty, IsOptional, IsString, MaxLength, IsInt } from 'class-validator';
-
-const USER_TYPES = ['Superadmin', 'Admin', 'Association', 'Driver', 'Controller', 'Owner'] as const;
-type UserType = typeof USER_TYPES[number];
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength, IsInt, Min } from 'class-validator';
+import { UserType } from '@prisma/client';
+import { Type } from 'class-transformer';
 
 export class CreateUserDto {
-  @ApiProperty({ example: '0911223344' })
-  @IsString() @IsNotEmpty() @MaxLength(20)
-  phone_number!: string;
+  @ApiProperty({ example: '+251911223344' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(20)
+  phone_number!: string; // password = phone_number (hashed)
 
-  @ApiProperty({ enum: USER_TYPES, example: 'Association' })
-  @IsString() @IsIn(USER_TYPES as unknown as string[])
+  @ApiProperty({ enum: UserType, example: UserType.Admin })
+  @IsEnum(UserType)
   user_type!: UserType;
 
-  @ApiProperty({ example: 'TempPass123' })
-  @IsString() @IsNotEmpty()
-  password!: string;
-
-  @ApiProperty({ example: 'Association Admin', required: false })
-  @IsOptional() @IsString() @MaxLength(100)
+  @ApiPropertyOptional({ example: 'Wingo' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
   name?: string | null;
 
-  @ApiProperty({ example: 1, required: false, description: 'Required when user_type = Association' })
-  @IsOptional() @IsInt()
-  association_id?: number;
+  // Required only when user_type === 'Association'; otherwise we will set it to null in service.
+  @ApiPropertyOptional({ example: 1, description: 'Required only if user_type = Association' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  association_id?: number | null;
 }

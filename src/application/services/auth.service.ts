@@ -15,17 +15,17 @@ export class AuthService {
   ) {}
 
   async login(input: LoginInput) {
-    const user = await this.prisma.user.findUnique({ where: { phone_number: input.phone_number } });
+    const user = await this.prisma.user.findUnique({
+      where: { phone_number: input.phone_number },
+    });
     if (!user || !user.password_hash) throw new UnauthorizedException('invalid credentials');
-
     if (user.is_locked) throw new ForbiddenException('user is locked');
 
     const ok = await bcrypt.compare(input.password, user.password_hash);
     if (!ok) throw new UnauthorizedException('invalid credentials');
 
-    // jti for this token
+    // Generate a unique token id (jti)
     const jti = crypto.randomUUID();
-
     const payload = {
       sub: user.id,
       user_type: user.user_type,
@@ -36,11 +36,11 @@ export class AuthService {
     const expiresIn = process.env.JWT_EXPIRES_IN || '1d';
     const access_token = await this.jwt.signAsync(payload, { expiresIn });
 
-    // decode exp to store
-    const decoded = this.jwt.decode(access_token) as { exp: number } | null;
+    // Decode exp to store alongside token
+    const decoded = this.jwt.decode(access_token) as { exp?: number } | null;
     const exp = decoded?.exp ? new Date(decoded.exp * 1000) : new Date(Date.now() + 24 * 3600 * 1000);
 
-    // Persist in user_tokens (audit/visibility)
+    // Persist token hash (audit/visibility)
     const token_hash = crypto.createHash('sha256').update(access_token).digest('hex');
     await this.prisma.userToken.create({
       data: {
@@ -60,11 +60,13 @@ export class AuthService {
         association_id: user.association_id ?? null,
         name: user.name ?? null,
       },
+      // Optional: echo exp to client if you want
+      exp: Math.floor(exp.getTime() / 1000),
+      jti,
     };
   }
 
   async logout(input: LogoutInput) {
-    // add to revoked_tokens by jti; exp is seconds since epoch from JWT
     await this.prisma.revokedToken.upsert({
       where: { jti: input.jti },
       create: { jti: input.jti, user_id: input.user_id, expires_at: new Date(input.exp * 1000) },

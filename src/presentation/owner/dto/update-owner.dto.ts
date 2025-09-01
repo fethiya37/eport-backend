@@ -1,16 +1,22 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
+import { OwnerStatus } from '@prisma/client';
 
 export class UpdateOwnerDto {
-  @ApiProperty({ example: 'Abebe K.', required: false })
-  @IsOptional() @IsString() @MaxLength(100)
+  @ApiPropertyOptional({ example: 'New Name' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
   full_name?: string;
 
-  @ApiProperty({ example: '0911333555', required: false })
-  @IsOptional() @IsString() @MaxLength(20)
+  @ApiPropertyOptional({ example: '+251922233344' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
   phone_number?: string;
 
-  @ApiProperty({ enum: ['ACTIVE','SUSPENDED'], required: false })
-  @IsOptional() @IsIn(['ACTIVE','SUSPENDED'])
-  status?: 'ACTIVE' | 'SUSPENDED';
+  @ApiPropertyOptional({ enum: OwnerStatus })
+  @IsOptional()
+  @IsEnum(OwnerStatus)
+  status?: OwnerStatus; // ACTIVE | SUSPENDED
 }

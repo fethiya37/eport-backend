@@ -1,19 +1,21 @@
 import { Module } from '@nestjs/common';
-import { PrismaModule } from '../../infrastructure/prisma/prisma.module';
 import { DriverController } from './driver.controller';
 import { DriverService } from '../../application/services/driver.service';
+import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+
 import { DRIVER_REPOSITORY } from '../../domain/repositories/driver.repository';
 import { PrismaDriverRepository } from '../../infrastructure/repositories/prisma-driver.repository';
-import { USER_REPOSITORY } from '../../domain/repositories/user.repository';
-import { PrismaUserRepository } from '../../infrastructure/repositories/prisma-user.repository';
+
+import { VEHICLE_ASSIGNMENT_REPOSITORY } from '../../domain/repositories/vehicle-assignment.repository';
+import { PrismaVehicleAssignmentRepository } from 'src/infrastructure/repositories/prisma-vehicle-assignment.repository';
 
 @Module({
-  imports: [PrismaModule],
   controllers: [DriverController],
   providers: [
     DriverService,
+    PrismaService,
     { provide: DRIVER_REPOSITORY, useClass: PrismaDriverRepository },
-    { provide: USER_REPOSITORY, useClass: PrismaUserRepository },
+    { provide: VEHICLE_ASSIGNMENT_REPOSITORY, useClass: PrismaVehicleAssignmentRepository},
   ],
   exports: [DriverService],
 })

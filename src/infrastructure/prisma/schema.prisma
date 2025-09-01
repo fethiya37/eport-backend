@@ -38,6 +38,10 @@ enum VehicleStatus {
   ACTIVE
   MAINTENANCE
   RETIRED
+}
+
+enum VehicleAssociationStatus {
+  ACTIVE
   SUSPENDED
   RESIGNED
 }
@@ -97,11 +101,14 @@ model Association {
   created_at   DateTime          @default(now())
   updated_at   DateTime          @updatedAt
 
-  users       User[]
-  owners      Owner[]
-  drivers     Driver[]
-  vehicles    Vehicle[]
-  assignments VehicleAssignment[]
+  users              User[]
+  owners             Owner[]
+  drivers            Driver[]
+  vehicles           Vehicle[]
+  assignments        VehicleAssignment[]
+  route_quotas       RouteQuota[]
+  route_assignments  RouteAssignment[]
+  VehicleAssociation VehicleAssociation[]
 
   @@map("associations")
 }
@@ -137,9 +144,10 @@ model Driver {
   created_at     DateTime     @default(now())
   updated_at     DateTime     @updatedAt
 
-  user        User                @relation(fields: [user_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  association Association         @relation(fields: [association_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  assignments VehicleAssignment[]
+  user            User                @relation(fields: [user_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  association     Association         @relation(fields: [association_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  assignments     VehicleAssignment[]
+  RouteAssignment RouteAssignment[]
 
   // Optional but useful: prevent duplicate phone within same association
   @@unique([association_id, phone_number])
@@ -158,17 +166,33 @@ model Vehicle {
   color          String?
   capacity       Int?
   status         VehicleStatus @default(ACTIVE)
-  started_at     DateTime      @default(now()) // NEW: when vehicle became ACTIVE in this association
-  ended_at       DateTime? // NEW: when SUSPENDED/RESIGNED/RETIRED (association link ended)
   created_at     DateTime      @default(now())
   updated_at     DateTime      @updatedAt
   deleted_at     DateTime?
 
-  owner       Owner               @relation(fields: [owner_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  association Association         @relation(fields: [association_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  assignments VehicleAssignment[]
+  owner              Owner                @relation(fields: [owner_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  association        Association          @relation(fields: [association_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  assignments        VehicleAssignment[]
+  VehicleAssociation VehicleAssociation[]
+  RouteAssignment    RouteAssignment[]
 
   @@map("vehicles")
+}
+
+model VehicleAssociation {
+  id             Int                      @id @default(autoincrement())
+  association_id Int
+  vehicle_id     Int
+  started_at     DateTime                 @default(now())
+  ended_at       DateTime?
+  status         VehicleAssociationStatus @default(ACTIVE)
+
+  association Association @relation(fields: [association_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  vehicle     Vehicle     @relation(fields: [vehicle_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([association_id])
+  @@index([vehicle_id, ended_at])
+  @@map("vehicle_associations")
 }
 
 model VehicleAssignment {
@@ -190,4 +214,78 @@ model VehicleAssignment {
   @@index([vehicle_id])
   @@index([association_id])
   @@map("vehicle_assignments")
+}
+
+model RouteGroup {
+  id          Int      @id @default(autoincrement())
+  route_group String   @db.VarChar(100)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  routes Route[]
+
+  @@map("route_groups")
+}
+
+model Route {
+  id             Int      @id @default(autoincrement())
+  route_group_id Int
+  departure      String
+  arrival        String
+  kilometer      Decimal?  @db.Decimal(6, 2)
+  tariff         Decimal?  @db.Decimal(6, 2)
+  updated_at     DateTime @updatedAt
+  created_at     DateTime @default(now())
+
+  route_group       RouteGroup        @relation(fields: [route_group_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  route_quotas      RouteQuota[]
+  route_assignments RouteAssignment[]
+
+  @@index([route_group_id])
+  @@map("routes")
+}
+
+enum RouteAssignmentStatus {
+  Approved
+  Pending
+}
+
+model RouteQuota {
+  id             Int      @id @default(autoincrement())
+  association_id Int
+  route_id       Int
+  start_date     DateTime
+  end_date       DateTime
+  no_vehicles    Int
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  association Association @relation(fields: [association_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  route       Route       @relation(fields: [route_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([association_id, route_id, start_date, end_date])
+  @@map("route_quotas")
+}
+
+model RouteAssignment {
+  id             Int                   @id @default(autoincrement())
+  route_id       Int
+  driver_id      Int
+  vehicle_id     Int
+  association_id Int
+  start_date     DateTime
+  end_date       DateTime
+  status         RouteAssignmentStatus @default(Pending)
+  is_weekly      Boolean
+  created_at     DateTime              @default(now())
+  updated_at     DateTime              @updatedAt
+
+  route       Route       @relation(fields: [route_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  driver      Driver      @relation(fields: [driver_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  vehicle     Vehicle     @relation(fields: [vehicle_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  association Association @relation(fields: [association_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([route_id, driver_id, vehicle_id])
+  @@index([association_id, route_id, start_date, end_date])
+  @@map("route_assignments")
 }

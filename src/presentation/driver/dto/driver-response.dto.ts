@@ -1,15 +1,18 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { DriverStatus } from '@prisma/client';
 
 export class DriverResponseDto {
   @ApiProperty() id!: number;
   @ApiProperty() user_id!: number;
   @ApiProperty() association_id!: number;
   @ApiProperty() full_name!: string;
-  @ApiProperty({ nullable: true }) license_no!: string | null;
-  @ApiProperty({ nullable: true }) license_expiry!: Date | null;
   @ApiProperty() phone_number!: string;
-  @ApiProperty({ enum: ['AVAILABLE','ON_TRIP','OFFLINE','SUSPENDED'] })
-  status!: 'AVAILABLE' | 'ON_TRIP' | 'OFFLINE' | 'SUSPENDED';
-  @ApiProperty() created_at!: Date;
-  @ApiProperty() updated_at!: Date;
+  @ApiProperty({ enum: DriverStatus }) status!: DriverStatus;
+
+  @ApiPropertyOptional() license_no?: string | null;
+  @ApiPropertyOptional() license_expiry?: Date | null;
+
+  // For edit screen convenience
+  @ApiPropertyOptional({ description: 'Active vehicle id if any' })
+  active_vehicle_id?: number | null;
 }

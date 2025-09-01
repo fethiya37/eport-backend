@@ -1,16 +1,17 @@
-import { Body, Controller, Post, Request, UseGuards } from '@nestjs/common';
+import { Body, Controller, Post, Request } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuthService } from '../../application/services/auth.service';
 import { LoginDto } from './dto/login.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { LogoutResponseDto } from './dto/logout-response.dto';
-import { AuthGuard } from '@nestjs/passport';
+import { Public } from '../../common/decorators/public.decorator';
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
+  @Public()
   @Post('login')
   @ApiOperation({ summary: 'Login with phone_number + password' })
   @ApiResponse({ status: 200, type: AuthResponseDto })
@@ -18,13 +19,12 @@ export class AuthController {
     return this.auth.login(dto);
   }
 
-  @Post('logout')
   @ApiBearerAuth()
-  @UseGuards(AuthGuard('jwt'))
+  @Post('logout')
   @ApiOperation({ summary: 'Logout (revoke current token)' })
   @ApiResponse({ status: 200, type: LogoutResponseDto })
   async logout(@Request() req: any): Promise<LogoutResponseDto> {
-    // req.user = { userId, user_type, association_id, jti, exp }
+    // req.user is set by JwtStrategy.validate()
     await this.auth.logout({
       user_id: req.user.userId,
       jti: req.user.jti,

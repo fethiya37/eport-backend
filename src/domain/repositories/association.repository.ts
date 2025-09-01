@@ -1,24 +1,27 @@
-import { Association } from '../entities/association.entity';
+import { Association, AssociationStatus } from '@prisma/client';
 
 export const ASSOCIATION_REPOSITORY = Symbol('ASSOCIATION_REPOSITORY');
+
+export type AssociationFilter = {
+  id?: number;
+  name?: string;
+  status?: AssociationStatus;
+};
 
 export interface IAssociationRepository {
   create(data: {
     name: string;
-    phone_number: string | null;  // 👈
-    logo: string | null;
-    status: 'ACTIVE' | 'SUSPENDED';
-  }): Promise<Association>;
-
-  findById(id: number): Promise<Association | null>;
-  list(params?: { skip?: number; take?: number }): Promise<Association[]>;
-
-  update(id: number, data: {
-    name?: string;
-    phone_number?: string | null; // 👈
+    phone_number?: string | null;
     logo?: string | null;
-    status?: 'ACTIVE' | 'SUSPENDED';
   }): Promise<Association>;
 
-  delete(id: number): Promise<void>;
+  findAll(filter?: AssociationFilter): Promise<Association[]>;
+  findById(id: number): Promise<Association | null>;
+
+  update(id: number, data: Partial<{
+    name: string;
+    phone_number: string | null;
+    logo: string | null;
+    status: AssociationStatus;
+  }>): Promise<Association>;
 }

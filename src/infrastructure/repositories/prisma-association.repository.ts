@@ -1,57 +1,47 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Association } from '../../domain/entities/association.entity';
-import type { IAssociationRepository } from '../../domain/repositories/association.repository';
+import { IAssociationRepository, AssociationFilter } from '../../domain/repositories/association.repository';
+import { Association, Prisma } from '@prisma/client';
 
 @Injectable()
 export class PrismaAssociationRepository implements IAssociationRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  private toEntity(r: any): Association {
-    return new Association(
-      r.id,
-      r.name,
-      r.phone_number ?? null,   // 👈
-      r.logo ?? null,
-      r.status,
-      r.created_at,
-      r.updated_at,
-    );
+  async create(data: {
+    name: string; phone_number?: string | null; logo?: string | null;
+  }): Promise<Association> {
+    return this.prisma.association.create({
+      data: {
+        name: data.name,
+        phone_number: data.phone_number ?? null,
+        logo: data.logo ?? null,
+        // status defaults to ACTIVE via schema
+      },
+    });
   }
 
-  async create(data: {
-    name: string;
-    phone_number: string | null;
-    logo: string | null;
-    status: 'ACTIVE' | 'SUSPENDED';
-  }): Promise<Association> {
-    const row = await this.prisma.association.create({ data });
-    return this.toEntity(row);
+  async findAll(filter?: AssociationFilter): Promise<Association[]> {
+    const where: Prisma.AssociationWhereInput = {
+      ...(filter?.id ? { id: filter.id } : {}),
+      ...(filter?.name ? { name: { contains: filter.name, mode: 'insensitive' } } : {}),
+      ...(filter?.status ? { status: filter.status } : {}),
+    };
+    return this.prisma.association.findMany({
+      where,
+      orderBy: { id: 'asc' },
+    });
   }
 
   async findById(id: number): Promise<Association | null> {
-    const row = await this.prisma.association.findUnique({ where: { id } });
-    return row ? this.toEntity(row) : null;
+    return this.prisma.association.findUnique({ where: { id } });
   }
 
-  async list(params?: { skip?: number; take?: number }): Promise<Association[]> {
-    const rows = await this.prisma.association.findMany({
-      skip: params?.skip,
-      take: params?.take,
-      orderBy: { id: 'asc' },
-    });
-    return rows.map(this.toEntity.bind(this));
-  }
-
-  async update(
-    id: number,
-    data: { name?: string; phone_number?: string | null; logo?: string | null; status?: 'ACTIVE' | 'SUSPENDED' },
-  ): Promise<Association> {
-    const row = await this.prisma.association.update({ where: { id }, data });
-    return this.toEntity(row);
-  }
-
-  async delete(id: number): Promise<void> {
-    await this.prisma.association.delete({ where: { id } });
+  async update(id: number, data: Partial<Association>): Promise<Association> {
+    try {
+      return await this.prisma.association.update({ where: { id }, data });
+    } catch (e: any) {
+      if (e.code === 'P2025') throw new NotFoundException('Association not found');
+      throw e;
+    }
   }
 }

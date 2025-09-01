@@ -1,45 +1,40 @@
-import { Vehicle } from '../entities/vehicle.entity';
+import { Vehicle, VehicleStatus } from '@prisma/client';
+import type  { UserContext } from 'src/common/context/user-context';
 
 export const VEHICLE_REPOSITORY = Symbol('VEHICLE_REPOSITORY');
 
+export type VehicleFilter = {
+  id?: number;
+  plate_number?: string;
+  status?: VehicleStatus;
+  owner_id?: number;
+  make?: string;
+  model?: string;
+  color?: string;
+};
+
 export interface IVehicleRepository {
-  create(data: {
+  create(ctx: UserContext, data: {
     plate_number: string;
     libre_no?: string | null;
     owner_id: number;
-    association_id: number;
+    association_id: number;   // enforced from ctx
     make?: string | null;
     model?: string | null;
     color?: string | null;
     capacity?: number | null;
-    status?: Vehicle['status'];
-    started_at?: Date;            // optional override
   }): Promise<Vehicle>;
 
-  findById(id: number): Promise<Vehicle | null>;
-  findByPlate(plate_number: string): Promise<Vehicle | null>;
+  findAll(ctx: UserContext, filter?: VehicleFilter): Promise<Vehicle[]>;
+  findById(ctx: UserContext, id: number): Promise<Vehicle | null>;
 
-  list(params: {
-    association_id: number;
-    skip?: number;
-    take?: number;
-    status?: Vehicle['status'];
-    search?: string; // plate/libre/make/model/color
-    include_deleted?: boolean;
-  }): Promise<Vehicle[]>;
-
-  update(id: number, data: {
-    plate_number?: string;
-    libre_no?: string | null;
-    owner_id?: number;
-    make?: string | null;
-    model?: string | null;
-    color?: string | null;
-    capacity?: number | null;
-    status?: Vehicle['status'];
-    started_at?: Date | null;
-    ended_at?: Date | null;
-  }): Promise<Vehicle>;
-
-  softDelete(id: number): Promise<void>;
+  update(ctx: UserContext, id: number, data: Partial<{
+    libre_no: string | null;
+    owner_id: number;
+    make: string | null;
+    model: string | null;
+    color: string | null;
+    capacity: number | null;
+    status: VehicleStatus;
+  }>): Promise<Vehicle>;
 }

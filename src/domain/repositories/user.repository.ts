@@ -1,31 +1,35 @@
-import { User } from '../entities/user.entity';
+import { User, UserType } from '@prisma/client';
 
 export const USER_REPOSITORY = Symbol('USER_REPOSITORY');
 
+export type UserFilter = {
+  id?: number;
+  phone_number?: string;
+  user_type?: UserType;
+  name?: string;
+  is_locked?: boolean;
+  association_id?: number; // filtering by an id (not null)
+};
+
 export interface IUserRepository {
-  createWithPassword(
-    phone_number: string,
-    user_type: User['user_type'],
-    password_hash: string,
-    name: string | null,
-    association_id?: number | null,
-  ): Promise<User>;
+  create(data: {
+    phone_number: string;
+    user_type: UserType;
+    name?: string | null;
+    association_id: number | null; // <-- allow null here
+    password_hash: string;
+  }): Promise<User>;
 
+  findAll(filter?: UserFilter): Promise<User[]>;
   findById(id: number): Promise<User | null>;
-  findByPhone(phone_number: string): Promise<User | null>;
 
-  updatePassword(id: number, password_hash: string): Promise<void>;
+  update(id: number, data: Partial<{
+    phone_number: string;
+    user_type: UserType;
+    name: string | null;
+    is_locked: boolean;
+    association_id: number | null; // <-- allow null here
+    password_hash: string | null;
+  }>): Promise<User>;
 
-  updateUser(
-    id: number,
-    data: {
-      phone_number?: string;
-      user_type?: User['user_type'];
-      name?: string | null;
-      is_locked?: boolean;
-      association_id?: number | null;
-    },
-  ): Promise<User>;
-
-  list(params?: { skip?: number; take?: number; association_id?: number }): Promise<User[]>;
 }

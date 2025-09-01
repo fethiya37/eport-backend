@@ -1,20 +1,29 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
+import { AssociationStatus } from '@prisma/client';
 
 export class UpdateAssociationDto {
-  @ApiProperty({ example: 'New Association Name', required: false })
-  @IsOptional() @IsString() @MaxLength(100)
+  @ApiPropertyOptional({ example: 'New Association Name' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
   name?: string;
 
-  @ApiProperty({ example: '0911333555', required: false })
-  @IsOptional() @IsString() @MaxLength(20)
-  phone_number?: string | null;   // 👈 optional
+  @ApiPropertyOptional({ example: '+251922233344' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  phone_number?: string | null;
 
-  @ApiProperty({ example: '/uploads/new-logo.png', required: false })
-  @IsOptional() @IsString()
+  @ApiPropertyOptional({ example: 'https://cdn.example.com/new-logo.png' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
   logo?: string | null;
 
-  @ApiProperty({ enum: ['ACTIVE','SUSPENDED'], required: false })
-  @IsOptional() @IsIn(['ACTIVE','SUSPENDED'])
-  status?: 'ACTIVE' | 'SUSPENDED';
+  // If provided, triggers lock/unlock cascade
+  @ApiPropertyOptional({ enum: AssociationStatus, example: 'SUSPENDED' })
+  @IsOptional()
+  @IsEnum(AssociationStatus)
+  status?: AssociationStatus;
 }

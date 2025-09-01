@@ -1,16 +1,21 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class CreateAssociationDto {
-  @ApiProperty({ example: 'Bahir Dar Taxi Association' })
-  @IsString() @MaxLength(100)
+  @ApiProperty({ example: 'Addis Ababa Drivers Coop' })
+  @IsString()
+  @MaxLength(100)
   name!: string;
 
-  @ApiProperty({ example: '0911223344', required: false, description: 'Optional phone number for the association' })
-  @IsOptional() @IsString() @MaxLength(20)
-  phone_number?: string | null;  // 👈 optional
+  @ApiPropertyOptional({ example: '+251911223344' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  phone_number?: string | null;
 
-  @ApiProperty({ example: '/uploads/logo.png', required: false })
-  @IsOptional() @IsString()
+  @ApiPropertyOptional({ example: 'https://cdn.example.com/logo.png' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
   logo?: string | null;
 }

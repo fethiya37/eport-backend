@@ -1,75 +1,81 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Owner } from '../../domain/entities/owner.entity';
-import type { IOwnerRepository } from '../../domain/repositories/owner.repository';
+import { IOwnerRepository } from '../../domain/repositories/owner.repository';
+import { Owner, OwnerStatus, Prisma } from '@prisma/client';
+import { isAdminLike } from '../../common/auth/roles.util';
+import { UserContext } from 'src/common/context/user-context';
 
 @Injectable()
 export class PrismaOwnerRepository implements IOwnerRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  private toEntity(r: any): Owner {
-    return new Owner(
-      r.id,
-      r.user_id,
-      r.association_id,
-      r.full_name,
-      r.phone_number,
-      r.status,
-      r.created_at,
-      r.updated_at,
-    );
+  private scopeWhere(ctx: UserContext) {
+    if (isAdminLike(ctx.user_type)) return {};
+    if (!ctx.association_id) throw new ForbiddenException('Association context required');
+    return { association_id: ctx.association_id };
   }
 
-  async create(data: {
-    user_id: number;
-    association_id: number;
-    full_name: string;
-    phone_number: string;
-    status: 'ACTIVE' | 'SUSPENDED';
-  }): Promise<Owner> {
-    const row = await this.prisma.owner.create({ data });
-    return this.toEntity(row);
-  }
+  async create(
+    ctx: UserContext,
+    data: { association_id: number; full_name: string; phone_number: string; user_id: number },
+    tx: Prisma.TransactionClient, // <<< receive tx
+  ): Promise<Owner> {
+    if (isAdminLike(ctx.user_type)) {
+      throw new ForbiddenException('Admin/Superadmin cannot create owners');
+    }
+    if (!ctx.association_id || ctx.association_id !== data.association_id) {
+      throw new ForbiddenException('Cannot create owner for another association');
+    }
 
-  async findById(id: number): Promise<Owner | null> {
-    const row = await this.prisma.owner.findUnique({ where: { id } });
-    return row ? this.toEntity(row) : null;
-  }
-
-  async list(params?: {
-    skip?: number;
-    take?: number;
-    association_id?: number;
-    status?: 'ACTIVE' | 'SUSPENDED';
-    search?: string;
-  }): Promise<Owner[]> {
-    const rows = await this.prisma.owner.findMany({
-      where: {
-        association_id: params?.association_id,
-        status: params?.status,
-        OR: params?.search
-          ? [
-              { full_name: { contains: params.search, mode: 'insensitive' } },
-              { phone_number: { contains: params.search, mode: 'insensitive' } },
-            ]
-          : undefined,
+    // IMPORTANT: use the SAME transaction client
+    return tx.owner.create({
+      data: {
+        user_id: data.user_id,
+        association_id: data.association_id,
+        full_name: data.full_name,
+        phone_number: data.phone_number,
       },
-      skip: params?.skip,
-      take: params?.take,
-      orderBy: { id: 'asc' },
     });
-    return rows.map(this.toEntity.bind(this));
+  }
+
+  async findAll(ctx: UserContext): Promise<Owner[]> {
+    return this.prisma.owner.findMany({
+      where: this.scopeWhere(ctx),
+      orderBy: { id: 'asc' },
+      include: { user: true, association: true },
+    });
+  }
+
+  async findById(ctx: UserContext, id: number): Promise<Owner | null> {
+    const owner = await this.prisma.owner.findUnique({
+      where: { id },
+      include: { user: true, association: true },
+    });
+    if (!owner) return null;
+
+    if (!isAdminLike(ctx.user_type)) {
+      if (!ctx.association_id || owner.association_id !== ctx.association_id) {
+        throw new ForbiddenException('Not in your association');
+      }
+    }
+    return owner;
   }
 
   async update(
+    ctx: UserContext,
     id: number,
-    data: { association_id?: number; full_name?: string; phone_number?: string; status?: 'ACTIVE' | 'SUSPENDED' },
+    data: Partial<{ full_name: string; phone_number: string; status: OwnerStatus }>
   ): Promise<Owner> {
-    const row = await this.prisma.owner.update({ where: { id }, data });
-    return this.toEntity(row);
-  }
+    if (isAdminLike(ctx.user_type)) {
+      throw new ForbiddenException('Admin/Superadmin cannot update owners');
+    }
+    const existing = await this.findById(ctx, id);
+    if (!existing) throw new NotFoundException('Owner not found');
 
-  async delete(id: number): Promise<void> {
-    await this.prisma.owner.delete({ where: { id } });
+    return this.prisma.owner.update({
+      where: { id },
+      data,
+      include: { user: true, association: true },
+    });
   }
 }

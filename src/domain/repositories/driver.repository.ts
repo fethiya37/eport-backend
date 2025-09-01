@@ -1,35 +1,42 @@
-import { Driver } from '../entities/driver.entity';
+import { Driver, DriverStatus, Prisma } from '@prisma/client';
+import { UserContext } from 'src/common/context/user-context';
 
 export const DRIVER_REPOSITORY = Symbol('DRIVER_REPOSITORY');
 
+export type DriverFilter = {
+  id?: number;
+  full_name?: string;
+  phone_number?: string;
+  status?: DriverStatus;
+  license_no?: string;
+};
+
 export interface IDriverRepository {
-  create(data: {
-    user_id: number;
-    association_id: number;
-    full_name: string;
-    license_no?: string | null;
-    license_expiry?: Date | null;
-    phone_number: string;
-    status?: 'AVAILABLE' | 'ON_TRIP' | 'OFFLINE' | 'SUSPENDED';
-  }): Promise<Driver>;
+  create(
+    ctx: UserContext,
+    data: {
+      user_id: number;
+      association_id: number;
+      full_name: string;
+      phone_number: string;
+      license_no?: string | null;
+      license_expiry?: Date | null;
+    },
+    tx: Prisma.TransactionClient, // <<< add tx (required for create)
+  ): Promise<Driver>;
 
-  findById(id: number): Promise<Driver | null>;
+  findAll(ctx: UserContext, filter?: DriverFilter): Promise<Driver[]>;
+  findById(ctx: UserContext, id: number): Promise<Driver | null>;
 
-  list(params: {
-    association_id: number;
-    skip?: number;
-    take?: number;
-    status?: 'AVAILABLE' | 'ON_TRIP' | 'OFFLINE' | 'SUSPENDED';
-    search?: string; // name/phone/license
-  }): Promise<Driver[]>;
-
-  update(id: number, data: {
-    full_name?: string;
-    license_no?: string | null;
-    license_expiry?: Date | null;
-    phone_number?: string;
-    status?: 'AVAILABLE' | 'ON_TRIP' | 'OFFLINE' | 'SUSPENDED';
-  }): Promise<Driver>;
-
-  delete(id: number): Promise<void>;
+  update(
+    ctx: UserContext,
+    id: number,
+    data: Partial<{
+      full_name: string;
+      phone_number: string;
+      status: DriverStatus;
+      license_no: string | null;
+      license_expiry: Date | null;
+    }>
+  ): Promise<Driver>;
 }
