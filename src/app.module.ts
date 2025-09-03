@@ -13,6 +13,7 @@ import { RolesGuard } from './infrastructure/auth/roles.guard';
 import { RouteAssignmentModule } from './presentation/route-assignment/route-assignment.module';
 import { RoutesModule } from './presentation/routes/routes.module';
 import { RouteQuotaModule } from './presentation/route-quota/route-quota.module';
+import { VehicleAssignmentModule } from './presentation/vehicle-assignment/vehicle-assignment.module';
 
 @Module({
   imports: [
@@ -24,7 +25,8 @@ import { RouteQuotaModule } from './presentation/route-quota/route-quota.module'
     DriverModule,
     RouteAssignmentModule,
     RoutesModule,
-    RouteQuotaModule
+    RouteQuotaModule,
+    VehicleAssignmentModule,
   ],
   controllers: [AppController],
   providers: [AppService,

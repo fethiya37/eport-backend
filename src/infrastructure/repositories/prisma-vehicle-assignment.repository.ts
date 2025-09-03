@@ -1,6 +1,6 @@
 import { Injectable, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { IVehicleAssignmentRepository } from '../../domain/repositories/vehicle-assignment.repository';
+import { IVehicleAssignmentRepository, VehicleAssignmentFilter, VehicleAssignmentView } from '../../domain/repositories/vehicle-assignment.repository';
 import { VehicleAssignment, Prisma } from '@prisma/client';
 import { UserContext } from 'src/common/context/user-context';
 import { isAdminLike } from '../../common/auth/roles.util';
@@ -92,5 +92,51 @@ export class PrismaVehicleAssignmentRepository implements IVehicleAssignmentRepo
       });
     }
     return result;
+  }
+
+   async search(ctx: UserContext, f: VehicleAssignmentFilter): Promise<VehicleAssignmentView[]> {
+    // Build overlap predicate (inclusive):
+    // An assignment [started_at, ended_at|null] overlaps [range_start, range_end]
+    // iff NOT (ended_at < range_start OR started_at > range_end)
+    const overlap =
+      f.range_start || f.range_end
+        ? {
+            NOT: {
+              OR: [
+                ...(f.range_start ? [{ ended_at: { lt: f.range_start } }] : []),
+                ...(f.range_end   ? [{ started_at: { gt: f.range_end } }] : []),
+              ],
+            },
+          }
+        : {};
+
+    const where: Prisma.VehicleAssignmentWhereInput = {
+      ...(isAdminLike(ctx.user_type) ? {} : { association_id: ctx.association_id ?? undefined }),
+      ...(f.driver_id ? { driver_id: f.driver_id } : {}),
+      ...(f.vehicle_id ? { vehicle_id: f.vehicle_id } : {}),
+      ...(typeof f.active === 'boolean' ? { active: f.active } : {}),
+      ...overlap,
+    };
+
+    const rows = await this.prisma.vehicleAssignment.findMany({
+      where,
+      include: {
+        driver:  { select: { id: true, full_name: true } },
+        vehicle: { select: { id: true, plate_number: true } },
+      },
+      orderBy: { started_at: 'desc' },
+    });
+
+    return rows.map((r) => ({
+      id: r.id,
+      association_id: r.association_id,
+      driver_id: r.driver_id,
+      driver_name: r.driver.full_name,
+      vehicle_id: r.vehicle_id,
+      plate_number: r.vehicle.plate_number,
+      active: r.active,
+      started_at: r.started_at,
+      ended_at: r.ended_at ?? null,
+    }));
   }
 }
