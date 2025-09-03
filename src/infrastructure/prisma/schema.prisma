@@ -54,7 +54,7 @@ model User {
   name           String?  @db.VarChar(100)
   password_hash  String?  @db.VarChar(255)
   is_locked      Boolean  @default(false)
-  association_id Int? // 👈 nullable; required only for user_type = Association
+  association_id Int?
   created_at     DateTime @default(now())
   updated_at     DateTime @updatedAt
 
@@ -63,6 +63,10 @@ model User {
   tokens UserToken[]
   Owner  Owner?
   Driver Driver?
+
+  // 👇 NEW back-relations for RouteAssignment
+  assigned_route_assignments RouteAssignment[] @relation("assigner")
+  approved_route_assignments RouteAssignment[] @relation("approver")
 
   @@map("users")
 }
@@ -232,8 +236,8 @@ model Route {
   route_group_id Int
   departure      String
   arrival        String
-  kilometer      Decimal?  @db.Decimal(6, 2)
-  tariff         Decimal?  @db.Decimal(6, 2)
+  kilometer      Decimal? @db.Decimal(6, 2)
+  tariff         Decimal? @db.Decimal(6, 2)
   updated_at     DateTime @updatedAt
   created_at     DateTime @default(now())
 
@@ -263,6 +267,9 @@ model RouteQuota {
   association Association @relation(fields: [association_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
   route       Route       @relation(fields: [route_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
+  // NEW: backref for audit
+  assignments RouteAssignment[]
+
   @@index([association_id, route_id, start_date, end_date])
   @@map("route_quotas")
 }
@@ -280,12 +287,24 @@ model RouteAssignment {
   created_at     DateTime              @default(now())
   updated_at     DateTime              @updatedAt
 
+  assigned_by_user_id Int
+  approved_by_user_id Int?
+  approved_at         DateTime?
+  route_quota_id      Int?
+
   route       Route       @relation(fields: [route_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
   driver      Driver      @relation(fields: [driver_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
   vehicle     Vehicle     @relation(fields: [vehicle_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
   association Association @relation(fields: [association_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  route_quota RouteQuota? @relation(fields: [route_quota_id], references: [id], onDelete: SetNull)
+
+  // 👇 These must have matching back-relations in `User`
+  assigned_by User  @relation("assigner", fields: [assigned_by_user_id], references: [id], onDelete: Restrict)
+  approved_by User? @relation("approver", fields: [approved_by_user_id], references: [id], onDelete: SetNull)
 
   @@unique([route_id, driver_id, vehicle_id])
   @@index([association_id, route_id, start_date, end_date])
+  @@index([assigned_by_user_id])
+  @@index([approved_by_user_id])
   @@map("route_assignments")
 }

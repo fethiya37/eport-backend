@@ -8,13 +8,14 @@ import { JwtAuthGuard } from '../../infrastructure/auth/jwt.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { AuthUser } from '../../common/decorators/auth-user.decorator';
 import type { UserContext } from 'src/common/context/user-context';
+import { CreateManyRouteQuotasDto } from './dto/create-many-route-quotas.dto';
 
 @ApiTags('route-quotas')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('route-quotas')
 export class RouteQuotaController {
-  constructor(private readonly service: RouteQuotaService) {}
+  constructor(private readonly service: RouteQuotaService) { }
 
   @Post()
   @Roles('Admin', 'Superadmin')
@@ -32,5 +33,11 @@ export class RouteQuotaController {
   @Roles('Admin', 'Superadmin')
   update(@AuthUser() user: UserContext, @Param('id', ParseIntPipe) id: number, @Body() dto: UpdateRouteQuotaDto) {
     return this.service.update(user, id, dto);
+  }
+
+  @Post('bulk')
+  @Roles('Admin', 'Superadmin')
+  createMany(@AuthUser() user: UserContext, @Body() dto: CreateManyRouteQuotasDto) {
+    return this.service.createMany(user, dto);
   }
 }

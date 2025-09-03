@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { IRouteQuotaRepository } from '../../domain/repositories/route-quota.repository';
 import { RouteQuota, Prisma } from '@prisma/client';
@@ -7,8 +7,49 @@ import { RouteQuota, Prisma } from '@prisma/client';
 export class PrismaRouteQuotaRepository implements IRouteQuotaRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  create(data: { association_id: number; route_id: number; start_date: Date; end_date: Date; no_vehicles: number }): Promise<RouteQuota> {
-    return this.prisma.routeQuota.create({ data });
+  create(data: {
+    association_id: number;
+    route_id: number;
+    start_date: Date;
+    end_date: Date;
+    no_vehicles: number;
+  }): Promise<RouteQuota> {
+    return this.prisma.routeQuota.create({ data }).catch((e: any) => {
+      if (e?.code === 'P2002') {
+        // requires a UNIQUE constraint on (association_id, route_id, start_date, end_date)
+        throw new BadRequestException(
+          'Quota for this association, route, and date window already exists'
+        );
+      }
+      throw e;
+    });
+  }
+
+  // NEW: bulk create in a single transaction
+  async createMany(rows: Array<{
+    association_id: number;
+    route_id: number;
+    start_date: Date;
+    end_date: Date;
+    no_vehicles: number;
+  }>): Promise<RouteQuota[]> {
+    return this.prisma.$transaction(async (tx) => {
+      const created: RouteQuota[] = [];
+      for (const r of rows) {
+        try {
+          const q = await tx.routeQuota.create({ data: r });
+          created.push(q);
+        } catch (e: any) {
+          if (e?.code === 'P2002') {
+            throw new BadRequestException(
+              `Quota duplicate for association ${r.association_id}, route ${r.route_id} and window`
+            );
+          }
+          throw e;
+        }
+      }
+      return created;
+    });
   }
 
   find(filter: { association_id?: number; route_id?: number }): Promise<RouteQuota[]> {
@@ -19,11 +60,19 @@ export class PrismaRouteQuotaRepository implements IRouteQuotaRepository {
     return this.prisma.routeQuota.findMany({ where, orderBy: { id: 'desc' } });
   }
 
-  async update(id: number, data: Partial<{ start_date: Date; end_date: Date; no_vehicles: number }>): Promise<RouteQuota> {
+  async update(
+    id: number,
+    data: Partial<{ start_date: Date; end_date: Date; no_vehicles: number }>
+  ): Promise<RouteQuota> {
     try {
       return await this.prisma.routeQuota.update({ where: { id }, data });
     } catch (e: any) {
-      if (e.code === 'P2025') throw new NotFoundException('Route quota not found');
+      if (e?.code === 'P2025') throw new NotFoundException('Route quota not found');
+      if (e?.code === 'P2002') {
+        throw new BadRequestException(
+          'Quota for this association, route, and date window already exists'
+        );
+      }
       throw e;
     }
   }

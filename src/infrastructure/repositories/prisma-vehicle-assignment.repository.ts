@@ -1,6 +1,10 @@
-import { Injectable, ForbiddenException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { IVehicleAssignmentRepository, VehicleAssignmentFilter, VehicleAssignmentView } from '../../domain/repositories/vehicle-assignment.repository';
+import {
+  IVehicleAssignmentRepository,
+  VehicleAssignmentFilter,
+  VehicleAssignmentView,
+} from '../../domain/repositories/vehicle-assignment.repository';
 import { VehicleAssignment, Prisma } from '@prisma/client';
 import { UserContext } from 'src/common/context/user-context';
 import { isAdminLike } from '../../common/auth/roles.util';
@@ -15,7 +19,6 @@ export class PrismaVehicleAssignmentRepository implements IVehicleAssignmentRepo
     tx?: Prisma.TransactionClient,
   ): Promise<VehicleAssignment> {
     const client = tx ?? this.prisma;
-    // NOTE: rely on service logic to close any previous active for this driver
     return client.vehicleAssignment.create({
       data: {
         driver_id: data.driver_id,
@@ -59,7 +62,6 @@ export class PrismaVehicleAssignmentRepository implements IVehicleAssignmentRepo
     });
   }
 
-  // NEW: bulk actives (latest per driver) + plate
   async findActiveByDrivers(
     ctx: UserContext,
     driver_ids: number[],
@@ -78,7 +80,6 @@ export class PrismaVehicleAssignmentRepository implements IVehicleAssignmentRepo
       orderBy: { started_at: 'desc' },
     });
 
-    // keep only the most recent per driver
     const seen = new Set<number>();
     const result: Array<{ driver_id: number; vehicle_id: number; plate_number: string; started_at: Date }> = [];
     for (const r of rows) {
@@ -94,17 +95,14 @@ export class PrismaVehicleAssignmentRepository implements IVehicleAssignmentRepo
     return result;
   }
 
-   async search(ctx: UserContext, f: VehicleAssignmentFilter): Promise<VehicleAssignmentView[]> {
-    // Build overlap predicate (inclusive):
-    // An assignment [started_at, ended_at|null] overlaps [range_start, range_end]
-    // iff NOT (ended_at < range_start OR started_at > range_end)
+  async search(ctx: UserContext, f: VehicleAssignmentFilter): Promise<VehicleAssignmentView[]> {
     const overlap =
       f.range_start || f.range_end
         ? {
             NOT: {
               OR: [
                 ...(f.range_start ? [{ ended_at: { lt: f.range_start } }] : []),
-                ...(f.range_end   ? [{ started_at: { gt: f.range_end } }] : []),
+                ...(f.range_end ? [{ started_at: { gt: f.range_end } }] : []),
               ],
             },
           }
@@ -121,7 +119,7 @@ export class PrismaVehicleAssignmentRepository implements IVehicleAssignmentRepo
     const rows = await this.prisma.vehicleAssignment.findMany({
       where,
       include: {
-        driver:  { select: { id: true, full_name: true } },
+        driver: { select: { id: true, full_name: true } },
         vehicle: { select: { id: true, plate_number: true } },
       },
       orderBy: { started_at: 'desc' },
@@ -138,5 +136,18 @@ export class PrismaVehicleAssignmentRepository implements IVehicleAssignmentRepo
       started_at: r.started_at,
       ended_at: r.ended_at ?? null,
     }));
+  }
+
+  // ✅ NEW: required by the interface
+  async isActivePair(
+    association_id: number,
+    driver_id: number,
+    vehicle_id: number,
+  ): Promise<boolean> {
+    const row = await this.prisma.vehicleAssignment.findFirst({
+      where: { association_id, driver_id, vehicle_id, active: true },
+      select: { id: true },
+    });
+    return !!row;
   }
 }

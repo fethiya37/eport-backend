@@ -24,4 +24,7 @@ export interface IAssociationRepository {
     logo: string | null;
     status: AssociationStatus;
   }>): Promise<Association>;
+
+  /** ✅ NEW: cheap existence check */
+  exists(id: number): Promise<boolean>;
 }

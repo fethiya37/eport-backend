@@ -6,7 +6,7 @@ import { IRoutesRepository, RouteFilter, RouteUpsertInput, UpsertGroupWithRoutes
 
 @Injectable()
 export class PrismaRoutesRepository implements IRoutesRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   // ---------- READS ----------
   listRouteGroups(includeRoutes: boolean) {
@@ -116,5 +116,9 @@ export class PrismaRoutesRepository implements IRoutesRepository {
   private validateRouteInput(r: RouteUpsertInput) {
     if (!r.departure?.trim()) throw new BadRequestException('departure is required');
     if (!r.arrival?.trim()) throw new BadRequestException('arrival is required');
+  }
+  async existsRoute(id: number): Promise<boolean> {
+    const count = await this.prisma.route.count({ where: { id } });
+    return count > 0;
   }
 }

@@ -15,7 +15,6 @@ export class PrismaAssociationRepository implements IAssociationRepository {
         name: data.name,
         phone_number: data.phone_number ?? null,
         logo: data.logo ?? null,
-        // status defaults to ACTIVE via schema
       },
     });
   }
@@ -26,13 +25,10 @@ export class PrismaAssociationRepository implements IAssociationRepository {
       ...(filter?.name ? { name: { contains: filter.name, mode: 'insensitive' } } : {}),
       ...(filter?.status ? { status: filter.status } : {}),
     };
-    return this.prisma.association.findMany({
-      where,
-      orderBy: { id: 'asc' },
-    });
+    return this.prisma.association.findMany({ where, orderBy: { id: 'asc' } });
   }
 
-  async findById(id: number): Promise<Association | null> {
+  findById(id: number): Promise<Association | null> {
     return this.prisma.association.findUnique({ where: { id } });
   }
 
@@ -43,5 +39,11 @@ export class PrismaAssociationRepository implements IAssociationRepository {
       if (e.code === 'P2025') throw new NotFoundException('Association not found');
       throw e;
     }
+  }
+
+  /** ✅ NEW */
+  async exists(id: number): Promise<boolean> {
+    const count = await this.prisma.association.count({ where: { id } });
+    return count > 0;
   }
 }
