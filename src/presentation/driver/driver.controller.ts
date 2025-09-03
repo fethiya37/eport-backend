@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../infrastructure/auth/jwt.guard';
 import { AssociationContextGuard } from '../../infrastructure/auth/association-context.guard';
@@ -15,23 +15,22 @@ import type { DriverFilter } from 'src/domain/repositories/driver.repository';
 @UseGuards(JwtAuthGuard, AssociationContextGuard)
 @Controller('drivers')
 export class DriverController {
-  constructor(private readonly service: DriverService) { }
+  constructor(private readonly service: DriverService) {}
 
-  // READS: Admin, Superadmin, Association
+  // LIST: returns driver rows + active_plate_number
   @Get()
   @Roles('Admin', 'Superadmin', 'Association')
   findAll(@AuthUser() user: UserContext, @Query() filter: DriverFilter) {
     return this.service.findAll(user, filter);
   }
 
+  // DETAIL: returns single driver + active_plate_number
   @Get(':id')
   @Roles('Admin', 'Superadmin', 'Association')
   findOne(@AuthUser() user: UserContext, @Param('id', ParseIntPipe) id: number) {
-    // returns driver plus active_vehicle_id for edit form
     return this.service.findOneWithActive(user, id);
   }
 
-  // MUTATIONS: Association only
   @Post()
   @Roles('Association')
   create(@AuthUser() user: UserContext, @Body() dto: CreateDriverDto) {
@@ -46,10 +45,7 @@ export class DriverController {
 
   @Get('active-pairs')
   @Roles('Admin', 'Superadmin', 'Association')
-  activePairs(
-    @AuthUser() user: UserContext,
-    @Query('association_id') associationIdRaw?: string,   // optional for Admin/Superadmin
-  ) {
+  activePairs(@AuthUser() user: UserContext, @Query('association_id') associationIdRaw?: string) {
     const association_id = associationIdRaw ? Number(associationIdRaw) : undefined;
     return this.service.listActiveDriverVehiclePairs(user, association_id);
   }
