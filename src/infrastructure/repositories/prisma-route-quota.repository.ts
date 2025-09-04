@@ -1,52 +1,37 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { IRouteQuotaRepository } from '../../domain/repositories/route-quota.repository';
+import {
+  IRouteQuotaRepository,
+  RouteQuotaCreateRow,
+} from '../../domain/repositories/route-quota.repository';
 import { RouteQuota, Prisma } from '@prisma/client';
 
 @Injectable()
 export class PrismaRouteQuotaRepository implements IRouteQuotaRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  create(data: {
-    association_id: number;
-    route_id: number;
-    start_date: Date;
-    end_date: Date;
-    no_vehicles: number;
-  }): Promise<RouteQuota> {
+  create(data: RouteQuotaCreateRow): Promise<RouteQuota> {
     return this.prisma.routeQuota.create({ data }).catch((e: any) => {
       if (e?.code === 'P2002') {
-        // requires a UNIQUE constraint on (association_id, route_id, start_date, end_date)
-        throw new BadRequestException(
-          'Quota for this association, route, and date window already exists'
-        );
+        // in case you later add a unique constraint
+        throw new BadRequestException('Quota for this window already exists');
       }
       throw e;
     });
   }
 
-  // NEW: bulk create in a single transaction
-  async createMany(rows: Array<{
-    association_id: number;
-    route_id: number;
-    start_date: Date;
-    end_date: Date;
-    no_vehicles: number;
-  }>): Promise<RouteQuota[]> {
+  // 👇 NEW
+  async createMany(rows: RouteQuotaCreateRow[]): Promise<RouteQuota[]> {
     return this.prisma.$transaction(async (tx) => {
       const created: RouteQuota[] = [];
       for (const r of rows) {
-        try {
-          const q = await tx.routeQuota.create({ data: r });
-          created.push(q);
-        } catch (e: any) {
+        const q = await tx.routeQuota.create({ data: r }).catch((e: any) => {
           if (e?.code === 'P2002') {
-            throw new BadRequestException(
-              `Quota duplicate for association ${r.association_id}, route ${r.route_id} and window`
-            );
+            throw new BadRequestException('Quota for this window already exists');
           }
           throw e;
-        }
+        });
+        created.push(q);
       }
       return created;
     });
@@ -69,9 +54,7 @@ export class PrismaRouteQuotaRepository implements IRouteQuotaRepository {
     } catch (e: any) {
       if (e?.code === 'P2025') throw new NotFoundException('Route quota not found');
       if (e?.code === 'P2002') {
-        throw new BadRequestException(
-          'Quota for this association, route, and date window already exists'
-        );
+        throw new BadRequestException('Quota for this window already exists');
       }
       throw e;
     }

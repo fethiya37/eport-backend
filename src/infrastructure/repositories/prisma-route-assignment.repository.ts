@@ -1,4 +1,3 @@
-// src/infrastructure/repositories/prisma-route-assignment.repository.ts
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -6,7 +5,7 @@ import {
   RouteAssignmentFindFilter,
   RouteAssignmentUpsertRow,
 } from '../../domain/repositories/route-assignment.repository';
-import { Prisma, RouteAssignment, RouteAssignmentStatus, RouteQuota } from '@prisma/client';
+import { Prisma, RouteAssignment, RouteAssignmentStatus, RouteQuota, DriverStatus } from '@prisma/client';
 
 @Injectable()
 export class PrismaRouteAssignmentRepository implements IRouteAssignmentRepository {
@@ -60,10 +59,16 @@ export class PrismaRouteAssignmentRepository implements IRouteAssignmentReposito
   }
 
   approveMany(ids: number[], approver_user_id: number): Promise<number> {
-    return this.prisma.routeAssignment.updateMany({
-      where: { id: { in: ids } },
-      data: { status: RouteAssignmentStatus.Approved, approved_by_user_id: approver_user_id, approved_at: new Date() },
-    }).then(r => r.count);
+    return this.prisma.routeAssignment
+      .updateMany({
+        where: { id: { in: ids } },
+        data: {
+          status: RouteAssignmentStatus.Approved,
+          approved_by_user_id: approver_user_id,
+          approved_at: new Date(),
+        },
+      })
+      .then((r) => r.count);
   }
 
   find(filter: RouteAssignmentFindFilter): Promise<RouteAssignment[]> {
@@ -85,10 +90,7 @@ export class PrismaRouteAssignmentRepository implements IRouteAssignmentReposito
           }
         : {}),
     };
-    return this.prisma.routeAssignment.findMany({
-      where,
-      orderBy: { id: 'desc' },
-    });
+    return this.prisma.routeAssignment.findMany({ where, orderBy: { id: 'desc' } });
   }
 
   findByIds(ids: number[]): Promise<RouteAssignment[]> {
@@ -98,8 +100,7 @@ export class PrismaRouteAssignmentRepository implements IRouteAssignmentReposito
 
   // ---- validations / helpers ----
   async existsRoute(route_id: number): Promise<boolean> {
-    const r = await this.prisma.route.findUnique({ where: { id: route_id } });
-    return !!r;
+    return !!(await this.prisma.route.findUnique({ where: { id: route_id } }));
   }
 
   async existsDriverInAssociation(driver_id: number, association_id: number): Promise<boolean> {
@@ -130,23 +131,18 @@ export class PrismaRouteAssignmentRepository implements IRouteAssignmentReposito
     return !!found;
   }
 
-  async findCoveringQuota(
+  findCoveringQuota(
     association_id: number,
     route_id: number,
     start: Date,
     end: Date,
   ): Promise<RouteQuota | null> {
     return this.prisma.routeQuota.findFirst({
-      where: {
-        association_id,
-        route_id,
-        start_date: { lte: start },
-        end_date: { gte: end },
-      },
+      where: { association_id, route_id, start_date: { lte: start }, end_date: { gte: end } },
     });
   }
 
-  async countAssignmentsOverlappingForQuota(
+  countAssignmentsOverlappingForQuota(
     quota_id: number,
     association_id: number,
     route_id: number,
@@ -165,8 +161,32 @@ export class PrismaRouteAssignmentRepository implements IRouteAssignmentReposito
     });
   }
 
-  // NEW
   getQuotaById(id: number): Promise<RouteQuota | null> {
     return this.prisma.routeQuota.findUnique({ where: { id } });
+  }
+
+  // ✅ NEW: used by RouteAssignmentService.refreshDriversTodayStatus
+  async hasApprovedOnDate(association_id: number, driver_id: number, day: Date): Promise<boolean> {
+    const start = new Date(day);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(day);
+    end.setHours(23, 59, 59, 999);
+
+    const cnt = await this.prisma.routeAssignment.count({
+      where: {
+        association_id,
+        driver_id,
+        status: RouteAssignmentStatus.Approved,
+        NOT: [{ end_date: { lt: start } }, { start_date: { gt: end } }],
+      },
+    });
+    return cnt > 0;
+  }
+
+  async setDriverStatus(driver_id: number, status: 'ON_TRIP' | 'AVAILABLE'): Promise<void> {
+    await this.prisma.driver.update({
+      where: { id: driver_id },
+      data: { status: status as DriverStatus },
+    });
   }
 }

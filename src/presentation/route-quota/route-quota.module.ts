@@ -1,4 +1,3 @@
-// src/presentation/route-quota/route-quota.module.ts
 import { Module } from '@nestjs/common';
 import { RouteQuotaController } from './route-quota.controller';
 import { RouteQuotaService } from '../../application/services/route-quota.service';
@@ -20,7 +19,7 @@ import { PrismaRoutesRepository } from 'src/infrastructure/repositories/prisma-r
     RouteQuotaService,
     { provide: ROUTE_QUOTA_REPOSITORY, useClass: PrismaRouteQuotaRepository },
     { provide: ASSOCIATION_REPOSITORY, useClass: PrismaAssociationRepository },
-    { provide: ROUTES_REPOSITORY, useClass: PrismaRoutesRepository},
+    { provide: ROUTES_REPOSITORY, useClass: PrismaRoutesRepository },
   ],
   exports: [RouteQuotaService],
 })

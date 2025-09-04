@@ -1,4 +1,3 @@
-// src/application/services/route-assignment.service.ts
 import {
   Inject,
   Injectable,
@@ -101,23 +100,33 @@ export class RouteAssignmentService {
         status = RouteAssignmentStatus.Approved;
         approved_by_user_id = ctx.userId;
         approved_at = now;
+
+        // If UI passed a quota_id, we validate it (association/route/window). Capacity is not enforced for Admins.
+        if (route_quota_id) {
+          const quota = await this.repo.getQuotaById(route_quota_id);
+          if (!quota) throw new BadRequestException('route_quota_id not found');
+          if (quota.association_id !== association_id) throw new ForbiddenException('route_quota_id not in target association');
+          if (quota.route_id !== item.route_id) throw new BadRequestException('route_quota_id does not match route_id');
+          if (!(quota.start_date <= start_date && quota.end_date >= end_date)) {
+            throw new BadRequestException('Assignment window not covered by the provided quota');
+          }
+        }
       } else {
         // Association: must have covering quota and respect capacity; force Pending
-        const quota = await this.repo.findCoveringQuota(
-          association_id,
-          item.route_id,
-          start_date,
-          end_date,
-        );
+        const quota = route_quota_id
+          ? await this.repo.getQuotaById(route_quota_id)
+          : await this.repo.findCoveringQuota(association_id, item.route_id, start_date, end_date);
+
         if (!quota) throw new BadRequestException('No quota assigned for this route and period');
 
+        if (quota.association_id !== association_id) throw new ForbiddenException('route_quota_id not in your association');
+        if (quota.route_id !== item.route_id) throw new BadRequestException('route_quota_id does not match route_id');
+        if (!(quota.start_date <= start_date && quota.end_date >= end_date)) {
+          throw new BadRequestException('Assignment window not covered by the provided quota');
+        }
+
         const used = await this.repo.countAssignmentsOverlappingForQuota(
-          quota.id,
-          association_id,
-          item.route_id,
-          start_date,
-          end_date,
-          item.id,
+          quota.id, association_id, item.route_id, start_date, end_date, item.id,
         );
         if (used >= quota.no_vehicles) {
           throw new BadRequestException('Quota capacity exceeded for this route and period');
@@ -146,7 +155,7 @@ export class RouteAssignmentService {
 
     const saved = await this.repo.upsertMany(rows);
 
-    // keep drivers' "today" status accurate
+    // keep drivers' "today" status accurate (ON_TRIP/AVAILABLE)
     await this.refreshDriversTodayStatus(association_id, saved.map((s) => s.driver_id));
 
     return saved;
@@ -160,10 +169,10 @@ export class RouteAssignmentService {
 
     // Refresh statuses for involved drivers
     const affected = await this.repo.findByIds(dto.ids);
-    await this.refreshDriversTodayStatus(
-      affected[0]?.association_id ?? 0,
-      affected.map((a) => a.driver_id),
-    );
+    const assocId = affected.length ? affected[0].association_id : undefined;
+    if (assocId) {
+      await this.refreshDriversTodayStatus(assocId, affected.map((a) => a.driver_id));
+    }
 
     return { approved: updated };
   }

@@ -1,4 +1,3 @@
-// src/domain/repositories/route-assignment.repository.ts
 import { RouteAssignment, RouteAssignmentStatus, RouteQuota } from '@prisma/client';
 
 export const ROUTE_ASSIGNMENT_REPOSITORY = Symbol('ROUTE_ASSIGNMENT_REPOSITORY');
@@ -64,6 +63,9 @@ export interface IRouteAssignmentRepository {
     excludeId?: number,
   ): Promise<number>;
 
-  // NEW: fetch quota by id for explicit route_quota_id validation
   getQuotaById(id: number): Promise<RouteQuota | null>;
+
+  // ✅ NEW helpers for status refresh
+  hasApprovedOnDate(association_id: number, driver_id: number, day: Date): Promise<boolean>;
+  setDriverStatus(driver_id: number, status: 'ON_TRIP' | 'AVAILABLE'): Promise<void>;
 }
