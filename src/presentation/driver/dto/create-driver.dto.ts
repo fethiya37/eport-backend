@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsDateString, IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { IsBoolean, IsDateString, IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateDriverDto {
@@ -22,6 +22,12 @@ export class CreateDriverDto {
   @IsOptional()
   @IsDateString()
   license_expiry?: string | null;
+
+  // Plan: true = weekly, false = monthly (default false)
+  @ApiPropertyOptional({ example: true, description: 'true=weekly, false=monthly (default monthly)' })
+  @IsOptional()
+  @IsBoolean()
+  is_weekly?: boolean;
 
   // Vehicle to assign on creation (active assignment will be created)
   @ApiProperty({ example: 42 })

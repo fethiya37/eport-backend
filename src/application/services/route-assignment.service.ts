@@ -20,10 +20,14 @@ import { ApproveAssignmentsDto } from '../../presentation/route-assignment/dto/a
 import { UpdateAssignmentDto } from '../../presentation/route-assignment/dto/update-assignment.dto';
 import { RouteAssignmentFilterDto } from '../../presentation/route-assignment/dto/find-filter.dto';
 
-import { etDateToGregorian } from '../../common/utils/ethio-date.util';
+import {
+  etDateToGregorian,
+  etMonthStartFromGregorian,
+} from '../../common/utils/ethio-date.util';
 import { isAdminLike } from '../../common/auth/roles.util';
 import type { UserContext } from 'src/common/context/user-context';
 import { RouteAssignmentStatus } from '@prisma/client';
+import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 
 @Injectable()
 export class RouteAssignmentService {
@@ -32,7 +36,23 @@ export class RouteAssignmentService {
     private readonly repo: IRouteAssignmentRepository,
     @Inject(VEHICLE_ASSIGNMENT_REPOSITORY)
     private readonly vehAssign: IVehicleAssignmentRepository,
+    private readonly prisma: PrismaService,
   ) {}
+
+  // ===== helpers (dates) =====
+  private startOfDay(d: Date) {
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  }
+  private endOfDay(d: Date) {
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+  }
+  private startOfWeekMonday(d: Date) {
+    const dt = this.startOfDay(d);
+    const day = dt.getDay(); // 0=Sun,1=Mon,...6=Sat
+    const diff = day === 0 ? -6 : 1 - day; // move back to Monday
+    dt.setDate(dt.getDate() + diff);
+    return dt;
+  }
 
   // -------- CREATE/UPDATE many --------
   async bulkUpsert(ctx: UserContext, dto: BulkUpsertAssignmentsDto) {
@@ -101,7 +121,7 @@ export class RouteAssignmentService {
         approved_by_user_id = ctx.userId;
         approved_at = now;
 
-        // If UI passed a quota_id, we validate it (association/route/window). Capacity is not enforced for Admins.
+        // If UI passed a quota_id, validate it (association/route/window). Capacity not enforced for Admins.
         if (route_quota_id) {
           const quota = await this.repo.getQuotaById(route_quota_id);
           if (!quota) throw new BadRequestException('route_quota_id not found');
@@ -177,7 +197,7 @@ export class RouteAssignmentService {
     return { approved: updated };
   }
 
-  // -------- FIND --------
+  // -------- FIND (generic list) --------
   async find(ctx: UserContext, filter: RouteAssignmentFilterDto) {
     const f = { ...filter };
     if (!isAdminLike(ctx.user_type) && ctx.association_id) {
@@ -301,6 +321,95 @@ export class RouteAssignmentService {
     await this.refreshDriversTodayStatus(association_id, [driver_id]);
 
     return saved;
+  }
+
+  // -------- Visible coverage (current→active_until) --------
+  /**
+   * Visible coverage for drivers/owners/admins:
+   * - Resolve a target driver (by driver_id or by active pair found via plate_number).
+   * - Show ONLY Approved assignments within: [currentPeriodStart(today) .. active_until_date],
+   *   but ONLY if the driver coverage is active (today <= active_until_date).
+   * - No gating when assigning routes (this is viewing only).
+   */
+  async visibleCoverage(
+    ctx: UserContext,
+    q: { driver_id?: number; plate_number?: string }
+  ) {
+    if (!q.driver_id && !q.plate_number) {
+      throw new BadRequestException('Provide driver_id or plate_number');
+    }
+
+    // Resolve driver by id or plate_number (active pair)
+    if (q.driver_id) {
+      const d = await this.prisma.driver.findUnique({
+        where: { id: q.driver_id },
+        select: {
+          id: true, association_id: true, is_weekly: true,
+          active_until_date: true,
+        },
+      });
+      if (!d) throw new NotFoundException('Driver not found');
+
+      if (!isAdminLike(ctx.user_type) && ctx.association_id && ctx.association_id !== d.association_id) {
+        throw new ForbiddenException('Not in your association');
+      }
+
+      const today = this.startOfDay(new Date());
+      if (!d.active_until_date || this.startOfDay(d.active_until_date) < today) {
+        return []; // no active coverage
+      }
+
+      const from = d.is_weekly ? this.startOfWeekMonday(today) : etMonthStartFromGregorian(today);
+      const to = this.endOfDay(d.active_until_date);
+      return this.repo.find({
+        association_id: d.association_id,
+        driver_id: d.id,
+        status: RouteAssignmentStatus.Approved,
+        date_from: from,
+        date_to: to,
+      });
+    }
+
+    // plate_number path
+    const v = await this.prisma.vehicle.findUnique({
+      where: { plate_number: q.plate_number! },
+      select: { id: true, association_id: true },
+    });
+    if (!v) throw new NotFoundException('Vehicle not found');
+
+    const activePair = await this.prisma.vehicleAssignment.findFirst({
+      where: { vehicle_id: v.id, association_id: v.association_id, active: true },
+      select: { driver_id: true },
+    });
+    if (!activePair) return [];
+
+    const d = await this.prisma.driver.findUnique({
+      where: { id: activePair.driver_id },
+      select: {
+        id: true, association_id: true, is_weekly: true,
+        active_until_date: true,
+      },
+    });
+    if (!d) throw new NotFoundException('Driver not found');
+
+    if (!isAdminLike(ctx.user_type) && ctx.association_id && ctx.association_id !== d.association_id) {
+      throw new ForbiddenException('Not in your association');
+    }
+
+    const today = this.startOfDay(new Date());
+    if (!d.active_until_date || this.startOfDay(d.active_until_date) < today) {
+      return [];
+    }
+
+    const from = d.is_weekly ? this.startOfWeekMonday(today) : etMonthStartFromGregorian(today);
+    const to = this.endOfDay(d.active_until_date);
+    return this.repo.find({
+      association_id: d.association_id,
+      driver_id: d.id,
+      status: RouteAssignmentStatus.Approved,
+      date_from: from,
+      date_to: to,
+    });
   }
 
   // -------- helpers --------

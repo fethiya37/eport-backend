@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './presentation/auth/auth.module';
@@ -14,6 +15,9 @@ import { RouteAssignmentModule } from './presentation/route-assignment/route-ass
 import { RoutesModule } from './presentation/routes/routes.module';
 import { RouteQuotaModule } from './presentation/route-quota/route-quota.module';
 import { VehicleAssignmentModule } from './presentation/vehicle-assignment/vehicle-assignment.module';
+import { AssociationPolicyModule } from './presentation/association-policy/association-policy.module';
+import { PaymentsModule } from './presentation/payments/payments.module';
+import { JobsModule } from './application/jobs/jobs.module';
 
 @Module({
   imports: [
@@ -27,11 +31,15 @@ import { VehicleAssignmentModule } from './presentation/vehicle-assignment/vehic
     RoutesModule,
     RouteQuotaModule,
     VehicleAssignmentModule,
+    ScheduleModule.forRoot(),
+    AssociationPolicyModule,
+    PaymentsModule,
+    JobsModule,
   ],
   controllers: [AppController],
   providers: [AppService,
     { provide: APP_GUARD, useClass: JwtAuthGuard }, // every route needs a valid JWT
     { provide: APP_GUARD, useClass: RolesGuard },   // @Roles() works anywhere
- ],
+  ],
 })
 export class AppModule { }

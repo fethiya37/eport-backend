@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsDateString, IsEnum, IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { IsBoolean, IsDateString, IsEnum, IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 import { DriverStatus } from '@prisma/client';
 import { Type } from 'class-transformer';
 
@@ -25,6 +25,12 @@ export class UpdateDriverDto {
   @IsOptional()
   @IsDateString()
   license_expiry?: string | null;
+
+  // Allow plan toggle; we’ll enforce “only when no active coverage” in service
+  @ApiPropertyOptional({ example: true, description: 'true=weekly, false=monthly' })
+  @IsOptional()
+  @IsBoolean()
+  is_weekly?: boolean;
 
   // If provided and different from the active one, will reassign
   @ApiPropertyOptional({ example: 77 })
