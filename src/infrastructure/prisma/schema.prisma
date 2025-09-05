@@ -34,6 +34,11 @@ enum DriverStatus {
   SUSPENDED
 }
 
+enum PaymentStatus {
+  ACTIVE
+  INACTIVE
+}
+
 enum VehicleStatus {
   ACTIVE
   MAINTENANCE
@@ -145,6 +150,13 @@ model Driver {
   license_expiry DateTime?
   phone_number   String       @db.VarChar(20)
   status         DriverStatus @default(AVAILABLE)
+
+  is_weekly         Boolean       @default(false)
+  payment_status    PaymentStatus @default(INACTIVE)
+  active_until_date DateTime?     @db.Date
+  interest_accrued  Decimal       @default(0.00) @db.Decimal(10, 2)
+
+
   created_at     DateTime     @default(now())
   updated_at     DateTime     @updatedAt
 
