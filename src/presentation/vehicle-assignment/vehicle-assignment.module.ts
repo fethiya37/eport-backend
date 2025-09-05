@@ -14,6 +14,9 @@ import { PrismaVehicleAssignmentRepository } from '../../infrastructure/reposito
     VehicleAssignmentService,
     { provide: VEHICLE_ASSIGNMENT_REPOSITORY, useClass: PrismaVehicleAssignmentRepository },
   ],
-  exports: [VehicleAssignmentService],
+  exports: [
+    VehicleAssignmentService,
+    VEHICLE_ASSIGNMENT_REPOSITORY, 
+  ],
 })
 export class VehicleAssignmentModule {}

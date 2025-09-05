@@ -11,13 +11,14 @@ import { BulkUpsertAssignmentsDto } from './dto/bulk-upsert.dto';
 import { ApproveAssignmentsDto } from './dto/approve.dto';
 import { UpdateAssignmentDto } from './dto/update-assignment.dto';
 import { RouteAssignmentFilterDto } from './dto/find-filter.dto';
+import { VisibleCoverageQueryDto } from './dto/visible-coverage.dto';
 
 @ApiTags('route-assignments')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('route-assignments')
 export class RouteAssignmentController {
-  constructor(private readonly service: RouteAssignmentService) {}
+  constructor(private readonly service: RouteAssignmentService) { }
 
   @Post('bulk-upsert')
   @Roles('Admin', 'Superadmin', 'Association')
@@ -49,5 +50,16 @@ export class RouteAssignmentController {
     @Body() dto: UpdateAssignmentDto,
   ) {
     return this.service.updateOne(user, id, dto);
+  }
+
+  // Visible current→future window for a driver (by driver_id or plate_number), only if coverage is active.
+  @Get('visible-coverage')
+  @Roles('Admin', 'Superadmin', 'Association', 'Driver', 'Owner')
+  @ApiOperation({
+    summary:
+      'View Approved assignments for the current period up to active_until_date for a driver (by driver_id or plate_number). Requires driver coverage be ACTIVE (today <= active_until_date).'
+  })
+  visibleCoverage(@AuthUser() user: UserContext, @Query() q: VisibleCoverageQueryDto) {
+    return this.service.visibleCoverage(user, q);
   }
 }

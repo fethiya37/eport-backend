@@ -1,4 +1,3 @@
-// src/domain/repositories/vehicle-assignment.repository.ts
 import { VehicleAssignment, Prisma } from '@prisma/client';
 import { UserContext } from 'src/common/context/user-context';
 
