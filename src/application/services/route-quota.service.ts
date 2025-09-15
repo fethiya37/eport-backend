@@ -1,3 +1,4 @@
+// src/application/services/route-quota.service.ts
 import {
   Inject,
   Injectable,
@@ -24,7 +25,6 @@ import { UpdateRouteQuotaDto } from '../../presentation/route-quota/dto/update-r
 import { RouteQuotaFilterDto } from '../../presentation/route-quota/dto/route-quota-filter.dto';
 import { CreateManyRouteQuotasDto } from '../../presentation/route-quota/dto/create-many-route-quotas.dto';
 
-import { etDateToGregorian } from '../../common/utils/ethio-date.util';
 import { isAdminLike } from '../../common/auth/roles.util';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import type { UserContext } from 'src/common/context/user-context';
@@ -36,8 +36,9 @@ export class RouteQuotaService {
     @Inject(ASSOCIATION_REPOSITORY) private readonly associations: IAssociationRepository,
     @Inject(ROUTES_REPOSITORY) private readonly routesRepo: IRoutesRepository,
     private readonly prisma: PrismaService,
-  ) { }
+  ) {}
 
+  // ========== CREATE (GC in/out) ==========
   async create(ctx: UserContext, dto: CreateRouteQuotaDto) {
     if (!isAdminLike(ctx.user_type)) throw new ForbiddenException('Only Admin/Superadmin');
 
@@ -48,8 +49,8 @@ export class RouteQuotaService {
     if (!assocOk) throw new BadRequestException('Association not found');
     if (!routeOk) throw new BadRequestException('Route not found');
 
-    const start_date = etDateToGregorian(dto.start_date);
-    const end_date = etDateToGregorian(dto.end_date);
+    const start_date = this.parseGc(dto.start_date, 'start_date');
+    const end_date = this.parseGc(dto.end_date, 'end_date');
     if (start_date > end_date) throw new BadRequestException('start_date must be <= end_date');
 
     await this.ensureCapacity(dto.association_id, dto.no_vehicles);
@@ -64,11 +65,12 @@ export class RouteQuotaService {
     });
   }
 
- async createMany(ctx: UserContext, dto: CreateManyRouteQuotasDto) {
+  // ========== CREATE MANY (GC in/out) ==========
+  async createMany(ctx: UserContext, dto: CreateManyRouteQuotasDto) {
     if (!isAdminLike(ctx.user_type)) throw new ForbiddenException('Only Admin/Superadmin');
 
-    const start_date = etDateToGregorian(dto.start_date);
-    const end_date = etDateToGregorian(dto.end_date);
+    const start_date = this.parseGc(dto.start_date, 'start_date');
+    const end_date = this.parseGc(dto.end_date, 'end_date');
     if (start_date > end_date) throw new BadRequestException('start_date must be <= end_date');
 
     const assocOk = await this.associations.exists(dto.association_id);
@@ -76,9 +78,7 @@ export class RouteQuotaService {
 
     const activePairs = await this.countActivePairs(dto.association_id);
 
-    // 👇 TYPE THIS so it's not `never`
     const rows: Parameters<IRouteQuotaRepository['createMany']>[0] = [];
-
     for (const item of dto.items) {
       const routeOk = await this.routesRepo.existsRoute(item.route_id);
       if (!routeOk) throw new BadRequestException(`Route ${item.route_id} not found`);
@@ -101,13 +101,16 @@ export class RouteQuotaService {
     return this.quotas.createMany(rows);
   }
 
+  // ========== FIND (passes GC filter straight through) ==========
   find(ctx: UserContext, filter: RouteQuotaFilterDto) {
     if (!isAdminLike(ctx.user_type) && ctx.association_id) {
       filter.association_id = ctx.association_id;
     }
+    // If filter contains date_from/date_to, they must already be GC; no conversion here.
     return this.quotas.find(filter);
   }
 
+  // ========== UPDATE (GC in/out) ==========
   async update(ctx: UserContext, id: number, dto: UpdateRouteQuotaDto) {
     if (!isAdminLike(ctx.user_type)) throw new ForbiddenException('Only Admin/Superadmin');
 
@@ -122,8 +125,8 @@ export class RouteQuotaService {
     }
 
     const patch: Partial<{ start_date: Date; end_date: Date; no_vehicles: number }> = {};
-    if (dto.start_date) patch.start_date = etDateToGregorian(dto.start_date);
-    if (dto.end_date) patch.end_date = etDateToGregorian(dto.end_date);
+    if (dto.start_date) patch.start_date = this.parseGc(dto.start_date, 'start_date');
+    if (dto.end_date) patch.end_date = this.parseGc(dto.end_date, 'end_date');
     if (patch.start_date && patch.end_date && patch.start_date > patch.end_date) {
       throw new BadRequestException('start_date must be <= end_date');
     }
@@ -144,16 +147,24 @@ export class RouteQuotaService {
     return this.quotas.update(id, patch);
   }
 
-  // helpers
+  // ========== helpers ==========
+  private parseGc(input: string | Date, field: string): Date {
+    const d = input instanceof Date ? input : new Date(input as any);
+    if (isNaN(d.getTime())) throw new BadRequestException(`${field} must be a valid GC date`);
+    return d;
+  }
+
   private async countActivePairs(association_id: number): Promise<number> {
     return this.prisma.vehicleAssignment.count({ where: { association_id, active: true } });
   }
+
   private async ensureCapacity(association_id: number, requestedNoVehicles: number) {
     const activePairs = await this.countActivePairs(association_id);
     if (requestedNoVehicles > activePairs) {
       throw new BadRequestException('no_vehicles cannot exceed active driver-vehicle pairs');
     }
   }
+
   private async ensureNoOverlap(
     association_id: number,
     route_id: number,

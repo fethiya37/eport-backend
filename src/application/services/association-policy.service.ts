@@ -14,10 +14,7 @@ export class AssociationPolicyService {
     if (!isAdminLike(ctx.user_type) && ctx.user_type !== 'Association') {
       throw new BadRequestException('Only Association/Admin can set policy');
     }
-    return this.repo.upsert({
-      association_id: ctx.association_id,
-      ...dto,
-    });
+    return this.repo.upsert({ association_id: ctx.association_id, ...dto });
   }
 
   get(ctx: UserContext) {

@@ -1,3 +1,4 @@
+// src/presentation/vehicle/vehicle.module.ts
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../../infrastructure/prisma/prisma.module';
 
@@ -12,10 +13,14 @@ import { PrismaVehicleAssociationRepository } from '../../infrastructure/reposit
 
 import { VehicleAssignmentModule } from '../vehicle-assignment/vehicle-assignment.module';
 
+// ⬇️ add this import (same path style you used in DriverModule)
+import { AssociationPolicyModule } from 'src/presentation/association-policy/association-policy.module';
+
 @Module({
   imports: [
     PrismaModule,
-    VehicleAssignmentModule, // <-- brings in VEHICLE_ASSIGNMENT_REPOSITORY
+    VehicleAssignmentModule,    // provides VEHICLE_ASSIGNMENT_REPOSITORY
+    AssociationPolicyModule,    // ⬅️ provides ASSOCIATION_POLICY_REPOSITORY
   ],
   controllers: [VehicleController],
   providers: [

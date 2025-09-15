@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../infrastructure/auth/jwt.guard';
 import { AssociationContextGuard } from '../../infrastructure/auth/association-context.guard';
@@ -15,13 +15,24 @@ import type { DriverFilter } from 'src/domain/repositories/driver.repository';
 @UseGuards(JwtAuthGuard, AssociationContextGuard)
 @Controller('drivers')
 export class DriverController {
-  constructor(private readonly service: DriverService) {}
+  constructor(private readonly service: DriverService) { }
 
   // LIST: returns driver rows + active_plate_number
   @Get()
   @Roles('Admin', 'Superadmin', 'Association')
   findAll(@AuthUser() user: UserContext, @Query() filter: DriverFilter) {
     return this.service.findAll(user, filter);
+  }
+
+   @Get('resolve')
+  @Roles('Admin', 'Superadmin', 'Association', 'Driver', 'Owner', 'Controller')
+  async resolveForPayment(
+    @AuthUser() user: UserContext,
+    @Query('plate') plate?: string,
+    @Query('phone') phone?: string,
+  ) {
+    if (!plate && !phone) throw new BadRequestException('plate or phone is required');
+    return this.service.resolveForPayment(user, { plate, phone });
   }
 
   // DETAIL: returns single driver + active_plate_number
@@ -49,4 +60,6 @@ export class DriverController {
     const association_id = associationIdRaw ? Number(associationIdRaw) : undefined;
     return this.service.listActiveDriverVehiclePairs(user, association_id);
   }
+
+ 
 }

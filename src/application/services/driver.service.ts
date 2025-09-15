@@ -5,123 +5,129 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
-import { DRIVER_REPOSITORY, DriverFilter } from '../../domain/repositories/driver.repository';
-import type { IDriverRepository } from '../../domain/repositories/driver.repository';
-import { VEHICLE_ASSIGNMENT_REPOSITORY } from '../../domain/repositories/vehicle-assignment.repository';
-import type { IVehicleAssignmentRepository } from '../../domain/repositories/vehicle-assignment.repository';
+import {
+  DRIVER_REPOSITORY,
+  DriverFilter,
+  type IDriverRepository,
+} from '../../domain/repositories/driver.repository';
+import {
+  VEHICLE_ASSIGNMENT_REPOSITORY,
+  type IVehicleAssignmentRepository,
+} from '../../domain/repositories/vehicle-assignment.repository';
+import {
+  ASSOCIATION_POLICY_REPOSITORY,
+  type IAssociationPolicyRepository,
+} from '../../domain/repositories/association-policy.repository';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { CreateDriverDto } from '../../presentation/driver/dto/create-driver.dto';
 import { UpdateDriverDto } from '../../presentation/driver/dto/update-driver.dto';
 import { DriverStatus } from '@prisma/client';
 import { isAdminLike } from '../../common/auth/roles.util';
 import * as bcrypt from 'bcrypt';
-import { UserContext } from 'src/common/context/user-context';
+import type { UserContext } from 'src/common/context/user-context';
 
 @Injectable()
 export class DriverService {
   constructor(
     @Inject(DRIVER_REPOSITORY) private readonly drivers: IDriverRepository,
     @Inject(VEHICLE_ASSIGNMENT_REPOSITORY) private readonly assignments: IVehicleAssignmentRepository,
+    @Inject(ASSOCIATION_POLICY_REPOSITORY) private readonly policyRepo: IAssociationPolicyRepository,
     private readonly prisma: PrismaService,
   ) {}
 
-  // --- helpers ---------------------------------------------------------------
+  // ===== date helpers (EAT aware) =====
+  private pad2(n: number) { return n < 10 ? `0${n}` : `${n}`; }
 
-  private startOfDay(d: Date) {
-    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  }
-  private isSameDay(a?: Date | null, b?: Date | null) {
-    if (!a || !b) return false;
-    return a.getFullYear() === b.getFullYear()
-        && a.getMonth() === b.getMonth()
-        && a.getDate() === b.getDate();
-  }
-  private toDateISOOnly(d: Date): string {
-    return d.toISOString().slice(0, 10);
+  /** YYYY-MM-DD (UTC) from Date */
+  private ymdUTC(d: Date) { return d.toISOString().slice(0, 10); }
+
+  /** YYYY-MM-DD for Ethiopia time (UTC+03) using server clock (DB is UTC) */
+  private todayEatYmd(): string {
+    const now = new Date();
+    const eatMs = now.getTime() + 3 * 3600_000;
+    const eat = new Date(eatMs);
+    return `${eat.getUTCFullYear()}-${this.pad2(eat.getUTCMonth() + 1)}-${this.pad2(eat.getUTCDate())}`;
   }
 
-  /** Pull association rates; returns 0s if not present (schema-safe). */
+  /** True if DB date-only equals "today" in EAT */
+  private dbDateEqualsTodayEAT(dbDate?: Date | null): boolean {
+    if (!dbDate) return false;
+    return this.ymdUTC(dbDate) === this.todayEatYmd();
+  }
+
+  /** True if driver is overdue as of "today" EAT (active_until_date < todayEAT) */
+  private isOverdueEAT(activeUntil?: Date | null): boolean {
+    if (!activeUntil) return true;
+    const au = this.ymdUTC(activeUntil);
+    return au < this.todayEatYmd();
+  }
+
   private async computeDailyFine(association_id: number, is_weekly: boolean): Promise<number> {
-    let weeklyFee = 0;
-    let monthlyFee = 0;
-    let dailyRate = 0;
-    try {
-      const rows = await this.prisma.$queryRawUnsafe<
-        Array<{ weekly_fee?: unknown; monthly_fee?: unknown; fine_interest_percent_daily?: unknown }>
-      >(
-        `SELECT weekly_fee, monthly_fee, fine_interest_percent_daily
-         FROM associations WHERE id = $1 LIMIT 1`,
-        association_id,
-      );
-      if (rows?.[0]) {
-        weeklyFee = Number(rows[0].weekly_fee ?? 0) || 0;
-        monthlyFee = Number(rows[0].monthly_fee ?? 0) || 0;
-        dailyRate = Number(rows[0].fine_interest_percent_daily ?? 0) || 0;
-      }
-    } catch {}
-    const base = is_weekly ? weeklyFee : monthlyFee;
-    const fine = base * dailyRate;
+    const policy = await this.policyRepo.get(association_id);
+    if (!policy) return 0;
+    const base = is_weekly ? policy.weekly_fee : policy.monthly_fee;
+    const fine = base * policy.daily_fine_percent;
     return Math.round((fine + Number.EPSILON) * 100) / 100;
   }
 
-  /** If today's fine was posted, subtract once via repository. */
+  /**
+   * SUBTRACT once per day: only if overdue, last_accrual_date == today(EAT) and last_accrual_amount > 0.
+   * After subtract: set last_accrual_amount = 0 (flip to "removed" state).
+   */
   private async subtractTodaysFineIfPosted(ctx: UserContext, driverId: number) {
     const d = await this.drivers.findById(ctx, driverId);
-    if (!d || !(d as any).last_accrual_date || !(d as any).last_accrual_amount) return;
+    if (!d) return;
 
-    const todayISO = this.toDateISOOnly(new Date());
-    const accrualISO = this.toDateISOOnly(new Date((d as any).last_accrual_date));
-    if (todayISO !== accrualISO) return;
+    const overdue = this.isOverdueEAT((d as any).active_until_date ?? null);
+    if (!overdue) return;
+
+    const lastDate: Date | null | undefined = (d as any).last_accrual_date ?? null;
+    const sameLocalDay = this.dbDateEqualsTodayEAT(lastDate);
+    if (!sameLocalDay) return;
+
+    const lastAmt = Number((d as any).last_accrual_amount ?? 0);
+    if (!(lastAmt > 0)) return;
 
     const curr = Number((d as any).interest_accrued ?? 0);
-    const amt = Number((d as any).last_accrual_amount ?? 0);
-    const newInterest = Math.max(0, curr - amt);
+    const newInterest = Math.max(0, curr - lastAmt);
 
     await this.drivers.update(ctx, driverId, {
       interest_accrued: newInterest,
-      // keep last_accrual_date (it marks "today was processed"),
-      last_accrual_amount: 0,
+      last_accrual_amount: 0, // guard: prevents double-subtract & enables one re-add
     });
   }
 
-  /** If still overdue and active vehicle is ACTIVE, re-add today's fine once via repo. */
+  /**
+   * RE-ADD once per day: only if overdue, last_accrual_date == today(EAT) and last_accrual_amount == 0.
+   * After re-add: set last_accrual_amount = delta (flip back to "posted" state).
+   */
   private async maybeReAddTodaysFineOnce(ctx: UserContext, driverId: number) {
     const d = await this.drivers.findById(ctx, driverId);
     if (!d) return;
 
-    const today = this.startOfDay(new Date());
-    const activeUntil = (d as any).active_until_date ? this.startOfDay(new Date((d as any).active_until_date)) : null;
+    const overdue = this.isOverdueEAT((d as any).active_until_date ?? null);
+    if (!overdue) return;
 
-    // Must still be overdue
-    if (!activeUntil || activeUntil >= today) return;
+    const sameLocalDay = this.dbDateEqualsTodayEAT((d as any).last_accrual_date ?? null);
+    if (!sameLocalDay) return;
 
-    // Must have ACTIVE vehicle in active pair
-    const activePair = await this.assignments.findActiveByDriver(ctx, driverId);
-    if (!activePair) return;
-    const vehicle = await this.prisma.vehicle.findUnique({
-      where: { id: activePair.vehicle_id },
-      select: { status: true },
-    });
-    if (!vehicle || vehicle.status !== 'ACTIVE') return;
+    const lastAmt = Number((d as any).last_accrual_amount ?? 0);
+    if (lastAmt !== 0) return; // already "posted" today; skip duplicate re-add
 
-    // Only re-add "once" same day if it was subtracted earlier (marker date == today or last amount == 0 for today)
-    const lastDate: Date | null | undefined = (d as any).last_accrual_date ?? null;
-    if (lastDate && !this.isSameDay(lastDate, today)) return;
-
-    const fine = await this.computeDailyFine((d as any).association_id, Boolean((d as any).is_weekly));
-    if (fine <= 0) return;
+    const delta = await this.computeDailyFine((d as any).association_id, Boolean((d as any).is_weekly));
+    if (delta <= 0) return;
 
     const curr = Number((d as any).interest_accrued ?? 0);
     await this.drivers.update(ctx, driverId, {
-      interest_accrued: curr + fine,
-      last_accrual_date: today,
-      last_accrual_amount: fine,
+      interest_accrued: curr + delta,
+      last_accrual_amount: delta, // mark as "posted"
     });
   }
 
-  // --- CRUD ------------------------------------------------------------------
+  // ===== basic helpers =====
+  private startOfDay(d: Date) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
 
-  // CREATE: create User + Driver + Active Assignment (if vehicle_id present)
+  // CREATE: user + driver + (optional) active assignment
   async create(ctx: UserContext, dto: CreateDriverDto) {
     if (isAdminLike(ctx.user_type)) throw new ForbiddenException('Admin/Superadmin cannot create drivers');
     if (!ctx.association_id) throw new BadRequestException('association_id is required');
@@ -132,8 +138,8 @@ export class DriverService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      // 1) user
       const password_hash = await bcrypt.hash(dto.phone_number, 10);
+
       const user = await tx.user.create({
         data: {
           phone_number: dto.phone_number,
@@ -141,11 +147,10 @@ export class DriverService {
           name: dto.full_name,
           password_hash,
           is_locked: false,
-          association_id: null,
+          association_id: ctx.association_id!,
         },
       });
 
-      // 2) driver (includes plan flag)
       const driver = await this.drivers.create(
         ctx,
         {
@@ -160,15 +165,9 @@ export class DriverService {
         tx,
       );
 
-      // 3) active assignment
       await this.assignments.createActive(
         ctx,
-        {
-          driver_id: driver.id,
-          vehicle_id: vehicle.id,
-          association_id: ctx.association_id!,
-          started_at: new Date(),
-        },
+        { driver_id: driver.id, vehicle_id: vehicle.id, association_id: ctx.association_id!, started_at: new Date() },
         tx,
       );
 
@@ -176,23 +175,16 @@ export class DriverService {
     });
   }
 
-  // READ: list with active plate
   async findAll(ctx: UserContext, filter: DriverFilter) {
     const list = await this.drivers.findAll(ctx, filter);
     if (list.length === 0) return [];
-
     const ids = list.map((d) => d.id);
     const actives = await this.assignments.findActiveByDrivers(ctx, ids);
     const byDriver = new Map<number, string>();
     for (const a of actives) byDriver.set(a.driver_id, a.plate_number);
-
-    return list.map((d) => ({
-      ...d,
-      active_plate_number: byDriver.get(d.id) ?? null,
-    }));
+    return list.map((d) => ({ ...d, active_plate_number: byDriver.get(d.id) ?? null }));
   }
 
-  // READ: single with active plate
   async findOneWithActive(ctx: UserContext, id: number) {
     const driver = await this.drivers.findById(ctx, id);
     if (!driver) throw new NotFoundException('Driver not found');
@@ -200,34 +192,26 @@ export class DriverService {
     const active = await this.assignments.findActiveByDriver(ctx, driver.id);
     let active_plate_number: string | null = null;
     if (active) {
-      const v = await this.prisma.vehicle.findUnique({
-        where: { id: active.vehicle_id },
-        select: { plate_number: true },
-      });
+      const v = await this.prisma.vehicle.findUnique({ where: { id: active.vehicle_id }, select: { plate_number: true } });
       active_plate_number = v?.plate_number ?? null;
     }
-
     return { ...driver, active_plate_number };
   }
 
-  // UPDATE: profile, status, plan toggle, and optional vehicle reassignment
   async update(ctx: UserContext, id: number, dto: UpdateDriverDto) {
     if (isAdminLike(ctx.user_type)) throw new ForbiddenException('Admin/Superadmin cannot update drivers');
 
     const existing = await this.drivers.findById(ctx, id);
     if (!existing) throw new NotFoundException('Driver not found');
 
-    // 0) Plan toggle safety: only allow when no active coverage
     if (dto.is_weekly !== undefined && dto.is_weekly !== (existing as any).is_weekly) {
       const todayStart = this.startOfDay(new Date());
       const activeUntil = (existing as any).active_until_date as Date | null | undefined;
-      const hasActiveCoverage = !!activeUntil && activeUntil >= todayStart;
-      if (hasActiveCoverage) {
+      if (activeUntil && activeUntil >= todayStart) {
         throw new BadRequestException('Cannot change plan while coverage is active');
       }
     }
 
-    // 1) Vehicle reassignment if changed
     if (dto.vehicle_id) {
       const vehicle = await this.prisma.vehicle.findUnique({ where: { id: dto.vehicle_id } });
       if (!vehicle || vehicle.association_id !== (existing as any).association_id) {
@@ -245,22 +229,16 @@ export class DriverService {
       }
     }
 
-    // 2) Same-day interest side-effects around status changes
     const was = (existing as any).status as DriverStatus | undefined;
     const will = dto.status;
 
-    // If going OFFLINE/SUSPENDED → subtract today's fine once (if posted)
+    // status -> interest effects
     if (will && (will === DriverStatus.OFFLINE || will === DriverStatus.SUSPENDED) && will !== was) {
       await this.subtractTodaysFineIfPosted(ctx, id);
     }
-
-    // If coming back to AVAILABLE/ON_TRIP same day → after we persist status, we may re-add
     const shouldMaybeReAdd =
-      will &&
-      (will === DriverStatus.AVAILABLE || will === DriverStatus.ON_TRIP) &&
-      will !== was;
+      will && (will === DriverStatus.AVAILABLE || will === DriverStatus.ON_TRIP) && will !== was;
 
-    // 3) Persist the main update via repo
     const updated = await this.drivers.update(ctx, id, {
       full_name: dto.full_name,
       phone_number: dto.phone_number,
@@ -270,12 +248,8 @@ export class DriverService {
       is_weekly: dto.is_weekly ?? undefined,
     });
 
-    // 3.a) If returning to payable status, and still overdue with ACTIVE vehicle → re-add today's fine once
-    if (shouldMaybeReAdd) {
-      await this.maybeReAddTodaysFineOnce(ctx, id);
-    }
+    if (shouldMaybeReAdd) await this.maybeReAddTodaysFineOnce(ctx, id);
 
-    // 4) sync linked user name & phone
     if (dto.full_name !== undefined || dto.phone_number !== undefined) {
       await this.prisma.user.update({
         where: { id: (updated as any).user_id },
@@ -289,12 +263,8 @@ export class DriverService {
     return updated;
   }
 
-  // For checkbox UI (kept as-is)
   async listActiveDriverVehiclePairs(ctx: UserContext, associationIdOverride?: number) {
-    const association_id = isAdminLike(ctx.user_type)
-      ? (associationIdOverride ?? null)
-      : (ctx.association_id ?? null);
-
+    const association_id = isAdminLike(ctx.user_type) ? associationIdOverride ?? null : ctx.association_id ?? null;
     if (!association_id) throw new BadRequestException('association_id is required');
 
     const rows = await this.prisma.vehicleAssignment.findMany({
@@ -312,5 +282,66 @@ export class DriverService {
       vehicle_status: r.vehicle.status,
       started_at: r.started_at,
     }));
+  }
+
+  async resolveForPayment(ctx: UserContext, q: { plate?: string | null; phone?: string | null }) {
+    let driverId: number | null = null;
+
+    if (q.plate) {
+      const v = await this.prisma.vehicle.findUnique({
+        where: { plate_number: q.plate },
+        select: { id: true, association_id: true },
+      });
+      if (!v) throw new NotFoundException('Vehicle not found');
+
+      const active = await this.prisma.vehicleAssignment.findFirst({
+        where: { vehicle_id: v.id, association_id: v.association_id, active: true },
+        select: { driver_id: true },
+      });
+      if (!active) throw new BadRequestException('No active driver–vehicle assignment for this plate');
+      driverId = active.driver_id;
+    } else if (q.phone) {
+      const d = await this.prisma.driver.findFirst({
+        where: {
+          phone_number: q.phone,
+          ...(isAdminLike(ctx.user_type) || !ctx.association_id ? {} : { association_id: ctx.association_id }),
+        },
+        select: { id: true },
+      });
+      if (!d) throw new NotFoundException('Driver not found');
+      driverId = d.id;
+    } else {
+      throw new BadRequestException('plate or phone is required');
+    }
+
+    const d = await this.prisma.driver.findUnique({
+      where: { id: driverId! },
+      select: {
+        id: true,
+        full_name: true,
+        phone_number: true,
+        is_weekly: true,
+        active_until_date: true,
+        interest_accrued: true,
+        association_id: true,
+      },
+    });
+    if (!d) throw new NotFoundException('Driver not found');
+
+    const policy = await this.policyRepo.get(d.association_id);
+    if (!policy) throw new NotFoundException('Association policy not found');
+
+    return {
+      id: d.id,
+      name: d.full_name,
+      phone: d.phone_number,
+      is_weekly: Boolean(d.is_weekly),
+      active_until_date: d.active_until_date ? new Date(d.active_until_date).toISOString().slice(0, 10) : null,
+      interest_accrued: Number(d.interest_accrued ?? 0),
+      policy: {
+        plan_fee: Boolean(d.is_weekly) ? policy.weekly_fee : policy.monthly_fee,
+        daily_fine_percent: policy.daily_fine_percent,
+      },
+    };
   }
 }

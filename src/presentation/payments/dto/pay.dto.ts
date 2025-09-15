@@ -1,30 +1,33 @@
-import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
-import { IsInt, IsNumber, IsOptional, IsString, Min } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsISO8601, IsInt, IsNumber, IsOptional, IsString, Min, IsBoolean } from 'class-validator';
 
 export class PayDto {
-  @ApiPropertyOptional({ example: 123 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
+  // You may identify the target by driver_id OR plate_number
+  @IsOptional() @IsInt()
   driver_id?: number;
 
-  @ApiPropertyOptional({ example: 'AB-12345' })
-  @IsOptional()
-  @IsString()
+  @IsOptional() @IsString()
   plate_number?: string;
 
-  @ApiPropertyOptional({ example: 3, description: 'Prepay N future periods (>=0). Allowed even if overdue.' })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  prepay_qty?: number;
+  // Plan used for validation and price
+  @IsBoolean()
+  is_weekly!: boolean;
 
-  @ApiPropertyOptional({ example: 0, description: 'Override total (optional); if provided we will validate against expected.' })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
+  // How many future periods to prepay (0 = only clear overdue/current)
+  @IsInt() @Min(0)
+  prepay_qty!: number;
+
+  // Coverage window (GC ISO 8601, inclusive)
+  @IsISO8601()
+  covered_start_date!: string;
+
+  @IsISO8601()
+  covered_end_date!: string;
+
+  // Optional safeguard to ensure client/server totals match
+  @IsOptional() @IsNumber()
   total_override?: number;
+
+  // Optional: record how it was paid (string matches DB enum)
+  @IsOptional() @IsString()
+  payment_method?: string; // CASH | CARD | BANK | MOBILE | OTHER
 }

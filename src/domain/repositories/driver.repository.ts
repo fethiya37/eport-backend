@@ -1,4 +1,4 @@
-import { Driver, DriverStatus, Prisma } from '@prisma/client';
+import { Driver, DriverStatus, PaymentStatus, Prisma } from '@prisma/client';
 import { UserContext } from 'src/common/context/user-context';
 
 export const DRIVER_REPOSITORY = Symbol('DRIVER_REPOSITORY');
@@ -30,8 +30,8 @@ export interface IDriverRepository {
   findById(ctx: UserContext, id: number): Promise<Driver | null>;
 
   /**
-   * Generic update (kept simple): pass absolute values you want saved.
-   * Decimal fields can be numbers; Prisma will coerce.
+   * Unified driver update, extended to support payment/interest fields.
+   * Only pass fields you intend to change.
    */
   update(
     ctx: UserContext,
@@ -44,11 +44,14 @@ export interface IDriverRepository {
       license_expiry: Date | null;
       is_weekly: boolean;
 
-      // 👇 new interest-related fields
-      interest_accrued: number;            // absolute new value
-      last_accrual_date: Date | null;      // set/clear marker date
-      last_accrual_amount: number;         // absolute new value (e.g., 0 to clear)
-      active_until_date: Date | null;      // in case you need to touch coverage in future
+      // payment / coverage fields
+      active_until_date: Date | null;
+      payment_status: PaymentStatus;
+
+      // interests
+      interest_accrued: number;
+      last_accrual_date: Date | null;
+      last_accrual_amount: number | null;
     }>
   ): Promise<Driver>;
 }

@@ -5,7 +5,6 @@ import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { CreateOwnerDto } from '../../presentation/owner/dto/create-owner.dto';
 import { UpdateOwnerDto } from '../../presentation/owner/dto/update-owner.dto';
 import * as bcrypt from 'bcrypt';
-import { OwnerStatus } from '@prisma/client';
 import { isAdminLike } from '../../common/auth/roles.util';
 import { UserContext } from 'src/common/context/user-context';
 
@@ -14,44 +13,45 @@ export class OwnerService {
   constructor(
     @Inject(OWNER_REPOSITORY) private readonly owners: IOwnerRepository,
     private readonly prisma: PrismaService,
-  ) { }
+  ) {}
 
- async create(ctx: UserContext, dto: CreateOwnerDto) {
-  if (isAdminLike(ctx.user_type)) throw new ForbiddenException('Admin/Superadmin cannot create owners');
-  if (!ctx.association_id) throw new BadRequestException('association_id is required');
+  async create(ctx: UserContext, dto: CreateOwnerDto) {
+    if (isAdminLike(ctx.user_type)) throw new ForbiddenException('Admin/Superadmin cannot create owners');
+    if (!ctx.association_id) throw new BadRequestException('association_id is required');
 
-  const assoc = await this.prisma.association.findUnique({ where: { id: ctx.association_id } });
-  if (!assoc) throw new BadRequestException('association not found');
+    const assoc = await this.prisma.association.findUnique({ where: { id: ctx.association_id } });
+    if (!assoc) throw new BadRequestException('association not found');
 
-  return this.prisma.$transaction(async (tx) => {
-    const password_hash = await bcrypt.hash(dto.phone_number, 10);
+    return this.prisma.$transaction(async (tx) => {
+      const password_hash = await bcrypt.hash(dto.phone_number, 10);
 
-    const user = await tx.user.create({
-      data: {
-        phone_number: dto.phone_number,
-        user_type: 'Owner',
-        name: dto.full_name,
-        password_hash,
-        is_locked: false,
-        association_id: null, // only Association users use association_id
-      },
+      // ✅ Save association_id on the user record (cannot be null)
+      const user = await tx.user.create({
+        data: {
+          phone_number: dto.phone_number,
+          user_type: 'Owner',
+          name: dto.full_name,
+          password_hash,
+          is_locked: false,
+          association_id: ctx.association_id!, // <-- set association here
+        },
+      });
+
+      // pass tx to repo so both writes are in the SAME transaction
+      const owner = await this.owners.create(
+        ctx,
+        {
+          association_id: ctx.association_id!,
+          full_name: dto.full_name,
+          phone_number: dto.phone_number,
+          user_id: user.id,
+        },
+        tx,
+      );
+
+      return owner;
     });
-
-    // pass tx to repo so both writes are in the SAME transaction
-    const owner = await this.owners.create(
-      ctx,
-      {
-        association_id: ctx.association_id!,
-        full_name: dto.full_name,
-        phone_number: dto.phone_number,
-        user_id: user.id,
-      },
-      tx,
-    );
-
-    return owner;
-  });
-}
+  }
 
   findAll(ctx: UserContext) {
     // Admin/Superadmin: read OK (scoped in repo to all)
@@ -97,5 +97,4 @@ export class OwnerService {
 
     return updated;
   }
-
 }

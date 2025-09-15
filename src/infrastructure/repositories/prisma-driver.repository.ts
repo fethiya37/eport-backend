@@ -1,4 +1,4 @@
-import { Injectable, ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { IDriverRepository, DriverFilter } from '../../domain/repositories/driver.repository';
 import { Driver, Prisma } from '@prisma/client';
@@ -79,10 +79,14 @@ export class PrismaDriverRepository implements IDriverRepository {
       license_expiry: Date | null;
       is_weekly: boolean;
 
+      // payment / coverage fields
+      active_until_date: Date | null;
+      payment_status: 'ACTIVE' | 'INACTIVE';
+
+      // interest fields
       interest_accrued: number;
       last_accrual_date: Date | null;
-      last_accrual_amount: number;
-      active_until_date: Date | null;
+      last_accrual_amount: number | null;
     }>
   ): Promise<Driver> {
     if (isAdminLike(ctx.user_type)) throw new ForbiddenException('Admin/Superadmin cannot update drivers');
@@ -97,10 +101,12 @@ export class PrismaDriverRepository implements IDriverRepository {
       ...(data.license_expiry !== undefined ? { license_expiry: data.license_expiry } : {}),
       ...(data.is_weekly !== undefined ? { is_weekly: data.is_weekly } : {}),
 
+      ...(data.active_until_date !== undefined ? { active_until_date: data.active_until_date } : {}),
+      ...(data.payment_status !== undefined ? { payment_status: data.payment_status as any } : {}),
+
       ...(data.interest_accrued !== undefined ? { interest_accrued: data.interest_accrued as any } : {}),
       ...(data.last_accrual_date !== undefined ? { last_accrual_date: data.last_accrual_date } : {}),
       ...(data.last_accrual_amount !== undefined ? { last_accrual_amount: data.last_accrual_amount as any } : {}),
-      ...(data.active_until_date !== undefined ? { active_until_date: data.active_until_date } : {}),
     };
 
     return this.prisma.driver.update({ where: { id }, data: updateData });
