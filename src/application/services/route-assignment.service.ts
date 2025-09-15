@@ -27,7 +27,7 @@ import { ApproveAssignmentsDto } from '../../presentation/route-assignment/dto/a
 import { UpdateAssignmentDto } from '../../presentation/route-assignment/dto/update-assignment.dto';
 import { RouteAssignmentFilterDto } from '../../presentation/route-assignment/dto/find-filter.dto';
 
-// ✅ Shared EC/GC helpers (dependency-free)
+// GC/EC helpers (only used for visible window; NOT for payload conversion)
 import {
   startOfDay,
   endOfDay,
@@ -45,15 +45,30 @@ export class RouteAssignmentService {
     private readonly prisma: PrismaService,
   ) {}
 
-  // Parse "YYYY-MM-DD" into local Date (00:00)
+  /**
+   * Parse a GC date coming from the client.
+   * - If ISO string is provided, we normalize to local 00:00 for comparisons.
+   * - If 'YYYY-MM-DD' is provided, we construct local 00:00 of that GC date.
+   * NO EC→GC conversion anywhere.
+   */
   private parseGcDate(d: string | Date): Date {
     if (d instanceof Date) return d;
-    const [y, m, dd] = d.split('-').map((x) => parseInt(x, 10));
-    return new Date(y, m - 1, dd);
+    const s = d.trim();
+    // ISO string case (contains 'T' or timezone)
+    if (s.length > 10 || s.includes('T')) {
+      const iso = new Date(s);
+      if (isNaN(iso.getTime())) throw new BadRequestException('Invalid GC date');
+      return startOfDay(iso);
+    }
+    // 'YYYY-MM-DD' case
+    const [y, m, dd] = s.split('-').map((x) => parseInt(x, 10));
+    const out = new Date(y, m - 1, dd);
+    if (isNaN(out.getTime())) throw new BadRequestException('Invalid GC date');
+    return out;
   }
 
   // --------------------------------------------------------------------------
-  // CREATE/UPDATE many (GC only)
+  // CREATE/UPDATE many (GC only; expects GC from client)
   // --------------------------------------------------------------------------
   async bulkUpsert(ctx: UserContext, dto: BulkUpsertAssignmentsDto) {
     const association_id = isAdminLike(ctx.user_type)
@@ -67,12 +82,8 @@ export class RouteAssignmentService {
     for (const it of dto.items) {
       const start_date = this.parseGcDate(it.start_date as any);
       const end_date = this.parseGcDate(it.end_date as any);
-      if (isNaN(start_date.getTime()) || isNaN(end_date.getTime())) {
-        throw new BadRequestException('start_date/end_date must be valid GC dates');
-      }
-      if (start_date > end_date) {
-        throw new BadRequestException('start_date must be <= end_date');
-      }
+
+      if (start_date > end_date) throw new BadRequestException('start_date must be <= end_date');
 
       if (!(await this.repo.existsRoute(it.route_id))) {
         throw new BadRequestException(`Route ${it.route_id} not found`);
@@ -84,6 +95,7 @@ export class RouteAssignmentService {
         throw new BadRequestException(`Vehicle ${it.vehicle_id} not in association`);
       }
 
+      // Must be the currently active driver–vehicle pair
       const activePair = await this.vehAssign.isActivePair(
         association_id,
         it.driver_id,
@@ -95,20 +107,21 @@ export class RouteAssignmentService {
         );
       }
 
-      if (
-        await this.repo.existsDriverOverlap(
-          association_id,
-          it.driver_id,
-          start_date,
-          end_date,
-          it.id,
-        )
-      ) {
+      // Prevent overlaps for the same driver
+      const overlaps = await this.repo.existsDriverOverlap(
+        association_id,
+        it.driver_id,
+        start_date,
+        end_date,
+        it.id,
+      );
+      if (overlaps) {
         throw new BadRequestException(
           `Driver ${it.driver_id} already has an assignment overlapping that period`,
         );
       }
 
+      // Quota & status resolution
       let status: RouteAssignmentStatus;
       let route_quota_id: number | null | undefined = it.route_quota_id ?? null;
       let approved_by_user_id: number | null | undefined = null;
@@ -122,12 +135,8 @@ export class RouteAssignmentService {
         if (route_quota_id) {
           const q = await this.repo.getQuotaById(route_quota_id);
           if (!q) throw new BadRequestException('route_quota_id not found');
-          if (q.association_id !== association_id) {
-            throw new ForbiddenException('route_quota_id not in target association');
-          }
-          if (q.route_id !== it.route_id) {
-            throw new BadRequestException('route_quota_id does not match route_id');
-          }
+          if (q.association_id !== association_id) throw new ForbiddenException('route_quota_id not in target association');
+          if (q.route_id !== it.route_id) throw new BadRequestException('route_quota_id does not match route_id');
           if (!(q.start_date <= start_date && q.end_date >= end_date)) {
             throw new BadRequestException('Assignment window not covered by quota');
           }
@@ -135,19 +144,10 @@ export class RouteAssignmentService {
       } else {
         const q = route_quota_id
           ? await this.repo.getQuotaById(route_quota_id)
-          : await this.repo.findCoveringQuota(
-              association_id,
-              it.route_id,
-              start_date,
-              end_date,
-            );
+          : await this.repo.findCoveringQuota(association_id, it.route_id, start_date, end_date);
         if (!q) throw new BadRequestException('No quota for this route and period');
-        if (q.association_id !== association_id) {
-          throw new ForbiddenException('route_quota_id not in your association');
-        }
-        if (q.route_id !== it.route_id) {
-          throw new BadRequestException('route_quota_id does not match route_id');
-        }
+        if (q.association_id !== association_id) throw new ForbiddenException('route_quota_id not in your association');
+        if (q.route_id !== it.route_id) throw new BadRequestException('route_quota_id does not match route_id');
         if (!(q.start_date <= start_date && q.end_date >= end_date)) {
           throw new BadRequestException('Assignment window not covered by quota');
         }
@@ -196,9 +196,11 @@ export class RouteAssignmentService {
   // --------------------------------------------------------------------------
   async approve(ctx: UserContext, dto: ApproveAssignmentsDto) {
     if (!isAdminLike(ctx.user_type)) throw new ForbiddenException('Only Admin/Superadmin');
+
     const updated = await this.repo.approveMany(dto.ids, ctx.userId);
     const affected = await this.repo.findByIds(dto.ids);
     const assocId = affected.length ? affected[0].association_id : undefined;
+
     if (assocId) {
       await this.refreshDriversTodayStatus(
         assocId,
@@ -209,13 +211,14 @@ export class RouteAssignmentService {
   }
 
   // --------------------------------------------------------------------------
-  // FIND (GC filter passthrough)
+  // FIND (GC filter passthrough; expects GC from client)
   // --------------------------------------------------------------------------
   async find(ctx: UserContext, filter: RouteAssignmentFilterDto) {
     const f = { ...filter };
     if (!isAdminLike(ctx.user_type) && ctx.association_id) {
       f.association_id = ctx.association_id;
     }
+
     const date_from = f.date_from ? this.parseGcDate(f.date_from as any) : undefined;
     const date_to = f.date_to ? this.parseGcDate(f.date_to as any) : undefined;
 
@@ -232,7 +235,7 @@ export class RouteAssignmentService {
   }
 
   // --------------------------------------------------------------------------
-  // UPDATE ONE (GC only)
+  // UPDATE ONE (GC only; expects GC from client)
   // --------------------------------------------------------------------------
   async updateOne(ctx: UserContext, id: number, dto: UpdateAssignmentDto) {
     const existing = (await this.repo.findByIds([id]))[0];
@@ -252,19 +255,10 @@ export class RouteAssignmentService {
     const driver_id = dto.driver_id ?? existing.driver_id;
     const vehicle_id = dto.vehicle_id ?? existing.vehicle_id;
 
-    const start_date = dto.start_date
-      ? this.parseGcDate(dto.start_date as any)
-      : existing.start_date;
-    const end_date = dto.end_date
-      ? this.parseGcDate(dto.end_date as any)
-      : existing.end_date;
+    const start_date = dto.start_date ? this.parseGcDate(dto.start_date as any) : existing.start_date;
+    const end_date   = dto.end_date   ? this.parseGcDate(dto.end_date as any)   : existing.end_date;
 
-    if (isNaN(start_date.getTime()) || isNaN(end_date.getTime())) {
-      throw new BadRequestException('start_date/end_date must be valid GC dates');
-    }
-    if (start_date > end_date) {
-      throw new BadRequestException('start_date must be <= end_date');
-    }
+    if (start_date > end_date) throw new BadRequestException('start_date must be <= end_date');
 
     if (!(await this.repo.existsRoute(route_id))) throw new BadRequestException('Route not found');
     if (!(await this.repo.existsDriverInAssociation(driver_id, association_id))) {
@@ -278,23 +272,17 @@ export class RouteAssignmentService {
       throw new BadRequestException('Driver is not actively assigned to this vehicle');
     }
 
-    if (
-      await this.repo.existsDriverOverlap(
-        association_id,
-        driver_id,
-        start_date,
-        end_date,
-        id,
-      )
-    ) {
-      throw new BadRequestException(
-        'Driver already has an assignment overlapping that period',
-      );
-    }
+    const overlaps = await this.repo.existsDriverOverlap(
+      association_id,
+      driver_id,
+      start_date,
+      end_date,
+      id,
+    );
+    if (overlaps) throw new BadRequestException('Driver already has an assignment overlapping that period');
 
     let status: RouteAssignmentStatus = existing.status as RouteAssignmentStatus;
-    let approved_by_user_id: number | null | undefined =
-      existing.approved_by_user_id ?? null;
+    let approved_by_user_id: number | null | undefined = existing.approved_by_user_id ?? null;
     let approved_at: Date | null | undefined = existing.approved_at ?? null;
     let route_quota_id: number | null | undefined = existing.route_quota_id ?? null;
 
@@ -310,13 +298,9 @@ export class RouteAssignmentService {
       }
       if (dto.route_quota_id !== undefined) route_quota_id = dto.route_quota_id;
     } else {
-      const q = await this.repo.findCoveringQuota(
-        association_id,
-        route_id,
-        start_date,
-        end_date,
-      );
+      const q = await this.repo.findCoveringQuota(association_id, route_id, start_date, end_date);
       if (!q) throw new BadRequestException('No quota assigned for this route and period');
+
       const used = await this.repo.countAssignmentsOverlappingForQuota(
         q.id,
         association_id,
@@ -333,31 +317,29 @@ export class RouteAssignmentService {
       approved_at = null;
     }
 
-    const [saved] = await this.repo.upsertMany([
-      {
-        id,
-        route_id,
-        driver_id,
-        vehicle_id,
-        association_id,
-        start_date,
-        end_date,
-        is_weekly: dto.is_weekly ?? existing.is_weekly,
-        status,
-        assigned_by_user_id: existing.assigned_by_user_id,
-        approved_by_user_id,
-        approved_at,
-        route_quota_id,
-      },
-    ]);
+    const [saved] = await this.repo.upsertMany([{
+      id,
+      route_id,
+      driver_id,
+      vehicle_id,
+      association_id,
+      start_date,
+      end_date,
+      is_weekly: dto.is_weekly ?? existing.is_weekly,
+      status,
+      assigned_by_user_id: existing.assigned_by_user_id,
+      approved_by_user_id,
+      approved_at,
+      route_quota_id,
+    }]);
 
     await this.refreshDriversTodayStatus(association_id, [driver_id]);
     return saved;
   }
 
   // --------------------------------------------------------------------------
-  // Visible window (plate_number only): current period start → active_until_date
-  // Includes PENDING + APPROVED; overlap with window.
+  // Visible coverage by plate_number (no EC→GC conversion of payloads)
+  // Window = current period start (weekly Monday / monthly EC month start based on "today" GC)
   // --------------------------------------------------------------------------
   async visibleCoverage(ctx: UserContext, plate_number: string) {
     if (!plate_number) throw new BadRequestException('plate_number is required');
@@ -369,18 +351,10 @@ export class RouteAssignmentService {
     if (!vehicle) throw new NotFoundException('Vehicle not found');
 
     const active = await this.prisma.vehicleAssignment.findFirst({
-      where: {
-        vehicle_id: vehicle.id,
-        association_id: vehicle.association_id,
-        active: true,
-      },
+      where: { vehicle_id: vehicle.id, association_id: vehicle.association_id, active: true },
       select: { driver_id: true },
     });
-    if (!active) {
-      throw new BadRequestException(
-        'No active driver–vehicle assignment for this plate_number',
-      );
-    }
+    if (!active) throw new BadRequestException('No active driver–vehicle assignment for this plate_number');
 
     const driver = await this.prisma.driver.findUnique({
       where: { id: active.driver_id },
@@ -417,6 +391,7 @@ export class RouteAssignmentService {
       };
     }
 
+    // Window start depends on plan (weekly Monday or EC month start) — derived from GC “today”
     const windowStart = driver.is_weekly ? startOfWeekMonday(today) : etMonthStart(today);
     const windowEnd = endOfDay(driver.active_until_date);
 
@@ -426,12 +401,12 @@ export class RouteAssignmentService {
         association_id: driver.association_id,
         status: { in: [RouteAssignmentStatus.Pending, RouteAssignmentStatus.Approved] },
         NOT: [
-          { end_date: { lt: windowStart } }, // ends before window
-          { start_date: { gt: windowEnd } }, // starts after window
+          { end_date:   { lt: windowStart } }, // ends before window
+          { start_date: { gt: windowEnd   } }, // starts after window
         ],
       },
       include: {
-        route: { select: { id: true, departure: true, arrival: true } },
+        route:   { select: { id: true, departure: true, arrival: true } },
         vehicle: { select: { plate_number: true } },
       },
       orderBy: { start_date: 'asc' },
@@ -468,19 +443,12 @@ export class RouteAssignmentService {
   // --------------------------------------------------------------------------
   // Helpers
   // --------------------------------------------------------------------------
-  private async refreshDriversTodayStatus(
-    association_id: number,
-    driverIds: number[],
-  ) {
+  private async refreshDriversTodayStatus(association_id: number, driverIds: number[]) {
     if (!driverIds.length) return;
     const today = new Date();
     const unique = Array.from(new Set(driverIds));
     for (const driver_id of unique) {
-      const onTrip = await this.repo.hasApprovedOnDate(
-        association_id,
-        driver_id,
-        today,
-      );
+      const onTrip = await this.repo.hasApprovedOnDate(association_id, driver_id, today);
       await this.repo.setDriverStatus(driver_id, onTrip ? 'ON_TRIP' : 'AVAILABLE');
     }
   }
