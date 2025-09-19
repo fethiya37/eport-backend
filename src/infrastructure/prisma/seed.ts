@@ -11,13 +11,20 @@ async function main() {
   const existing = await prisma.user.findUnique({ where: { phone_number } });
   if (!existing) {
     const hash = await bcrypt.hash(password, 10);
-    await prisma.user.create({
-      data: {
-        phone_number,
-        user_type: 'Superadmin',
+    await prisma.user.upsert({
+      where: { phone_number },
+      update: {
         password_hash: hash,
+        user_type: 'Superadmin',
         name: 'Super Admin',
-        is_locked: false,   
+        is_locked: false,
+      },
+      create: {
+        phone_number,
+        password_hash: hash,
+        user_type: 'Superadmin',
+        name: 'Super Admin',
+        is_locked: false,
       },
     });
     console.log('✅ Superadmin seeded:', phone_number, '/', password);
