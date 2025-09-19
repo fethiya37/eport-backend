@@ -5,7 +5,7 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
-  const phone_number = '0900000000';
+  const phone_number = '+251900000000';
   const password = 'supersecret';
 
   const existing = await prisma.user.findUnique({ where: { phone_number } });
@@ -16,8 +16,8 @@ async function main() {
         phone_number,
         user_type: 'Superadmin',
         password_hash: hash,
-        name: 'System Root',
-        is_locked: false,   // ✅ explicitly set
+        name: 'Super Admin',
+        is_locked: false,   
       },
     });
     console.log('✅ Superadmin seeded:', phone_number, '/', password);
