@@ -43,7 +43,7 @@ export class RouteAssignmentService {
     @Inject(VEHICLE_ASSIGNMENT_REPOSITORY)
     private readonly vehAssign: IVehicleAssignmentRepository,
     private readonly prisma: PrismaService,
-  ) {}
+  ) { }
 
   /**
    * Parse a GC date coming from the client.
@@ -54,17 +54,21 @@ export class RouteAssignmentService {
   private parseGcDate(d: string | Date): Date {
     if (d instanceof Date) return d;
     const s = d.trim();
-    // ISO string case (contains 'T' or timezone)
-    if (s.length > 10 || s.includes('T')) {
-      const iso = new Date(s);
-      if (isNaN(iso.getTime())) throw new BadRequestException('Invalid GC date');
-      return startOfDay(iso);
+
+    // Plain YYYY-MM-DD
+    if (!s.includes('T')) {
+      const [y, m, dd] = s.split('-').map((x) => parseInt(x, 10));
+      const out = new Date(Date.UTC(y, m - 1, dd)); // treat as UTC
+      if (isNaN(out.getTime()))
+        throw new BadRequestException('Invalid GC date');
+      console.log('Parsed GC date (UTC):', out.toISOString());
+      return out;
     }
-    // 'YYYY-MM-DD' case
-    const [y, m, dd] = s.split('-').map((x) => parseInt(x, 10));
-    const out = new Date(y, m - 1, dd);
-    if (isNaN(out.getTime())) throw new BadRequestException('Invalid GC date');
-    return out;
+
+    // ISO string: keep as UTC, but remove startOfDay shifting
+    const iso = new Date(s);
+    if (isNaN(iso.getTime())) throw new BadRequestException('Invalid GC date');
+    return iso;
   }
 
   // --------------------------------------------------------------------------
@@ -256,7 +260,7 @@ export class RouteAssignmentService {
     const vehicle_id = dto.vehicle_id ?? existing.vehicle_id;
 
     const start_date = dto.start_date ? this.parseGcDate(dto.start_date as any) : existing.start_date;
-    const end_date   = dto.end_date   ? this.parseGcDate(dto.end_date as any)   : existing.end_date;
+    const end_date = dto.end_date ? this.parseGcDate(dto.end_date as any) : existing.end_date;
 
     if (start_date > end_date) throw new BadRequestException('start_date must be <= end_date');
 
@@ -401,12 +405,12 @@ export class RouteAssignmentService {
         association_id: driver.association_id,
         status: { in: [RouteAssignmentStatus.Pending, RouteAssignmentStatus.Approved] },
         NOT: [
-          { end_date:   { lt: windowStart } }, // ends before window
-          { start_date: { gt: windowEnd   } }, // starts after window
+          { end_date: { lt: windowStart } }, // ends before window
+          { start_date: { gt: windowEnd } }, // starts after window
         ],
       },
       include: {
-        route:   { select: { id: true, departure: true, arrival: true } },
+        route: { select: { id: true, departure: true, arrival: true } },
         vehicle: { select: { plate_number: true } },
       },
       orderBy: { start_date: 'asc' },
