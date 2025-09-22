@@ -17,8 +17,8 @@ export class PrismaOwnerRepository implements IOwnerRepository {
 
   async create(
     ctx: UserContext,
-    data: { association_id: number; full_name: string; phone_number: string; user_id: number },
-    tx: Prisma.TransactionClient, // <<< receive tx
+    data: { association_id: number; full_name: string; phone_number: string },
+    tx: Prisma.TransactionClient,
   ): Promise<Owner> {
     if (isAdminLike(ctx.user_type)) {
       throw new ForbiddenException('Admin/Superadmin cannot create owners');
@@ -27,10 +27,8 @@ export class PrismaOwnerRepository implements IOwnerRepository {
       throw new ForbiddenException('Cannot create owner for another association');
     }
 
-    // IMPORTANT: use the SAME transaction client
     return tx.owner.create({
       data: {
-        user_id: data.user_id,
         association_id: data.association_id,
         full_name: data.full_name,
         phone_number: data.phone_number,
@@ -42,14 +40,14 @@ export class PrismaOwnerRepository implements IOwnerRepository {
     return this.prisma.owner.findMany({
       where: this.scopeWhere(ctx),
       orderBy: { id: 'asc' },
-      include: { user: true, association: true },
+      include: { association: true },
     });
   }
 
   async findById(ctx: UserContext, id: number): Promise<Owner | null> {
     const owner = await this.prisma.owner.findUnique({
       where: { id },
-      include: { user: true, association: true },
+      include: { association: true },
     });
     if (!owner) return null;
 
@@ -64,7 +62,7 @@ export class PrismaOwnerRepository implements IOwnerRepository {
   async update(
     ctx: UserContext,
     id: number,
-    data: Partial<{ full_name: string; phone_number: string; status: OwnerStatus }>
+    data: Partial<{ full_name: string; phone_number: string; status: OwnerStatus }>,
   ): Promise<Owner> {
     if (isAdminLike(ctx.user_type)) {
       throw new ForbiddenException('Admin/Superadmin cannot update owners');
@@ -75,7 +73,7 @@ export class PrismaOwnerRepository implements IOwnerRepository {
     return this.prisma.owner.update({
       where: { id },
       data,
-      include: { user: true, association: true },
+      include: { association: true },
     });
   }
 }

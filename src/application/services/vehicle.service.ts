@@ -35,7 +35,7 @@ export class VehicleService {
     @Inject(VEHICLE_ASSIGNMENT_REPOSITORY) private readonly vehAssign: IVehicleAssignmentRepository,
     @Inject(ASSOCIATION_POLICY_REPOSITORY) private readonly policyRepo: IAssociationPolicyRepository,
     private readonly prisma: PrismaService,
-  ) {}
+  ) { }
 
   // ===== date helpers (EAT aware) =====
   private pad2(n: number) { return n < 10 ? `0${n}` : `${n}`; }
@@ -201,6 +201,11 @@ export class VehicleService {
     if (!v) throw new NotFoundException('Vehicle not found');
     return v;
   }
+
+  async findActiveWithoutDriver(ctx: UserContext) {
+    return this.vehicles.findActiveWithoutDriver(ctx);
+  }
+
 
   async update(ctx: UserContext, id: number, dto: UpdateVehicleDto) {
     if (isAdminLike(ctx.user_type)) throw new ForbiddenException('Admin/Superadmin cannot update vehicles');

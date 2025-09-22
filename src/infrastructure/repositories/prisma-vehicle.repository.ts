@@ -7,7 +7,7 @@ import { UserContext } from 'src/common/context/user-context';
 
 @Injectable()
 export class PrismaVehicleRepository implements IVehicleRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   private scopeWhere(ctx: UserContext): Prisma.VehicleWhereInput {
     if (isAdminLike(ctx.user_type)) return {};
@@ -81,15 +81,31 @@ export class PrismaVehicleRepository implements IVehicleRepository {
     }
     return vehicle;
   }
+  async findActiveWithoutDriver(ctx: UserContext): Promise<Vehicle[]> {
+    return this.prisma.vehicle.findMany({
+      where: {
+        ...this.scopeWhere(ctx),
+        status: VehicleStatus.ACTIVE,
+        assignments: {
+          none: {
+            active: true, // 🚨 ensures no active assignment exists
+          },
+        },
+      },
+      include: { association: true, owner: true },
+    });
+  }
+
 
   async update(ctx: UserContext, id: number, data: Partial<{
+    plate_number: string;   // must be string (no null)
     libre_no: string | null;
     owner_id: number;
     make: string | null;
     model: string | null;
     color: string | null;
     capacity: number | null;
-    status: VehicleStatus;  // VEHICLE status only
+    status: VehicleStatus;
   }>): Promise<Vehicle> {
     if (isAdminLike(ctx.user_type)) throw new ForbiddenException('Admin/Superadmin cannot update vehicles');
 
@@ -106,14 +122,16 @@ export class PrismaVehicleRepository implements IVehicleRepository {
     return this.prisma.vehicle.update({
       where: { id },
       data: {
+        ...(data.plate_number !== undefined ? { plate_number: data.plate_number } : {}),
         ...(data.libre_no !== undefined ? { libre_no: data.libre_no } : {}),
         ...(data.owner_id !== undefined ? { owner_id: data.owner_id } : {}),
         ...(data.make !== undefined ? { make: data.make } : {}),
         ...(data.model !== undefined ? { model: data.model } : {}),
         ...(data.color !== undefined ? { color: data.color } : {}),
         ...(data.capacity !== undefined ? { capacity: data.capacity } : {}),
-        ...(data.status !== undefined ? { status: data.status } : {}), // MAINTENANCE/RETIRED/ACTIVE only
+        ...(data.status !== undefined ? { status: data.status } : {}),
       },
     });
+
   }
 }

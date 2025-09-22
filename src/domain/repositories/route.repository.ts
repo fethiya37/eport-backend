@@ -32,6 +32,8 @@ export interface IRoutesRepository {
   // Writes
   upsertGroupWithRoutes(args: UpsertGroupWithRoutesArgs): Promise<RouteGroup & { routes: Route[] }>;
   updateSingleRoute(id: number, data: RouteUpsertInput): Promise<Route>;
+  deleteGroup(id: number): Promise<void>;
+
 
   /** ✅ NEW: cheap existence check by route id */
   existsRoute(id: number): Promise<boolean>;

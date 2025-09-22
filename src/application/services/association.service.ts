@@ -69,32 +69,19 @@ export class AssociationService {
 
   // ---- Helpers: lock/unlock all users "inside" the association ----
   private async lockUsersForAssociation(associationId: number) {
-    // Get user ids from Owners and Drivers of this association
-    const [owners, drivers] = await Promise.all([
-      this.prisma.owner.findMany({ where: { association_id: associationId }, select: { user_id: true } }),
-      this.prisma.driver.findMany({ where: { association_id: associationId }, select: { user_id: true } }),
-    ]);
-    const ownerUserIds = owners.map(o => o.user_id);
+    const drivers = await this.prisma.driver.findMany({
+      where: { association_id: associationId },
+      select: { user_id: true },
+    });
     const driverUserIds = drivers.map(d => d.user_id);
 
-    // Lock:
     await this.prisma.$transaction([
-      // 1) Association "account" users (user_type = Association)
+      // 1) Association "account" users
       this.prisma.user.updateMany({
         where: { association_id: associationId, user_type: 'Association' },
         data: { is_locked: true },
       }),
-      // 2) Owner-linked users
-      ownerUserIds.length
-        ? this.prisma.user.updateMany({
-          where: { id: { in: ownerUserIds } },
-          data: { is_locked: true },
-        })
-        : this.prisma.user.updateMany({
-          where: { id: { in: [] } },
-          data: { is_locked: true },
-        }),
-      // 3) Driver-linked users
+      // 2) Driver-linked users
       driverUserIds.length
         ? this.prisma.user.updateMany({
           where: { id: { in: driverUserIds } },
@@ -108,37 +95,19 @@ export class AssociationService {
   }
 
   private async unlockUsersForAssociation(associationId: number) {
-    // Fetch ONLY owners/drivers that are NOT suspended
-    const [owners, drivers] = await Promise.all([
-      this.prisma.owner.findMany({
-        where: { association_id: associationId, NOT: { status: OwnerStatus.SUSPENDED } },
-        select: { user_id: true },
-      }),
-      this.prisma.driver.findMany({
-        where: { association_id: associationId, NOT: { status: DriverStatus.SUSPENDED } },
-        select: { user_id: true },
-      }),
-    ]);
-
-    const ownerUserIds = owners.map(o => o.user_id);
+    const drivers = await this.prisma.driver.findMany({
+      where: { association_id: associationId, NOT: { status: DriverStatus.SUSPENDED } },
+      select: { user_id: true },
+    });
     const driverUserIds = drivers.map(d => d.user_id);
 
     const ops = [
-      // Always unlock association "account" users when association is ACTIVE again
+      // Unlock association "account" users
       this.prisma.user.updateMany({
         where: { association_id: associationId, user_type: 'Association' },
         data: { is_locked: false },
       }),
     ];
-
-    if (ownerUserIds.length) {
-      ops.push(
-        this.prisma.user.updateMany({
-          where: { id: { in: ownerUserIds } },
-          data: { is_locked: false },
-        }),
-      );
-    }
 
     if (driverUserIds.length) {
       ops.push(

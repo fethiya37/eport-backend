@@ -1,5 +1,5 @@
 import { Vehicle, VehicleStatus } from '@prisma/client';
-import type  { UserContext } from 'src/common/context/user-context';
+import type { UserContext } from 'src/common/context/user-context';
 
 export const VEHICLE_REPOSITORY = Symbol('VEHICLE_REPOSITORY');
 
@@ -27,14 +27,21 @@ export interface IVehicleRepository {
 
   findAll(ctx: UserContext, filter?: VehicleFilter): Promise<Vehicle[]>;
   findById(ctx: UserContext, id: number): Promise<Vehicle | null>;
+  findActiveWithoutDriver(ctx: UserContext): Promise<Vehicle[]>;
 
-  update(ctx: UserContext, id: number, data: Partial<{
-    libre_no: string | null;
-    owner_id: number;
-    make: string | null;
-    model: string | null;
-    color: string | null;
-    capacity: number | null;
-    status: VehicleStatus;
-  }>): Promise<Vehicle>;
+
+  update(
+    ctx: UserContext,
+    id: number,
+    data: Partial<{
+      plate_number: string | null;
+      libre_no: string | null;
+      owner_id: number;
+      make: string | null;
+      model: string | null;
+      color: string | null;
+      capacity: number | null;
+      status: VehicleStatus;
+    }>
+  ): Promise<Vehicle>;
 }

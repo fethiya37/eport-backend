@@ -43,5 +43,9 @@ export class VehicleController {
     return this.service.update(user, id, dto);
   }
 
-  // No DELETE route
+  @Get('available')
+  @Roles('Admin', 'Superadmin', 'Association')
+  findActiveWithoutDriver(@AuthUser() user: UserContext) {
+    return this.service.findActiveWithoutDriver(user);
+  }
 }

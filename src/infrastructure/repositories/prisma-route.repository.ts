@@ -6,7 +6,7 @@ import { IRoutesRepository, RouteFilter, RouteUpsertInput, UpsertGroupWithRoutes
 
 @Injectable()
 export class PrismaRoutesRepository implements IRoutesRepository {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   // ---------- READS ----------
   listRouteGroups(includeRoutes: boolean) {
@@ -44,7 +44,7 @@ export class PrismaRoutesRepository implements IRoutesRepository {
     const groupId = await this.ensureGroup(args);
 
     const result = await this.prisma.$transaction(async (tx) => {
-      // rename group if both id & new name provided
+      // 1) Rename group if id & new name provided
       if (args.route_group_id && args.route_group) {
         await tx.routeGroup.update({
           where: { id: groupId },
@@ -52,6 +52,23 @@ export class PrismaRoutesRepository implements IRoutesRepository {
         });
       }
 
+      // 2) Get all existing routes in this group
+      const existingRoutes = await tx.route.findMany({
+        where: { route_group_id: groupId },
+        select: { id: true },
+      });
+      const existingIds = existingRoutes.map(r => r.id);
+
+      // 3) Track IDs coming from payload
+      const incomingIds = args.routes.filter(r => r.id).map(r => r.id!);
+
+      // 4) Delete orphaned routes (present in DB but missing in payload)
+      const toDelete = existingIds.filter(id => !incomingIds.includes(id));
+      if (toDelete.length) {
+        await tx.route.deleteMany({ where: { id: { in: toDelete } } });
+      }
+
+      // 5) Upsert incoming routes
       for (const r of args.routes) {
         this.validateRouteInput(r);
 
@@ -59,12 +76,17 @@ export class PrismaRoutesRepository implements IRoutesRepository {
           route_group_id: groupId,
           departure: r.departure,
           arrival: r.arrival,
-          kilometer: r.kilometer === null || r.kilometer === undefined ? null : new Prisma.Decimal(r.kilometer as any),
-          tariff: r.tariff === null || r.tariff === undefined ? null : new Prisma.Decimal(r.tariff as any),
+          kilometer:
+            r.kilometer === null || r.kilometer === undefined
+              ? null
+              : new Prisma.Decimal(r.kilometer as any),
+          tariff:
+            r.tariff === null || r.tariff === undefined
+              ? null
+              : new Prisma.Decimal(r.tariff as any),
         };
 
         if (r.id) {
-          // ensure the route belongs to this group before updating
           const exists = await tx.route.findFirst({ where: { id: r.id, route_group_id: groupId } });
           if (!exists) throw new BadRequestException(`Route #${r.id} not found in this group`);
           await tx.route.update({ where: { id: r.id }, data });
@@ -73,6 +95,7 @@ export class PrismaRoutesRepository implements IRoutesRepository {
         }
       }
 
+      // 6) Return final state of group with routes
       return tx.routeGroup.findUnique({
         where: { id: groupId },
         include: { routes: { orderBy: { id: 'asc' } } },
@@ -93,8 +116,14 @@ export class PrismaRoutesRepository implements IRoutesRepository {
       data: {
         departure: r.departure,
         arrival: r.arrival,
-        kilometer: r.kilometer === null || r.kilometer === undefined ? null : new Prisma.Decimal(r.kilometer as any),
-        tariff: r.tariff === null || r.tariff === undefined ? null : new Prisma.Decimal(r.tariff as any),
+        kilometer:
+          r.kilometer === null || r.kilometer === undefined
+            ? null
+            : new Prisma.Decimal(r.kilometer as any),
+        tariff:
+          r.tariff === null || r.tariff === undefined
+            ? null
+            : new Prisma.Decimal(r.tariff as any),
       },
     });
   }
@@ -117,8 +146,22 @@ export class PrismaRoutesRepository implements IRoutesRepository {
     if (!r.departure?.trim()) throw new BadRequestException('departure is required');
     if (!r.arrival?.trim()) throw new BadRequestException('arrival is required');
   }
+
   async existsRoute(id: number): Promise<boolean> {
     const count = await this.prisma.route.count({ where: { id } });
     return count > 0;
   }
+
+  async deleteGroup(id: number): Promise<void> {
+    // Ensure group exists
+    const group = await this.prisma.routeGroup.findUnique({ where: { id } });
+    if (!group) throw new NotFoundException('Route group not found');
+
+    // Delete all routes in the group first (to avoid FK issues)
+    await this.prisma.$transaction([
+      this.prisma.route.deleteMany({ where: { route_group_id: id } }),
+      this.prisma.routeGroup.delete({ where: { id } }),
+    ]);
+  }
 }
+

@@ -4,6 +4,12 @@ import { Type } from 'class-transformer';
 import { VehicleStatus, VehicleAssociationStatus } from '@prisma/client';
 
 export class UpdateVehicleDto {
+  @ApiPropertyOptional({ example: 'ABC-54321' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  plate_number?: string | null;
+
   @ApiPropertyOptional({ example: 'LIBRE-1122' })
   @IsOptional()
   @IsString()

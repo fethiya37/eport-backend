@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseBoolPipe, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseBoolPipe, ParseIntPipe, Patch, Post, Query, UseGuards, Delete } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { RoutesService } from '../../application/services/routes.service';
 import { UpsertGroupWithRoutesDto } from './dto/upsert-group-with-routes.dto';
@@ -14,7 +14,7 @@ import type { UserContext } from 'src/common/context/user-context';
 @Controller('routes')
 @UseGuards(JwtAuthGuard) // GETs require auth for any role
 export class RoutesController {
-  constructor(private readonly service: RoutesService) {}
+  constructor(private readonly service: RoutesService) { }
 
   // ---------- READ ----------
   @Get('groups')
@@ -54,5 +54,10 @@ export class RoutesController {
     return this.service.updateSingleRoute(user, id, body);
   }
 
-  // No DELETEs
+  @Delete('groups/:id')
+  @ApiBearerAuth()
+  @Roles('Admin', 'Superadmin')
+  deleteGroup(@AuthUser() user: UserContext, @Param('id', ParseIntPipe) id: number) {
+    return this.service.deleteGroup(user, id);
+  }
 }

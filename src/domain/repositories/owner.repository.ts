@@ -10,9 +10,8 @@ export interface IOwnerRepository {
       association_id: number;
       full_name: string;
       phone_number: string;
-      user_id: number; // linked user created in service
     },
-    tx: Prisma.TransactionClient,   // <<< add tx
+    tx: Prisma.TransactionClient,
   ): Promise<Owner>;
 
   findAll(ctx: UserContext): Promise<Owner[]>;
@@ -21,6 +20,6 @@ export interface IOwnerRepository {
   update(
     ctx: UserContext,
     id: number,
-    data: Partial<{ full_name: string; phone_number: string; status: OwnerStatus }>
+    data: Partial<{ full_name: string; phone_number: string; status: OwnerStatus }>,
   ): Promise<Owner>;
 }

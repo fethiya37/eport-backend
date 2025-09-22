@@ -48,4 +48,11 @@ export class RoutesService {
     if (!isAdminLike(ctx.user_type)) throw new ForbiddenException('Only Admin/Superadmin can modify routes');
     return this.repo.updateSingleRoute(id, r);
   }
+
+  async deleteGroup(ctx: UserContext, id: number) {
+    if (!isAdminLike(ctx.user_type)) {
+      throw new ForbiddenException('Only Admin/Superadmin can delete route groups');
+    }
+    return this.repo.deleteGroup(id);
+  }
 }
