@@ -25,6 +25,7 @@ import { DriverStatus } from '@prisma/client';
 import { isAdminLike } from '../../common/auth/roles.util';
 import * as bcrypt from 'bcrypt';
 import type { UserContext } from 'src/common/context/user-context';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 
 @Injectable()
 export class DriverService {
@@ -33,7 +34,7 @@ export class DriverService {
     @Inject(VEHICLE_ASSIGNMENT_REPOSITORY) private readonly assignments: IVehicleAssignmentRepository,
     @Inject(ASSOCIATION_POLICY_REPOSITORY) private readonly policyRepo: IAssociationPolicyRepository,
     private readonly prisma: PrismaService,
-  ) {}
+  ) { }
 
   // ===== date helpers (EAT aware) =====
   private pad2(n: number) { return n < 10 ? `0${n}` : `${n}`; }
@@ -137,42 +138,49 @@ export class DriverService {
       throw new BadRequestException('Vehicle not found in your association');
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const password_hash = await bcrypt.hash(dto.phone_number, 10);
+    try {
+      return this.prisma.$transaction(async (tx) => {
+        const password_hash = await bcrypt.hash(dto.phone_number, 10);
 
-      const user = await tx.user.create({
-        data: {
-          phone_number: dto.phone_number,
-          user_type: 'Driver',
-          name: dto.full_name,
-          password_hash,
-          is_locked: false,
-          association_id: ctx.association_id!,
-        },
+        const user = await tx.user.create({
+          data: {
+            phone_number: dto.phone_number,
+            user_type: 'Driver',
+            name: dto.full_name,
+            password_hash,
+            is_locked: false,
+            association_id: ctx.association_id!,
+          },
+        });
+
+        const driver = await this.drivers.create(
+          ctx,
+          {
+            user_id: user.id,
+            association_id: ctx.association_id!,
+            full_name: dto.full_name,
+            phone_number: dto.phone_number,
+            license_no: dto.license_no ?? null,
+            license_expiry: dto.license_expiry ? new Date(dto.license_expiry) : null,
+            is_weekly: dto.is_weekly ?? false,
+          },
+          tx,
+        );
+
+        await this.assignments.createActive(
+          ctx,
+          { driver_id: driver.id, vehicle_id: vehicle.id, association_id: ctx.association_id!, started_at: new Date() },
+          tx,
+        );
+
+        return driver;
       });
-
-      const driver = await this.drivers.create(
-        ctx,
-        {
-          user_id: user.id,
-          association_id: ctx.association_id!,
-          full_name: dto.full_name,
-          phone_number: dto.phone_number,
-          license_no: dto.license_no ?? null,
-          license_expiry: dto.license_expiry ? new Date(dto.license_expiry) : null,
-          is_weekly: dto.is_weekly ?? false,
-        },
-        tx,
-      );
-
-      await this.assignments.createActive(
-        ctx,
-        { driver_id: driver.id, vehicle_id: vehicle.id, association_id: ctx.association_id!, started_at: new Date() },
-        tx,
-      );
-
-      return driver;
-    });
+    } catch (err) {
+      if (err instanceof PrismaClientKnownRequestError && err.code === 'P2002') {
+        throw new BadRequestException('Phone number already exists');
+      }
+      throw err;
+    }
   }
 
   async findAll(ctx: UserContext, filter: DriverFilter) {
@@ -250,14 +258,21 @@ export class DriverService {
 
     if (shouldMaybeReAdd) await this.maybeReAddTodaysFineOnce(ctx, id);
 
-    if (dto.full_name !== undefined || dto.phone_number !== undefined) {
-      await this.prisma.user.update({
-        where: { id: (updated as any).user_id },
-        data: {
-          ...(dto.full_name !== undefined ? { name: dto.full_name } : {}),
-          ...(dto.phone_number !== undefined ? { phone_number: dto.phone_number } : {}),
-        },
-      });
+    try {
+      if (dto.full_name !== undefined || dto.phone_number !== undefined) {
+        await this.prisma.user.update({
+          where: { id: (updated as any).user_id },
+          data: {
+            ...(dto.full_name !== undefined ? { name: dto.full_name } : {}),
+            ...(dto.phone_number !== undefined ? { phone_number: dto.phone_number } : {}),
+          },
+        });
+      }
+    } catch (err) {
+      if (err instanceof PrismaClientKnownRequestError && err.code === 'P2002') {
+        throw new BadRequestException('Phone number already exists');
+      }
+      throw err;
     }
 
     return updated;
