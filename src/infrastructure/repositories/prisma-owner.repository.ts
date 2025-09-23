@@ -36,9 +36,16 @@ export class PrismaOwnerRepository implements IOwnerRepository {
     });
   }
 
-  async findAll(ctx: UserContext): Promise<Owner[]> {
+  async findAll(ctx: UserContext, association_id?: number): Promise<Owner[]> {
+    const where =
+      isAdminLike(ctx.user_type)
+        ? association_id
+          ? { association_id }
+          : {}
+        : this.scopeWhere(ctx);
+
     return this.prisma.owner.findMany({
-      where: this.scopeWhere(ctx),
+      where,
       orderBy: { id: 'asc' },
       include: { association: true },
     });

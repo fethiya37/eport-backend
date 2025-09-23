@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../infrastructure/auth/jwt.guard';
 import { AuthUser } from '../../common/decorators/auth-user.decorator';
@@ -44,8 +44,6 @@ export class UserController {
   update(@AuthUser() user: UserContext, @Param('id', ParseIntPipe) id: number, @Body() dto: UpdateUserDto) {
     return this.service.update(user, id, dto);
   }
-
-
 
   @Patch('me/password')
   changeMyPassword(@AuthUser() user: UserContext, @Body() dto: ChangePasswordDto) {

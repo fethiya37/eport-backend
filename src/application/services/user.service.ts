@@ -1,4 +1,10 @@
-import { Inject, Injectable, ForbiddenException, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  ForbiddenException,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { USER_REPOSITORY, UserFilter } from '../../domain/repositories/user.repository';
 import type { IUserRepository } from '../../domain/repositories/user.repository';
 import { CreateUserDto } from '../../presentation/user/dto/create-user.dto';
@@ -12,7 +18,7 @@ import { UserContext } from 'src/common/context/user-context';
 
 function canManage(acting: UserType, target: UserType): boolean {
   if (acting === 'Superadmin') return ['Superadmin', 'Admin', 'Controller', 'Association'].includes(target);
-  if (acting === 'Admin')       return ['Controller', 'Association'].includes(target);
+  if (acting === 'Admin') return ['Controller', 'Association'].includes(target);
   return false;
 }
 
@@ -30,17 +36,15 @@ export class UserService {
       throw new ForbiddenException(`You cannot create user_type ${dto.user_type}`);
     }
 
+    const existing = await this.prisma.user.findUnique({ where: { phone_number: dto.phone_number } });
+    if (existing) throw new BadRequestException('Phone number already exists');
 
     let associationId: number | null = null;
     if (dto.user_type === 'Association') {
-      if (dto.association_id == null) {
-        throw new BadRequestException('association_id is required for Association users');
-      }
+      if (dto.association_id == null) throw new BadRequestException('association_id is required');
       const assoc = await this.prisma.association.findUnique({ where: { id: dto.association_id } });
       if (!assoc) throw new BadRequestException('association not found');
       associationId = dto.association_id;
-    } else {
-      associationId = null;
     }
 
     const password_hash = await bcrypt.hash(dto.phone_number, 10);
@@ -49,19 +53,16 @@ export class UserService {
       phone_number: dto.phone_number,
       user_type: dto.user_type,
       name: dto.name ?? null,
-      association_id: associationId, // <-- safe: null or number
+      association_id: associationId,
       password_hash,
     });
   }
 
-  // LIST with filters
+  // LIST
   async findAll(ctx: UserContext, raw: UserFilter) {
     const filter: UserFilter = { ...raw };
-
-    if (ctx.user_type === 'Admin') {
-      if (filter.user_type && !canManage('Admin', filter.user_type)) {
-        return [];
-      }
+    if (ctx.user_type === 'Admin' && filter.user_type && !canManage('Admin', filter.user_type)) {
+      return [];
     }
 
     const list = await this.users.findAll(filter);
@@ -80,31 +81,30 @@ export class UserService {
     return user;
   }
 
-  // UPDATE (recompute final association_id from the target user_type)
+  // UPDATE
   async update(ctx: UserContext, id: number, dto: UpdateUserDto) {
     const existing = await this.users.findById(id);
     if (!existing) throw new NotFoundException('User not found');
-
     if (!isAdminLike(ctx.user_type)) throw new ForbiddenException('Only Admin/Superadmin');
     if (!canManage(ctx.user_type as UserType, existing.user_type)) {
-      throw new ForbiddenException('Insufficient privileges for this target user');
+      throw new ForbiddenException('Insufficient privileges');
     }
 
-    // cannot lock self
     if (id === ctx.userId && dto.is_locked !== undefined) {
       throw new ForbiddenException('You cannot lock yourself');
     }
 
-    // Determine the final target user_type
-    const finalUserType = dto.user_type ?? existing.user_type;
+    // ✅ Prevent duplicate phone number on update
+    if (dto.phone_number && dto.phone_number !== existing.phone_number) {
+      const dup = await this.prisma.user.findUnique({ where: { phone_number: dto.phone_number } });
+      if (dup) throw new BadRequestException('Phone number already exists');
+    }
 
-    // Compute final association_id value
+    const finalUserType = dto.user_type ?? existing.user_type;
     let finalAssociationId: number | null;
     if (finalUserType === 'Association') {
       const candidate = dto.association_id ?? existing.association_id;
-      if (candidate == null) {
-        throw new BadRequestException('association_id is required for Association users');
-      }
+      if (candidate == null) throw new BadRequestException('association_id is required for Association users');
       const assoc = await this.prisma.association.findUnique({ where: { id: candidate } });
       if (!assoc) throw new BadRequestException('association not found');
       finalAssociationId = candidate;
@@ -117,10 +117,11 @@ export class UserService {
       user_type: finalUserType,
       name: dto.name !== undefined ? dto.name : existing.name,
       is_locked: dto.is_locked ?? existing.is_locked,
-      association_id: finalAssociationId, // <-- always null or a valid id
+      association_id: finalAssociationId,
     });
   }
-  // PROFILE: change own password
+
+  // PROFILE password change
   async changeOwnPassword(ctx: UserContext, dto: ChangePasswordDto) {
     const me = await this.users.findById(ctx.userId);
     if (!me || !me.password_hash) throw new NotFoundException('User not found');

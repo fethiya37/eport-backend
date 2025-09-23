@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../infrastructure/auth/jwt.guard';
 import { AssociationContextGuard } from '../../infrastructure/auth/association-context.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -17,13 +17,12 @@ import type { UserContext } from 'src/common/context/user-context';
 export class VehicleController {
   constructor(private readonly service: VehicleService) { }
 
-  // READS: Admin, Superadmin, Association
+  // READS
   @Get()
   @Roles('Admin', 'Superadmin', 'Association')
   findAll(@AuthUser() user: UserContext, @Query() filter: VehicleFilterDto) {
     return this.service.findAll(user, filter);
   }
-
   @Get(':id')
   @Roles('Admin', 'Superadmin', 'Association')
   findOne(@AuthUser() user: UserContext, @Param('id', ParseIntPipe) id: number) {

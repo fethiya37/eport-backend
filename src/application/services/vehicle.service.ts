@@ -192,9 +192,10 @@ export class VehicleService {
     });
   }
 
-  findAll(ctx: UserContext, filter: VehicleFilter) {
+  findAll(ctx: UserContext, filter: VehicleFilter & { association_id?: number }) {
     return this.vehicles.findAll(ctx, filter);
   }
+
 
   async findOne(ctx: UserContext, id: number) {
     const v = await this.vehicles.findById(ctx, id);
@@ -217,6 +218,7 @@ export class VehicleService {
 
     // 1) Update base vehicle fields
     const updated = await this.vehicles.update(ctx, id, {
+      plate_number: dto.plate_number,   // <-- add this line
       libre_no: dto.libre_no,
       owner_id: dto.owner_id,
       make: dto.make,

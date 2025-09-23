@@ -11,30 +11,33 @@ export type VehicleFilter = {
   make?: string;
   model?: string;
   color?: string;
+  association_id?: number; // ✅ new: Admin/Superadmin can query
 };
 
 export interface IVehicleRepository {
-  create(ctx: UserContext, data: {
-    plate_number: string;
-    libre_no?: string | null;
-    owner_id: number;
-    association_id: number;   // enforced from ctx
-    make?: string | null;
-    model?: string | null;
-    color?: string | null;
-    capacity?: number | null;
-  }): Promise<Vehicle>;
+  create(
+    ctx: UserContext,
+    data: {
+      plate_number: string;
+      libre_no?: string | null;
+      owner_id: number;
+      association_id: number;
+      make?: string | null;
+      model?: string | null;
+      color?: string | null;
+      capacity?: number | null;
+    }
+  ): Promise<Vehicle>;
 
   findAll(ctx: UserContext, filter?: VehicleFilter): Promise<Vehicle[]>;
   findById(ctx: UserContext, id: number): Promise<Vehicle | null>;
   findActiveWithoutDriver(ctx: UserContext): Promise<Vehicle[]>;
 
-
   update(
     ctx: UserContext,
     id: number,
     data: Partial<{
-      plate_number: string | null;
+      plate_number: string | null;   // <-- allow null here
       libre_no: string | null;
       owner_id: number;
       make: string | null;

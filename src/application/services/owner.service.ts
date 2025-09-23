@@ -21,8 +21,8 @@ export class OwnerService {
     const assoc = await this.prisma.association.findUnique({ where: { id: ctx.association_id } });
     if (!assoc) throw new BadRequestException('association not found');
 
-    return this.prisma.$transaction(async (tx) => {
-      return this.owners.create(
+    return this.prisma.$transaction((tx) =>
+      this.owners.create(
         ctx,
         {
           association_id: ctx.association_id!,
@@ -30,12 +30,12 @@ export class OwnerService {
           phone_number: dto.phone_number,
         },
         tx,
-      );
-    });
+      ),
+    );
   }
 
-  findAll(ctx: UserContext) {
-    return this.owners.findAll(ctx);
+  findAll(ctx: UserContext, association_id?: number) {
+    return this.owners.findAll(ctx, association_id);
   }
 
   async findOne(ctx: UserContext, id: number) {

@@ -8,7 +8,7 @@ export type UserFilter = {
   user_type?: UserType;
   name?: string;
   is_locked?: boolean;
-  association_id?: number; // filtering by an id (not null)
+  association_id?: number;
 };
 
 export interface IUserRepository {
@@ -16,20 +16,22 @@ export interface IUserRepository {
     phone_number: string;
     user_type: UserType;
     name?: string | null;
-    association_id: number | null; // <-- allow null here
+    association_id: number | null;
     password_hash: string;
   }): Promise<User>;
 
   findAll(filter?: UserFilter): Promise<User[]>;
   findById(id: number): Promise<User | null>;
 
-  update(id: number, data: Partial<{
-    phone_number: string;
-    user_type: UserType;
-    name: string | null;
-    is_locked: boolean;
-    association_id: number | null; // <-- allow null here
-    password_hash: string | null;
-  }>): Promise<User>;
-
+  update(
+    id: number,
+    data: Partial<{
+      phone_number: string;
+      user_type: UserType;
+      name: string | null;
+      is_locked: boolean;
+      association_id: number | null;
+      password_hash: string | null;
+    }>
+  ): Promise<User>;
 }

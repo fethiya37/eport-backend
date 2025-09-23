@@ -45,15 +45,20 @@ export class PrismaVehicleRepository implements IVehicleRepository {
         model: data.model ?? null,
         color: data.color ?? null,
         capacity: data.capacity ?? null,
-        status: VehicleStatus.ACTIVE,  // let Prisma default handle if you prefer
-        // NOTE: no started_at / ended_at here (not in your current client)
+        status: VehicleStatus.ACTIVE,
       },
     });
   }
 
   async findAll(ctx: UserContext, filter?: VehicleFilter): Promise<Vehicle[]> {
+    const baseScope = this.scopeWhere(ctx);
+
+    // allow Admin/Superadmin to filter by association_id
     const where: Prisma.VehicleWhereInput = {
-      ...this.scopeWhere(ctx),
+      ...baseScope,
+      ...(isAdminLike(ctx.user_type) && filter?.association_id
+        ? { association_id: filter.association_id }
+        : {}),
       ...(filter?.id ? { id: filter.id } : {}),
       ...(filter?.plate_number ? { plate_number: filter.plate_number } : {}),
       ...(filter?.status ? { status: filter.status } : {}),
@@ -81,32 +86,32 @@ export class PrismaVehicleRepository implements IVehicleRepository {
     }
     return vehicle;
   }
+
   async findActiveWithoutDriver(ctx: UserContext): Promise<Vehicle[]> {
     return this.prisma.vehicle.findMany({
       where: {
         ...this.scopeWhere(ctx),
         status: VehicleStatus.ACTIVE,
-        assignments: {
-          none: {
-            active: true, // 🚨 ensures no active assignment exists
-          },
-        },
+        assignments: { none: { active: true } },
       },
       include: { association: true, owner: true },
     });
   }
 
-
-  async update(ctx: UserContext, id: number, data: Partial<{
-    plate_number: string;   // must be string (no null)
-    libre_no: string | null;
-    owner_id: number;
-    make: string | null;
-    model: string | null;
-    color: string | null;
-    capacity: number | null;
-    status: VehicleStatus;
-  }>): Promise<Vehicle> {
+  async update(
+    ctx: UserContext,
+    id: number,
+    data: Partial<{
+      plate_number: string;
+      libre_no: string | null;
+      owner_id: number;
+      make: string | null;
+      model: string | null;
+      color: string | null;
+      capacity: number | null;
+      status: VehicleStatus;
+    }>
+  ): Promise<Vehicle> {
     if (isAdminLike(ctx.user_type)) throw new ForbiddenException('Admin/Superadmin cannot update vehicles');
 
     const existing = await this.findById(ctx, id);
@@ -132,6 +137,5 @@ export class PrismaVehicleRepository implements IVehicleRepository {
         ...(data.status !== undefined ? { status: data.status } : {}),
       },
     });
-
   }
 }

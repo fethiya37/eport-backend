@@ -1,5 +1,5 @@
 import { BadRequestException, Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../infrastructure/auth/jwt.guard';
 import { AssociationContextGuard } from '../../infrastructure/auth/association-context.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -9,6 +9,7 @@ import { CreateDriverDto } from './dto/create-driver.dto';
 import { UpdateDriverDto } from './dto/update-driver.dto';
 import type { UserContext } from 'src/common/context/user-context';
 import type { DriverFilter } from 'src/domain/repositories/driver.repository';
+import { DriverFilterDto } from './dto/driver-filter.dto';
 
 @ApiTags('drivers')
 @ApiBearerAuth()
@@ -20,11 +21,11 @@ export class DriverController {
   // LIST: returns driver rows + active_plate_number
   @Get()
   @Roles('Admin', 'Superadmin', 'Association')
-  findAll(@AuthUser() user: UserContext, @Query() filter: DriverFilter) {
+  findAll(@AuthUser() user: UserContext, @Query() filter: DriverFilterDto) {
     return this.service.findAll(user, filter);
   }
 
-   @Get('resolve')
+  @Get('resolve')
   @Roles('Admin', 'Superadmin', 'Association', 'Driver', 'Owner', 'Controller')
   async resolveForPayment(
     @AuthUser() user: UserContext,
@@ -61,5 +62,5 @@ export class DriverController {
     return this.service.listActiveDriverVehiclePairs(user, association_id);
   }
 
- 
+
 }

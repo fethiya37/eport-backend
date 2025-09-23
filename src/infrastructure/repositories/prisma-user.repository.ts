@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { IUserRepository, UserFilter } from '../../domain/repositories/user.repository';
 import { Prisma, User } from '@prisma/client';
@@ -14,15 +14,22 @@ export class PrismaUserRepository implements IUserRepository {
     association_id: number | null;
     password_hash: string;
   }): Promise<User> {
-    return this.prisma.user.create({
-      data: {
-        phone_number: data.phone_number,
-        user_type: data.user_type,
-        name: data.name ?? null,
-        association_id: data.association_id, // can be null
-        password_hash: data.password_hash,
-      },
-    });
+    try {
+      return await this.prisma.user.create({
+        data: {
+          phone_number: data.phone_number,
+          user_type: data.user_type,
+          name: data.name ?? null,
+          association_id: data.association_id,
+          password_hash: data.password_hash,
+        },
+      });
+    } catch (e: any) {
+      if (e.code === 'P2002' && e.meta?.target?.includes('phone_number')) {
+        throw new BadRequestException('Phone number already exists');
+      }
+      throw e;
+    }
   }
 
   async findAll(filter?: UserFilter): Promise<User[]> {
@@ -48,8 +55,14 @@ export class PrismaUserRepository implements IUserRepository {
 
   async update(id: number, data: Partial<User>): Promise<User> {
     try {
-      return await this.prisma.user.update({ where: { id }, data });
+      return await this.prisma.user.update({
+        where: { id },
+        data,
+      });
     } catch (e: any) {
+      if (e.code === 'P2002' && e.meta?.target?.includes('phone_number')) {
+        throw new BadRequestException('Phone number already exists');
+      }
       if (e.code === 'P2025') throw new NotFoundException('User not found');
       throw e;
     }

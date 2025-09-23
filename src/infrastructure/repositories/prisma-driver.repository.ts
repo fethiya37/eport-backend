@@ -7,7 +7,7 @@ import { UserContext } from 'src/common/context/user-context';
 
 @Injectable()
 export class PrismaDriverRepository implements IDriverRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   private scopeWhere(ctx: UserContext): Prisma.DriverWhereInput {
     if (isAdminLike(ctx.user_type)) return {};
@@ -44,16 +44,21 @@ export class PrismaDriverRepository implements IDriverRepository {
       },
     });
   }
-
   async findAll(ctx: UserContext, filter?: DriverFilter): Promise<Driver[]> {
+    const baseScope = this.scopeWhere(ctx);
+
     const where: Prisma.DriverWhereInput = {
-      ...this.scopeWhere(ctx),
+      ...baseScope,
+      ...(isAdminLike(ctx.user_type) && filter?.association_id
+        ? { association_id: filter.association_id }
+        : {}),
       ...(filter?.id ? { id: filter.id } : {}),
       ...(filter?.full_name ? { full_name: { contains: filter.full_name, mode: 'insensitive' } } : {}),
       ...(filter?.phone_number ? { phone_number: filter.phone_number } : {}),
       ...(filter?.status ? { status: filter.status } : {}),
       ...(filter?.license_no ? { license_no: { contains: filter.license_no, mode: 'insensitive' } } : {}),
     };
+
     return this.prisma.driver.findMany({ where, orderBy: { id: 'asc' } });
   }
 

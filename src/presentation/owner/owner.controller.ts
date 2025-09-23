@@ -1,5 +1,5 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../infrastructure/auth/jwt.guard';
 import { AssociationContextGuard } from '../../infrastructure/auth/association-context.guard';
 import { AuthUser } from '../../common/decorators/auth-user.decorator';
@@ -16,11 +16,12 @@ import type { UserContext } from 'src/common/context/user-context';
 export class OwnerController {
   constructor(private readonly service: OwnerService) {}
 
-  // READS: allow Admin, Superadmin, Association
+  // READS
   @Get()
   @Roles('Admin', 'Superadmin', 'Association')
-  findAll(@AuthUser() user: UserContext) {
-    return this.service.findAll(user);
+  @ApiQuery({ name: 'association_id', required: false, type: Number, description: 'Filter by association (Admin/Superadmin only)' })
+  findAll(@AuthUser() user: UserContext, @Query('association_id') association_id?: number) {
+    return this.service.findAll(user, association_id ? Number(association_id) : undefined);
   }
 
   @Get(':id')

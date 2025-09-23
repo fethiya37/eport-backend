@@ -9,6 +9,7 @@ export type DriverFilter = {
   phone_number?: string;
   status?: DriverStatus;
   license_no?: string;
+  association_id?: number;   // ✅ added
 };
 
 export interface IDriverRepository {
@@ -29,10 +30,6 @@ export interface IDriverRepository {
   findAll(ctx: UserContext, filter?: DriverFilter): Promise<Driver[]>;
   findById(ctx: UserContext, id: number): Promise<Driver | null>;
 
-  /**
-   * Unified driver update, extended to support payment/interest fields.
-   * Only pass fields you intend to change.
-   */
   update(
     ctx: UserContext,
     id: number,
@@ -44,11 +41,11 @@ export interface IDriverRepository {
       license_expiry: Date | null;
       is_weekly: boolean;
 
-      // payment / coverage fields
+      // payments
       active_until_date: Date | null;
       payment_status: PaymentStatus;
 
-      // interests
+      // interest
       interest_accrued: number;
       last_accrual_date: Date | null;
       last_accrual_amount: number | null;
