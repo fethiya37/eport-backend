@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseBoolPipe, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../infrastructure/auth/jwt.guard';
 import { AssociationContextGuard } from '../../infrastructure/auth/association-context.guard';
@@ -42,9 +42,39 @@ export class VehicleController {
     return this.service.update(user, id, dto);
   }
 
-  @Get('available')
+  @Delete(':id')
+  @Roles('Association')
+  remove(@AuthUser() user: UserContext, @Param('id', ParseIntPipe) id: number) {
+    return this.service.remove(user, id);
+  }
+
+
+  @Get('resolve')
+  @Roles('Admin', 'Superadmin', 'Association', 'Driver', 'Owner', 'Controller')
+  resolveForPayment(
+    @AuthUser() user: UserContext,
+    @Query('plate') plate?: string,
+    @Query('driver_id', ParseIntPipe) driver_id?: number,
+  ) {
+    return this.service.resolveForPayment(user, { plate, driver_id });
+  }
+
+
+
+  @Get('available/for-quota-or-direct')
   @Roles('Admin', 'Superadmin', 'Association')
-  findActiveWithoutDriver(@AuthUser() user: UserContext) {
-    return this.service.findActiveWithoutDriver(user);
+  findAvailableForQuotaOrDirect(
+    @AuthUser() user: UserContext,
+    @Query('is_weekly', ParseBoolPipe) is_weekly: boolean,
+    @Query('start_date') start_date: string,
+    @Query('mode') mode: 'quota' | 'direct',
+    @Query('association_id', ParseIntPipe) association_id?: number,
+  ) {
+    return this.service.findAvailableForQuotaOrDirect(user, {
+      association_id,
+      is_weekly,
+      start_date: new Date(start_date),
+      mode,
+    });
   }
 }

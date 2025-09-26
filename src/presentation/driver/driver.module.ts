@@ -6,10 +6,6 @@ import { PrismaModule } from '../../infrastructure/prisma/prisma.module';
 
 import { DRIVER_REPOSITORY } from '../../domain/repositories/driver.repository';
 import { PrismaDriverRepository } from '../../infrastructure/repositories/prisma-driver.repository';
-
-import { VEHICLE_ASSIGNMENT_REPOSITORY } from '../../domain/repositories/vehicle-assignment.repository';
-import { PrismaVehicleAssignmentRepository } from 'src/infrastructure/repositories/prisma-vehicle-assignment.repository';
-
 import { AssociationPolicyModule } from 'src/presentation/association-policy/association-policy.module';
 
 @Module({
@@ -21,7 +17,6 @@ import { AssociationPolicyModule } from 'src/presentation/association-policy/ass
   providers: [
     DriverService,
     { provide: DRIVER_REPOSITORY, useClass: PrismaDriverRepository },
-    { provide: VEHICLE_ASSIGNMENT_REPOSITORY, useClass: PrismaVehicleAssignmentRepository },
   ],
   exports: [DriverService],
 })

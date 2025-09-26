@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsNotEmpty, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { IsInt, IsNotEmpty, IsOptional, IsString, MaxLength, Min, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateVehicleDto {
@@ -19,6 +19,13 @@ export class CreateVehicleDto {
   @IsInt()
   @Min(1)
   owner_id!: number;
+
+  @ApiPropertyOptional({ example: 22, description: 'Driver ID assigned to this vehicle' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  driver_id?: number | null;
 
   @ApiPropertyOptional({ example: 'Toyota' })
   @IsOptional()
@@ -41,4 +48,9 @@ export class CreateVehicleDto {
   @IsInt()
   @Min(1)
   capacity?: number | null;
+
+  @ApiPropertyOptional({ example: true, description: 'Whether the vehicle is on a weekly plan' })
+  @IsOptional()
+  @IsBoolean()
+  is_weekly?: boolean;
 }

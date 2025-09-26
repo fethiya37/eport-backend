@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsInt, IsOptional, IsString, Matches, Min } from 'class-validator';
+import { IsBoolean, IsEnum, IsInt, IsOptional, IsString, Matches, Min } from 'class-validator';
 import { Type } from 'class-transformer';
+import { RouteAssignmentHistoryStatus } from '@prisma/client';
 
 export class UpdateAssignmentDto {
   @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsInt() @Min(1) route_id?: number;
@@ -19,11 +20,16 @@ export class UpdateAssignmentDto {
 
   @ApiPropertyOptional() @IsOptional() @IsBoolean() is_weekly?: boolean;
 
-  // Admin/Superadmin only (service enforces who can set Approved)
+  // Admin/Superadmin only
   @ApiPropertyOptional({ enum: ['Approved', 'Pending'] as const }) @IsOptional()
   status?: 'Approved' | 'Pending';
 
-  // Association users must retain quota linkage; admins optional
   @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsInt() @Min(1)
   route_quota_id?: number | null;
+
+  // ✅ NEW field
+  @ApiPropertyOptional({ enum: RouteAssignmentHistoryStatus })
+  @IsOptional()
+  @IsEnum(RouteAssignmentHistoryStatus)
+  history_status?: RouteAssignmentHistoryStatus;
 }

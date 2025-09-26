@@ -9,7 +9,8 @@ export type DriverFilter = {
   phone_number?: string;
   status?: DriverStatus;
   license_no?: string;
-  association_id?: number;   // ✅ added
+  association_id?: number;
+  has_smartphone?: boolean;   // ✅ new filter
 };
 
 export interface IDriverRepository {
@@ -22,7 +23,7 @@ export interface IDriverRepository {
       phone_number: string;
       license_no?: string | null;
       license_expiry?: Date | null;
-      is_weekly?: boolean;
+      has_smartphone?: boolean;   // ✅ new
     },
     tx: Prisma.TransactionClient,
   ): Promise<Driver>;
@@ -39,16 +40,18 @@ export interface IDriverRepository {
       status: DriverStatus;
       license_no: string | null;
       license_expiry: Date | null;
-      is_weekly: boolean;
+      has_smartphone: boolean;   // ✅ new
 
-      // payments
       active_until_date: Date | null;
       payment_status: PaymentStatus;
 
-      // interest
       interest_accrued: number;
       last_accrual_date: Date | null;
       last_accrual_amount: number | null;
-    }>
+    }>,
   ): Promise<Driver>;
+
+  remove(ctx: UserContext, id: number, tx: Prisma.TransactionClient): Promise<Driver>; // ✅ NEW
+
+  findWithoutVehicle(ctx: UserContext): Promise<Driver[]>;
 }

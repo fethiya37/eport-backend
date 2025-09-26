@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Query,
+  Delete,
+} from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 
 import { AssociationService } from '../../application/services/association.service';
@@ -16,21 +26,18 @@ import type { UserContext } from 'src/common/context/user-context';
 export class AssociationController {
   constructor(private readonly service: AssociationService) {}
 
-  // PUBLIC list (needed before login)
   @Public()
   @Get()
   publicList(@Query() filter: AssociationFilterDto) {
     return this.service.publicList(filter);
   }
 
-  // PUBLIC get by id (needed before login)
   @Public()
   @Get(':id')
   publicGet(@Param('id', ParseIntPipe) id: number) {
     return this.service.publicGet(id);
   }
 
-  // Admin/Superadmin only
   @ApiBearerAuth()
   @Post()
   @Roles('Admin', 'Superadmin')
@@ -38,7 +45,6 @@ export class AssociationController {
     return this.service.create(user, dto);
   }
 
-  // Admin/Superadmin only
   @ApiBearerAuth()
   @Patch(':id')
   @Roles('Admin', 'Superadmin')
@@ -50,4 +56,13 @@ export class AssociationController {
     return this.service.update(user, id, dto);
   }
 
+  @ApiBearerAuth()
+  @Delete(':id')
+  @Roles('Admin', 'Superadmin')
+  delete(
+    @AuthUser() user: UserContext,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.service.delete(user, id);
+  }
 }

@@ -1,6 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
-import { AssociationStatus } from '@prisma/client';
+import { IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class AssociationFilterDto {
@@ -17,8 +16,4 @@ export class AssociationFilterDto {
   @MaxLength(100)
   name?: string;
 
-  @ApiPropertyOptional({ enum: AssociationStatus })
-  @IsOptional()
-  @IsEnum(AssociationStatus)
-  status?: AssociationStatus;
 }

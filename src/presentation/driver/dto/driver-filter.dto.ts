@@ -1,4 +1,4 @@
-import { IsInt, IsOptional, IsString, IsEnum } from 'class-validator';
+import { IsInt, IsOptional, IsString, IsEnum, IsBoolean } from 'class-validator';
 import { DriverStatus } from '@prisma/client';
 import { Type } from 'class-transformer';
 
@@ -28,4 +28,8 @@ export class DriverFilterDto {
   @IsOptional()
   @IsString()
   license_no?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  has_smartphone?: boolean;   // ✅ filter
 }

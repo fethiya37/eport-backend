@@ -5,7 +5,7 @@ import { Prisma, User } from '@prisma/client';
 
 @Injectable()
 export class PrismaUserRepository implements IUserRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async create(data: {
     phone_number: string;
@@ -63,6 +63,16 @@ export class PrismaUserRepository implements IUserRepository {
       if (e.code === 'P2002' && e.meta?.target?.includes('phone_number')) {
         throw new BadRequestException('Phone number already exists');
       }
+      if (e.code === 'P2025') throw new NotFoundException('User not found');
+      throw e;
+    }
+  }
+  async remove(id: number): Promise<User> {
+    try {
+      return await this.prisma.user.delete({
+        where: { id },
+      });
+    } catch (e: any) {
       if (e.code === 'P2025') throw new NotFoundException('User not found');
       throw e;
     }

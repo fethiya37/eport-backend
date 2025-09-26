@@ -1,19 +1,28 @@
-import { Inject, Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
-import { ASSOCIATION_REPOSITORY, AssociationFilter } from '../../domain/repositories/association.repository';
-import type { IAssociationRepository } from '../../domain/repositories/association.repository';
+import {
+  Inject,
+  Injectable,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  ASSOCIATION_REPOSITORY,
+  AssociationFilter,
+  type IAssociationRepository,
+} from '../../domain/repositories/association.repository';
 import { CreateAssociationDto } from '../../presentation/association/dto/create-association.dto';
 import { UpdateAssociationDto } from '../../presentation/association/dto/update-association.dto';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
-import { AssociationStatus, OwnerStatus, DriverStatus } from '@prisma/client';
+import { DriverStatus } from '@prisma/client';
 import { isAdminLike } from '../../common/auth/roles.util';
-import { UserContext } from 'src/common/context/user-context';
+import type { UserContext } from 'src/common/context/user-context';
 
 @Injectable()
 export class AssociationService {
   constructor(
-    @Inject(ASSOCIATION_REPOSITORY) private readonly associations: IAssociationRepository,
+    @Inject(ASSOCIATION_REPOSITORY)
+    private readonly associations: IAssociationRepository,
     private readonly prisma: PrismaService,
-  ) { }
+  ) {}
 
   // PUBLIC list (no auth required)
   publicList(filter?: AssociationFilter) {
@@ -29,7 +38,8 @@ export class AssociationService {
 
   // CREATE: Admin/Superadmin only
   async create(ctx: UserContext, dto: CreateAssociationDto) {
-    if (!isAdminLike(ctx.user_type)) throw new ForbiddenException('Only Admin/Superadmin');
+    if (!isAdminLike(ctx.user_type))
+      throw new ForbiddenException('Only Admin/Superadmin');
 
     return this.associations.create({
       name: dto.name,
@@ -38,86 +48,44 @@ export class AssociationService {
     });
   }
 
-  // UPDATE: Admin/Superadmin only; if status changes → lock/unlock cascade
+  // UPDATE: Admin/Superadmin only
   async update(ctx: UserContext, id: number, dto: UpdateAssociationDto) {
-    if (!isAdminLike(ctx.user_type)) throw new ForbiddenException('Only Admin/Superadmin');
+    if (!isAdminLike(ctx.user_type))
+      throw new ForbiddenException('Only Admin/Superadmin');
 
     const existing = await this.associations.findById(id);
     if (!existing) throw new NotFoundException('Association not found');
 
-    const statusChanging = dto.status && dto.status !== existing.status;
-
-    // Update association first
-    const updated = await this.associations.update(id, {
+    return this.associations.update(id, {
       name: dto.name ?? existing.name,
-      phone_number: dto.phone_number !== undefined ? dto.phone_number : existing.phone_number,
+      phone_number:
+        dto.phone_number !== undefined ? dto.phone_number : existing.phone_number,
       logo: dto.logo !== undefined ? dto.logo : existing.logo,
-      status: dto.status ?? existing.status,
     });
-
-    // If status changed, cascade lock/unlock users in this association
-    if (statusChanging) {
-      if (updated.status === AssociationStatus.SUSPENDED) {
-        await this.lockUsersForAssociation(id);
-      } else if (updated.status === AssociationStatus.ACTIVE) {
-        await this.unlockUsersForAssociation(id);
-      }
-    }
-
-    return updated;
   }
 
-  // ---- Helpers: lock/unlock all users "inside" the association ----
-  private async lockUsersForAssociation(associationId: number) {
-    const drivers = await this.prisma.driver.findMany({
-      where: { association_id: associationId },
-      select: { user_id: true },
+  // DELETE: Admin/Superadmin only (hard delete with cascade)
+  async delete(ctx: UserContext, id: number) {
+    if (!isAdminLike(ctx.user_type))
+      throw new ForbiddenException('Only Admin/Superadmin');
+
+    const existing = await this.associations.findById(id);
+    if (!existing) throw new NotFoundException('Association not found');
+
+    await this.prisma.$transaction(async (tx) => {
+      // Delete dependent entities in correct order
+      await tx.driverPayment.deleteMany({ where: { association_id: id } });
+      await tx.associationPolicy.deleteMany({ where: { association_id: id } });
+      await tx.routeAssignment.deleteMany({ where: { association_id: id } });
+      await tx.routeQuota.deleteMany({ where: { association_id: id } });
+      await tx.vehicle.deleteMany({ where: { association_id: id } });
+      await tx.driver.deleteMany({ where: { association_id: id } });
+      await tx.owner.deleteMany({ where: { association_id: id } });
+      await tx.user.deleteMany({ where: { association_id: id } });
+
+      await tx.association.delete({ where: { id } });
     });
-    const driverUserIds = drivers.map(d => d.user_id);
 
-    await this.prisma.$transaction([
-      // 1) Association "account" users
-      this.prisma.user.updateMany({
-        where: { association_id: associationId, user_type: 'Association' },
-        data: { is_locked: true },
-      }),
-      // 2) Driver-linked users
-      driverUserIds.length
-        ? this.prisma.user.updateMany({
-          where: { id: { in: driverUserIds } },
-          data: { is_locked: true },
-        })
-        : this.prisma.user.updateMany({
-          where: { id: { in: [] } },
-          data: { is_locked: true },
-        }),
-    ]);
-  }
-
-  private async unlockUsersForAssociation(associationId: number) {
-    const drivers = await this.prisma.driver.findMany({
-      where: { association_id: associationId, NOT: { status: DriverStatus.SUSPENDED } },
-      select: { user_id: true },
-    });
-    const driverUserIds = drivers.map(d => d.user_id);
-
-    const ops = [
-      // Unlock association "account" users
-      this.prisma.user.updateMany({
-        where: { association_id: associationId, user_type: 'Association' },
-        data: { is_locked: false },
-      }),
-    ];
-
-    if (driverUserIds.length) {
-      ops.push(
-        this.prisma.user.updateMany({
-          where: { id: { in: driverUserIds } },
-          data: { is_locked: false },
-        }),
-      );
-    }
-
-    await this.prisma.$transaction(ops);
+    return { message: 'Association and all related records deleted successfully' };
   }
 }

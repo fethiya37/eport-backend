@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { RouteQuotaService } from '../../application/services/route-quota.service';
 import { CreateRouteQuotaDto } from './dto/create-route-quota.dto';
@@ -39,5 +39,11 @@ export class RouteQuotaController {
   @Roles('Admin', 'Superadmin')
   createMany(@AuthUser() user: UserContext, @Body() dto: CreateManyRouteQuotasDto) {
     return this.service.createMany(user, dto);
+  }
+
+  @Delete(':id')
+  @Roles('Admin', 'Superadmin')
+  remove(@AuthUser() user: UserContext, @Param('id', ParseIntPipe) id: number) {
+    return this.service.remove(user, id);
   }
 }

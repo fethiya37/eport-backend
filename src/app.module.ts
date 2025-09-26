@@ -14,10 +14,10 @@ import { RolesGuard } from './infrastructure/auth/roles.guard';
 import { RouteAssignmentModule } from './presentation/route-assignment/route-assignment.module';
 import { RoutesModule } from './presentation/routes/routes.module';
 import { RouteQuotaModule } from './presentation/route-quota/route-quota.module';
-import { VehicleAssignmentModule } from './presentation/vehicle-assignment/vehicle-assignment.module';
 import { AssociationPolicyModule } from './presentation/association-policy/association-policy.module';
 import { PaymentsModule } from './presentation/payments/payments.module';
 import { JobsModule } from './application/jobs/jobs.module';
+import { SmsModule } from './presentation/sms/sms.module';
 
 @Module({
   imports: [
@@ -30,11 +30,11 @@ import { JobsModule } from './application/jobs/jobs.module';
     RouteAssignmentModule,
     RoutesModule,
     RouteQuotaModule,
-    VehicleAssignmentModule,
     ScheduleModule.forRoot(),
     AssociationPolicyModule,
     PaymentsModule,
     JobsModule,
+    SmsModule
   ],
   controllers: [AppController],
   providers: [AppService,

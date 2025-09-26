@@ -1,19 +1,15 @@
-// src/presentation/route-assignment/dto/bulk-upsert.dto.ts
 import { ApiProperty } from '@nestjs/swagger';
-import { IsArray, ValidateNested, IsBoolean, IsInt, IsOptional, Min, Matches, IsString } from 'class-validator';
+import { IsArray, ValidateNested, IsBoolean, IsInt, IsOptional, Min, Matches, IsString, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
+import { RouteAssignmentHistoryStatus } from '@prisma/client';
 
 class BulkUpsertItemDto {
   @ApiProperty() @Type(() => Number) @IsInt() @Min(1)
   route_id!: number;
 
   @ApiProperty() @Type(() => Number) @IsInt() @Min(1)
-  driver_id!: number;
-
-  @ApiProperty() @Type(() => Number) @IsInt() @Min(1)
   vehicle_id!: number;
 
-  // Optional update path
   @ApiProperty({ required: false }) @IsOptional() @Type(() => Number) @IsInt() @Min(1)
   id?: number;
 
@@ -30,13 +26,17 @@ class BulkUpsertItemDto {
   @ApiProperty() @IsBoolean()
   is_weekly!: boolean;
 
-  // NEW: Allow UI to pass a specific quota (Association users)
   @ApiProperty({ required: false }) @IsOptional() @Type(() => Number) @IsInt() @Min(1)
   route_quota_id?: number;
+
+  // ✅ NEW
+  @ApiProperty({ required: false, enum: RouteAssignmentHistoryStatus })
+  @IsOptional()
+  @IsEnum(RouteAssignmentHistoryStatus)
+  history_status?: RouteAssignmentHistoryStatus | null;
 }
 
 export class BulkUpsertAssignmentsDto {
-  // Associations must omit this (service derives from JWT); Admin/Superadmin may pass it
   @ApiProperty({ required: false }) @IsOptional() @Type(() => Number) @IsInt() @Min(1)
   association_id?: number;
 

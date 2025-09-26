@@ -1,6 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
-import { AssociationStatus } from '@prisma/client';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class UpdateAssociationDto {
   @ApiPropertyOptional({ example: 'New Association Name' })
@@ -20,10 +19,4 @@ export class UpdateAssociationDto {
   @IsString()
   @MaxLength(255)
   logo?: string | null;
-
-  // If provided, triggers lock/unlock cascade
-  @ApiPropertyOptional({ enum: AssociationStatus, example: 'SUSPENDED' })
-  @IsOptional()
-  @IsEnum(AssociationStatus)
-  status?: AssociationStatus;
 }

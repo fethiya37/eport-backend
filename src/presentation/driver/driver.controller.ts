@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../infrastructure/auth/jwt.guard';
 import { AssociationContextGuard } from '../../infrastructure/auth/association-context.guard';
@@ -25,16 +25,7 @@ export class DriverController {
     return this.service.findAll(user, filter);
   }
 
-  @Get('resolve')
-  @Roles('Admin', 'Superadmin', 'Association', 'Driver', 'Owner', 'Controller')
-  async resolveForPayment(
-    @AuthUser() user: UserContext,
-    @Query('plate') plate?: string,
-    @Query('phone') phone?: string,
-  ) {
-    if (!plate && !phone) throw new BadRequestException('plate or phone is required');
-    return this.service.resolveForPayment(user, { plate, phone });
-  }
+
 
   // DETAIL: returns single driver + active_plate_number
   @Get(':id')
@@ -55,12 +46,16 @@ export class DriverController {
     return this.service.update(user, id, dto);
   }
 
-  @Get('active-pairs')
-  @Roles('Admin', 'Superadmin', 'Association')
-  activePairs(@AuthUser() user: UserContext, @Query('association_id') associationIdRaw?: string) {
-    const association_id = associationIdRaw ? Number(associationIdRaw) : undefined;
-    return this.service.listActiveDriverVehiclePairs(user, association_id);
+  @Delete(':id')
+  @Roles('Association')
+  remove(@AuthUser() user: UserContext, @Param('id', ParseIntPipe) id: number) {
+    return this.service.remove(user, id);
   }
 
 
+  @Get('without-vehicle')
+  @Roles('Admin', 'Superadmin', 'Association')
+  findWithoutVehicle(@AuthUser() user: UserContext) {
+    return this.service.findDriversWithoutVehicle(user);
+  }
 }

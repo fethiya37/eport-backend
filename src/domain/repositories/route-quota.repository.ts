@@ -24,4 +24,7 @@ export interface IRouteQuotaRepository {
   ): Promise<RouteQuota>;
 
   findById(id: number): Promise<RouteQuota | null>;
+
+  remove(id: number): Promise<RouteQuota>;   // ✅ new
+
 }

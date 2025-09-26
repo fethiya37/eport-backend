@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../infrastructure/auth/jwt.guard';
 import { AssociationContextGuard } from '../../infrastructure/auth/association-context.guard';
@@ -14,7 +14,7 @@ import type { UserContext } from 'src/common/context/user-context';
 @UseGuards(JwtAuthGuard, AssociationContextGuard)
 @Controller('owners')
 export class OwnerController {
-  constructor(private readonly service: OwnerService) {}
+  constructor(private readonly service: OwnerService) { }
 
   // READS
   @Get()
@@ -41,5 +41,11 @@ export class OwnerController {
   @Roles('Association')
   update(@AuthUser() user: UserContext, @Param('id', ParseIntPipe) id: number, @Body() dto: UpdateOwnerDto) {
     return this.service.update(user, id, dto);
+  }
+
+  @Delete(':id')
+  @Roles('Association')
+  remove(@AuthUser() user: UserContext, @Param('id', ParseIntPipe) id: number) {
+    return this.service.remove(user, id);
   }
 }

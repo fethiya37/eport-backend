@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../infrastructure/auth/jwt.guard';
 import { AuthUser } from '../../common/decorators/auth-user.decorator';
@@ -15,7 +15,7 @@ import type { UserContext } from 'src/common/context/user-context';
 @UseGuards(JwtAuthGuard)
 @Controller('users')
 export class UserController {
-  constructor(private readonly service: UserService) {}
+  constructor(private readonly service: UserService) { }
 
   @Post()
   @Roles('Admin', 'Superadmin')
@@ -43,6 +43,12 @@ export class UserController {
   @Roles('Admin', 'Superadmin')
   update(@AuthUser() user: UserContext, @Param('id', ParseIntPipe) id: number, @Body() dto: UpdateUserDto) {
     return this.service.update(user, id, dto);
+  }
+
+  @Delete(':id')
+  @Roles('Admin', 'Superadmin')
+  remove(@AuthUser() user: UserContext, @Param('id', ParseIntPipe) id: number) {
+    return this.service.remove(user, id);
   }
 
   @Patch('me/password')

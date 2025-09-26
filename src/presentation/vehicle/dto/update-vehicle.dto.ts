@@ -1,7 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString, MaxLength, Min, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
-import { VehicleStatus, VehicleAssociationStatus } from '@prisma/client';
+import { VehicleStatus } from '@prisma/client';
 
 export class UpdateVehicleDto {
   @ApiPropertyOptional({ example: 'ABC-54321' })
@@ -21,6 +21,13 @@ export class UpdateVehicleDto {
   @IsInt()
   @Min(1)
   owner_id?: number;
+
+  @ApiPropertyOptional({ example: 22, description: 'Driver ID assigned to this vehicle' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  driver_id?: number | null;
 
   @ApiPropertyOptional({ example: 'Hyundai' })
   @IsOptional()
@@ -47,15 +54,13 @@ export class UpdateVehicleDto {
   @Min(1)
   capacity?: number | null;
 
-  // VEHICLE status (matches VehicleStatus in Prisma: ACTIVE | MAINTENANCE | RETIRED)
   @ApiPropertyOptional({ enum: VehicleStatus, example: 'MAINTENANCE' })
   @IsOptional()
   @IsEnum(VehicleStatus)
   vehicle_status?: VehicleStatus;
 
-  // ASSOCIATION status (history table): ACTIVE | SUSPENDED | RESIGNED
-  @ApiPropertyOptional({ enum: VehicleAssociationStatus, example: 'SUSPENDED' })
+  @ApiPropertyOptional({ example: true, description: 'Whether the vehicle is on a weekly plan' })
   @IsOptional()
-  @IsEnum(VehicleAssociationStatus)
-  association_status?: VehicleAssociationStatus;
+  @IsBoolean()
+  is_weekly?: boolean;
 }

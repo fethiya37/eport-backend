@@ -28,6 +28,7 @@ import { CreateManyRouteQuotasDto } from '../../presentation/route-quota/dto/cre
 import { isAdminLike } from '../../common/auth/roles.util';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import type { UserContext } from 'src/common/context/user-context';
+import { VehicleStatus } from '@prisma/client';
 
 @Injectable()
 export class RouteQuotaService {
@@ -36,7 +37,7 @@ export class RouteQuotaService {
     @Inject(ASSOCIATION_REPOSITORY) private readonly associations: IAssociationRepository,
     @Inject(ROUTES_REPOSITORY) private readonly routesRepo: IRoutesRepository,
     private readonly prisma: PrismaService,
-  ) {}
+  ) { }
 
   // ========== CREATE (GC in/out) ==========
   async create(ctx: UserContext, dto: CreateRouteQuotaDto) {
@@ -155,7 +156,13 @@ export class RouteQuotaService {
   }
 
   private async countActivePairs(association_id: number): Promise<number> {
-    return this.prisma.vehicleAssignment.count({ where: { association_id, active: true } });
+    return this.prisma.vehicle.count({
+      where: {
+        association_id,
+        status: VehicleStatus.ACTIVE,
+        driver_id: { not: null },
+      },
+    });
   }
 
   private async ensureCapacity(association_id: number, requestedNoVehicles: number) {
@@ -186,4 +193,21 @@ export class RouteQuotaService {
       );
     }
   }
+  async remove(ctx: UserContext, id: number) {
+    if (!isAdminLike(ctx.user_type)) throw new ForbiddenException('Only Admin/Superadmin');
+
+    const existing = await this.quotas.findById(id);
+    if (!existing) throw new NotFoundException('Route quota not found');
+
+    // Block deletion if quota already has approved assignments
+    const approvedCount = await this.prisma.routeAssignment.count({
+      where: { route_quota_id: id, status: 'Approved' },
+    });
+    if (approvedCount > 0) {
+      throw new ForbiddenException('Cannot delete quota with approved assignments');
+    }
+
+    return this.quotas.remove(id);
+  }
+
 }

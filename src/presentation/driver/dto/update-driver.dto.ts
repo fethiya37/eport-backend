@@ -1,7 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsDateString, IsEnum, IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { IsDateString, IsEnum, IsOptional, IsString, MaxLength, IsBoolean } from 'class-validator';
 import { DriverStatus } from '@prisma/client';
-import { Type } from 'class-transformer';
 
 export class UpdateDriverDto {
   @ApiPropertyOptional({ example: 'New Name' })
@@ -26,23 +25,13 @@ export class UpdateDriverDto {
   @IsDateString()
   license_expiry?: string | null;
 
-  // Allow plan toggle; we’ll enforce “only when no active coverage” in service
-  @ApiPropertyOptional({ example: true, description: 'true=weekly, false=monthly' })
-  @IsOptional()
-  @IsBoolean()
-  is_weekly?: boolean;
-
-  // If provided and different from the active one, will reassign
-  @ApiPropertyOptional({ example: 77 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  vehicle_id?: number;
-
-  // Needed on update. If set to SUSPENDED, the active assignment will be closed.
-  @ApiPropertyOptional({ enum: DriverStatus, example: 'SUSPENDED' })
+  @ApiPropertyOptional({ enum: DriverStatus, example: 'INACTIVE' })
   @IsOptional()
   @IsEnum(DriverStatus)
   status?: DriverStatus;
+
+  @ApiPropertyOptional({ example: false })
+  @IsOptional()
+  @IsBoolean()
+  has_smartphone?: boolean;   // ✅ new
 }

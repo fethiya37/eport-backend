@@ -1,13 +1,13 @@
 import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { IOwnerRepository } from '../../domain/repositories/owner.repository';
-import { Owner, OwnerStatus, Prisma } from '@prisma/client';
+import { Owner, Prisma } from '@prisma/client';
 import { isAdminLike } from '../../common/auth/roles.util';
 import { UserContext } from 'src/common/context/user-context';
 
 @Injectable()
 export class PrismaOwnerRepository implements IOwnerRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   private scopeWhere(ctx: UserContext) {
     if (isAdminLike(ctx.user_type)) return {};
@@ -69,7 +69,7 @@ export class PrismaOwnerRepository implements IOwnerRepository {
   async update(
     ctx: UserContext,
     id: number,
-    data: Partial<{ full_name: string; phone_number: string; status: OwnerStatus }>,
+    data: Partial<{ full_name: string; phone_number: string }>,
   ): Promise<Owner> {
     if (isAdminLike(ctx.user_type)) {
       throw new ForbiddenException('Admin/Superadmin cannot update owners');
@@ -80,6 +80,19 @@ export class PrismaOwnerRepository implements IOwnerRepository {
     return this.prisma.owner.update({
       where: { id },
       data,
+      include: { association: true },
+    });
+  }
+
+  async remove(ctx: UserContext, id: number): Promise<Owner> {
+    if (isAdminLike(ctx.user_type)) {
+      throw new ForbiddenException('Admin/Superadmin cannot delete owners');
+    }
+    const existing = await this.findById(ctx, id);
+    if (!existing) throw new NotFoundException('Owner not found');
+
+    return this.prisma.owner.delete({
+      where: { id },
       include: { association: true },
     });
   }

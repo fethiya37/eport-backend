@@ -55,8 +55,18 @@ export class OwnerService {
     const patch: any = {};
     if (dto.full_name !== undefined) patch.full_name = dto.full_name;
     if (dto.phone_number !== undefined) patch.phone_number = dto.phone_number;
-    if (dto.status !== undefined) patch.status = dto.status;
 
     return this.owners.update(ctx, id, patch);
+  }
+
+  async remove(ctx: UserContext, id: number) {
+    if (isAdminLike(ctx.user_type)) {
+      throw new ForbiddenException('Admin/Superadmin cannot delete owners');
+    }
+
+    const owner = await this.owners.findById(ctx, id);
+    if (!owner) throw new NotFoundException('Owner not found');
+
+    return this.owners.remove(ctx, id);
   }
 }

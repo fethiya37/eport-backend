@@ -7,23 +7,24 @@ import { PrismaDriverRepository } from '../../infrastructure/repositories/prisma
 
 import { DRIVER_PAYMENT_REPOSITORY } from '../../domain/repositories/driver-payment.repository';
 import { PrismaDriverPaymentRepository } from '../../infrastructure/repositories/prisma-driver-payment.repository';
-
-import { VEHICLE_ASSIGNMENT_REPOSITORY } from '../../domain/repositories/vehicle-assignment.repository';
-import { PrismaVehicleAssignmentRepository } from '../../infrastructure/repositories/prisma-vehicle-assignment.repository';
-
 import { ASSOCIATION_POLICY_REPOSITORY } from '../../domain/repositories/association-policy.repository';
 import { PrismaAssociationPolicyRepository } from '../../infrastructure/repositories/prisma-association-policy.repository';
 import { PaymentsService } from 'src/application/services/payments.service';
+import { RouteAssignmentModule } from '../route-assignment/route-assignment.module';
+import { SmsModule } from '../sms/sms.module';
 
 @Module({
   controllers: [PaymentsController],
+  imports: [
+    RouteAssignmentModule,
+    SmsModule,
+  ],
   providers: [
     PaymentsService,
     PrismaService,
     { provide: DRIVER_REPOSITORY, useClass: PrismaDriverRepository },
     { provide: DRIVER_PAYMENT_REPOSITORY, useClass: PrismaDriverPaymentRepository },
-    { provide: VEHICLE_ASSIGNMENT_REPOSITORY, useClass: PrismaVehicleAssignmentRepository },
     { provide: ASSOCIATION_POLICY_REPOSITORY, useClass: PrismaAssociationPolicyRepository },
   ],
 })
-export class PaymentsModule {}
+export class PaymentsModule { }

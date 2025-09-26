@@ -1,4 +1,4 @@
-import { IsInt, IsOptional, IsString, IsEnum } from 'class-validator';
+import { IsInt, IsOptional, IsString, IsEnum, IsBoolean } from 'class-validator';
 import { VehicleStatus } from '@prisma/client';
 import { Type } from 'class-transformer';
 
@@ -27,6 +27,11 @@ export class VehicleFilterDto {
   owner_id?: number;
 
   @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  driver_id?: number;
+
+  @IsOptional()
   @IsString()
   make?: string;
 
@@ -37,4 +42,8 @@ export class VehicleFilterDto {
   @IsOptional()
   @IsString()
   color?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  is_weekly?: boolean;
 }

@@ -63,4 +63,13 @@ export class PrismaRouteQuotaRepository implements IRouteQuotaRepository {
   findById(id: number): Promise<RouteQuota | null> {
     return this.prisma.routeQuota.findUnique({ where: { id } });
   }
+
+  async remove(id: number): Promise<RouteQuota> {
+  try {
+    return await this.prisma.routeQuota.delete({ where: { id } });
+  } catch (e: any) {
+    if (e?.code === 'P2025') throw new NotFoundException('Route quota not found');
+    throw e;
+  }
+}
 }

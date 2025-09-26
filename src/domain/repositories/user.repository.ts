@@ -34,4 +34,7 @@ export interface IUserRepository {
       password_hash: string | null;
     }>
   ): Promise<User>;
+
+  remove(id: number): Promise<User>;   // ✅ NEW
+
 }

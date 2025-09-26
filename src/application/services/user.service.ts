@@ -27,7 +27,7 @@ export class UserService {
   constructor(
     @Inject(USER_REPOSITORY) private readonly users: IUserRepository,
     private readonly prisma: PrismaService,
-  ) {}
+  ) { }
 
   // CREATE
   async create(ctx: UserContext, dto: CreateUserDto) {
@@ -120,6 +120,23 @@ export class UserService {
       association_id: finalAssociationId,
     });
   }
+
+  // REMOVE
+  async remove(ctx: UserContext, id: number) {
+    const user = await this.users.findById(id);
+    if (!user) throw new NotFoundException('User not found');
+    if (!isAdminLike(ctx.user_type)) throw new ForbiddenException('Only Admin/Superadmin');
+    if (!canManage(ctx.user_type as UserType, user.user_type)) {
+      throw new ForbiddenException('Insufficient privileges');
+    }
+
+    if (id === ctx.userId) {
+      throw new ForbiddenException('You cannot delete yourself');
+    }
+
+    return this.users.remove(id);
+  }
+
 
   // PROFILE password change
   async changeOwnPassword(ctx: UserContext, dto: ChangePasswordDto) {

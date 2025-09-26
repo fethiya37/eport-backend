@@ -1,3 +1,4 @@
+// src/application/services/payments.service.ts
 import {
   Inject,
   Injectable,
@@ -14,10 +15,6 @@ import {
   type IDriverPaymentRepository,
 } from '../../domain/repositories/driver-payment.repository';
 import {
-  VEHICLE_ASSIGNMENT_REPOSITORY,
-  type IVehicleAssignmentRepository,
-} from '../../domain/repositories/vehicle-assignment.repository';
-import {
   ASSOCIATION_POLICY_REPOSITORY,
   type IAssociationPolicyRepository,
 } from '../../domain/repositories/association-policy.repository';
@@ -26,16 +23,19 @@ import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { PayDto } from '../../presentation/payments/dto/pay.dto';
 import { isAdminLike } from '../../common/auth/roles.util';
 import { PaymentMethod } from '@prisma/client';
+import { RouteAssignmentService } from './route-assignment.service';
+import { SmsGatewayService } from './sms-gateway.service';
 
 @Injectable()
 export class PaymentsService {
   constructor(
     @Inject(DRIVER_REPOSITORY) private readonly drivers: IDriverRepository,
     @Inject(DRIVER_PAYMENT_REPOSITORY) private readonly payments: IDriverPaymentRepository,
-    @Inject(VEHICLE_ASSIGNMENT_REPOSITORY) private readonly vehAssign: IVehicleAssignmentRepository,
     @Inject(ASSOCIATION_POLICY_REPOSITORY) private readonly policy: IAssociationPolicyRepository,
     private readonly prisma: PrismaService,
-  ) {}
+    private readonly routeService: RouteAssignmentService,
+    private readonly smsGateway: SmsGatewayService,
+  ) { }
 
   // ===== date helpers (EAT, UTC+03) =====
   private pad2(n: number) { return n < 10 ? `0${n}` : `${n}`; }
@@ -86,9 +86,11 @@ export class PaymentsService {
 
   // ===== target resolver (by driver_id or plate_number) with association scoping =====
   private async resolveDriver(ctx: UserContext, driver_id?: number, plate_number?: string) {
-    if (!driver_id && !plate_number) throw new BadRequestException('Provide driver_id or plate_number');
+    if (!driver_id && !plate_number) {
+      throw new BadRequestException('Provide driver_id or plate_number');
+    }
 
-    let d = null as any;
+    let d: any = null;
 
     if (driver_id) {
       d = await this.drivers.findById(ctx, driver_id);
@@ -96,17 +98,14 @@ export class PaymentsService {
     } else {
       const v = await this.prisma.vehicle.findUnique({
         where: { plate_number: plate_number! },
-        select: { id: true, association_id: true },
+        select: { id: true, association_id: true, driver_id: true },
       });
       if (!v) throw new NotFoundException('Vehicle not found');
+      if (!v.driver_id) {
+        throw new BadRequestException('No driver assigned to this plate_number');
+      }
 
-      const active = await this.prisma.vehicleAssignment.findFirst({
-        where: { vehicle_id: v.id, association_id: v.association_id, active: true },
-        select: { driver_id: true },
-      });
-      if (!active) throw new BadRequestException('No active driver–vehicle assignment for this plate_number');
-
-      d = await this.drivers.findById(ctx, active.driver_id);
+      d = await this.drivers.findById(ctx, v.driver_id);
       if (!d) throw new NotFoundException('Driver not found');
     }
 
@@ -132,7 +131,7 @@ export class PaymentsService {
       );
     }
 
-    // 2) Parse & validate coverage window (GC ISO, inclusive)
+    // 2) Parse & validate coverage window
     const startGc = new Date(dto.covered_start_date);
     const endGc = new Date(dto.covered_end_date);
     if (isNaN(startGc.getTime()) || isNaN(endGc.getTime())) {
@@ -140,11 +139,12 @@ export class PaymentsService {
     }
     if (startGc > endGc) throw new BadRequestException('covered_start_date must be <= covered_end_date');
 
-    // Optional weekly length check against (1 + prepay_qty) weeks
     const prepayQty = Math.max(0, dto.prepay_qty ?? 0);
     if (dto.is_weekly) {
       const days =
-        Math.floor((this.startOfDay(endGc).getTime()) - (this.startOfDay(startGc).getTime())) / 86_400_000 + 1;
+        Math.floor(this.startOfDay(endGc).getTime() - this.startOfDay(startGc).getTime()) /
+        86_400_000 +
+        1;
       const expectedWeeks = 1 + prepayQty;
       if (days % 7 !== 0 || days / 7 !== expectedWeeks) {
         throw new BadRequestException('Weekly coverage length must equal 7 * (1 + prepay_qty) days.');
@@ -166,7 +166,9 @@ export class PaymentsService {
 
     if (dto.total_override !== undefined) {
       const provided = Math.round((dto.total_override + Number.EPSILON) * 100) / 100;
-      if (provided !== total) throw new BadRequestException(`Total mismatch. Expected ${total}, got ${provided}`);
+      if (provided !== total) {
+        throw new BadRequestException(`Total mismatch. Expected ${total}, got ${provided}`);
+      }
     }
 
     // 4) Persist payment + update driver
@@ -182,13 +184,13 @@ export class PaymentsService {
           covered_end_date: endGc,
           paid_at: new Date(),
           created_by_user_id: ctx.userId,
-          payment_method: this.parsePaymentMethod(dto.payment_method), // <-- enum-safe
+          payment_method: this.parsePaymentMethod(dto.payment_method),
         },
         tx,
       );
 
       await this.drivers.update(ctx, (d as any).id, {
-        active_until_date: endGc,       // extend coverage
+        active_until_date: endGc,
         payment_status: 'ACTIVE',
         interest_accrued: 0,
         last_accrual_amount: 0,
@@ -196,17 +198,35 @@ export class PaymentsService {
       });
     });
 
+    // 5) Fetch new coverage (with routes) and send SMS
+    const coverage = await this.routeService.visibleCoverage(ctx, { plate_number: dto.plate_number! });
+
+    // const msg = this.formatCoverageSmsCompact(coverage);
+    // await this.smsGateway.sendSms((d as any).phone_number, msg);
+
     return {
-      driver_id: (d as any).id,
-      fee_plan: dto.is_weekly ? 'WEEKLY' : 'MONTHLY',
-      breakdown: {
-        interest,
-        current_fee: currentFee,
-        future_fee: futureFee,
-        total,
+      payment: {
+        driver_id: (d as any).id,
+        fee_plan: dto.is_weekly ? 'WEEKLY' : 'MONTHLY',
+        breakdown: { interest, current_fee: currentFee, future_fee: futureFee, total },
+        coverage: { from: startGc.toISOString(), to: endGc.toISOString() },
       },
-      coverage: { from: startGc.toISOString(), to: endGc.toISOString() },
+      coverage,
     };
   }
-}
 
+  // ===== Compact SMS formatter =====
+  private formatCoverageSmsCompact(data: any): string {
+    if (!data.coverage_active) {
+      return `Plate: ${data.plate_number} inactive.`;
+    }
+    const assignments = data.assignments
+      .map(
+        (a: any) =>
+          `${a.route.departure}→${a.route.arrival} (${a.start_date_ec} → ${a.end_date_ec}) [${a.status}]`,
+      )
+      .join('\n');
+
+    return `Plate: ${data.plate_number}\n${assignments}`;
+  }
+}
