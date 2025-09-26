@@ -12,7 +12,7 @@ import {
 } from '../../domain/repositories/route-assignment.repository';
 import { isAdminLike } from '../../common/auth/roles.util';
 import type { UserContext } from 'src/common/context/user-context';
-import { RouteAssignmentStatus } from '@prisma/client';
+import { RouteAssignmentStatus, PaymentStatus } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { BulkUpsertAssignmentsDto } from '../../presentation/route-assignment/dto/bulk-upsert.dto';
 import { ApproveAssignmentsDto } from '../../presentation/route-assignment/dto/approve.dto';
@@ -32,7 +32,7 @@ export class RouteAssignmentService {
     @Inject(ROUTE_ASSIGNMENT_REPOSITORY)
     private readonly repo: IRouteAssignmentRepository,
     private readonly prisma: PrismaService,
-  ) { }
+  ) {}
 
   // -----------------------------
   // Helpers
@@ -110,6 +110,17 @@ export class RouteAssignmentService {
         throw new BadRequestException(`Vehicle ${it.vehicle_id} has overlapping assignment`);
       }
 
+      // 🔑 check driver’s active_until_date for payment_status
+      const driver = await this.prisma.driver.findFirst({
+        where: { vehicle: { id: it.vehicle_id } },
+        select: { active_until_date: true },
+      });
+
+      const payment_status =
+        driver?.active_until_date && end_date <= driver.active_until_date
+          ? PaymentStatus.ACTIVE
+          : PaymentStatus.INACTIVE;
+
       rows.push({
         id: it.id,
         route_id: it.route_id,
@@ -132,6 +143,7 @@ export class RouteAssignmentService {
         approved_at: isAdminLike(ctx.user_type) ? now : null,
         route_quota_id: it.route_quota_id ?? null,
         history_status: it.history_status ?? undefined,
+        payment_status, // ✅ new
       });
     }
 
@@ -185,9 +197,21 @@ export class RouteAssignmentService {
 
     const vehicle = await this.prisma.vehicle.findUnique({
       where: { id: dto.vehicle_id ?? existing.vehicle_id },
-      select: { is_weekly: true },
+      select: { is_weekly: true, driver_id: true },
     });
     if (!vehicle) throw new NotFoundException('Vehicle not found');
+
+    const driver = vehicle.driver_id
+      ? await this.prisma.driver.findUnique({
+          where: { id: vehicle.driver_id },
+          select: { active_until_date: true },
+        })
+      : null;
+
+    const payment_status =
+      driver?.active_until_date && end_date <= driver.active_until_date
+        ? PaymentStatus.ACTIVE
+        : PaymentStatus.INACTIVE;
 
     const [saved] = await this.repo.upsertMany([
       {
@@ -202,17 +226,20 @@ export class RouteAssignmentService {
         assigned_by_user_id: existing.assigned_by_user_id,
         route_quota_id: dto.route_quota_id ?? existing.route_quota_id,
         history_status: dto.history_status ?? existing.history_status,
+        payment_status, // ✅ new
       },
     ]);
 
     return saved;
   }
 
+  // -----------------------------
+  // Remove
+  // -----------------------------
   async remove(ctx: UserContext, id: number) {
     const existing = (await this.repo.findByIds([id]))[0];
     if (!existing) throw new NotFoundException('Assignment not found');
 
-    // Associations cannot delete approved assignments
     if (!isAdminLike(ctx.user_type) && existing.status === RouteAssignmentStatus.Approved) {
       throw new ForbiddenException('Association users cannot delete approved assignments');
     }
@@ -231,11 +258,10 @@ export class RouteAssignmentService {
       phone_number: string;
       active_until_date: Date | null;
       association_id: number;
-      vehicle?: { id: number; association_id: number; is_weekly: boolean } | null; // ✅ added for driver_id case
+      vehicle?: { id: number; association_id: number; is_weekly: boolean } | null;
     } | null = null;
 
     if (q.plate_number) {
-      // 🔎 Lookup by plate number
       vehicle = await this.prisma.vehicle.findUnique({
         where: { plate_number: q.plate_number },
         select: { id: true, association_id: true, driver_id: true, is_weekly: true },
@@ -254,7 +280,6 @@ export class RouteAssignmentService {
         },
       });
     } else if (q.driver_id) {
-      // 🔎 Lookup by driver_id
       driver = await this.prisma.driver.findUnique({
         where: { id: q.driver_id },
         select: {
@@ -307,7 +332,7 @@ export class RouteAssignmentService {
 
     return {
       coverage_active: true,
-      plate_number: q.plate_number ?? (vehicle ? vehicle.id.toString() : null), // ✅ fallback when resolving by driver_id
+      plate_number: q.plate_number ?? (vehicle ? vehicle.id.toString() : null),
       driver_id: driver.id,
       driver_name: driver.full_name,
       active_until_gc: driver.active_until_date,
@@ -324,6 +349,4 @@ export class RouteAssignmentService {
       })),
     };
   }
-
-
 }

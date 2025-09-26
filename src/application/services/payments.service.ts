@@ -171,7 +171,7 @@ export class PaymentsService {
       }
     }
 
-    // 4) Persist payment + update driver
+    // 4) Persist payment + update assignments instead of driver.payment_status
     await this.prisma.$transaction(async (tx) => {
       await this.payments.create(
         {
@@ -189,9 +189,30 @@ export class PaymentsService {
         tx,
       );
 
+      // ✅ update route assignments payment_status
+      const vehicleId = (d as any).vehicle_id;
+      if (!vehicleId) throw new BadRequestException('Driver has no assigned vehicle');
+
+      // 1️⃣ find latest ACTIVE assignment for this vehicle
+      const lastActive = await tx.routeAssignment.findFirst({
+        where: { vehicle_id: vehicleId, payment_status: 'ACTIVE' },
+        orderBy: { end_date: 'desc' },
+      });
+
+      // 2️⃣ bulk-activate eligible assignments in coverage window
+      await tx.routeAssignment.updateMany({
+        where: {
+          vehicle_id: vehicleId,
+          payment_status: 'INACTIVE',
+          start_date: { gte: lastActive?.end_date ?? new Date(0) },
+          end_date: { lte: endGc },
+        },
+        data: { payment_status: 'ACTIVE' },
+      });
+
+      // 3️⃣ still extend driver.active_until_date for coverage logic
       await this.drivers.update(ctx, (d as any).id, {
         active_until_date: endGc,
-        payment_status: 'ACTIVE',
         interest_accrued: 0,
         last_accrual_amount: 0,
         last_accrual_date: null,
@@ -214,6 +235,7 @@ export class PaymentsService {
       coverage,
     };
   }
+
 
   // ===== Compact SMS formatter =====
   private formatCoverageSmsCompact(data: any): string {

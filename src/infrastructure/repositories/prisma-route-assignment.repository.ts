@@ -5,11 +5,17 @@ import {
   RouteAssignmentFindFilter,
   RouteAssignmentUpsertRow,
 } from '../../domain/repositories/route-assignment.repository';
-import { Prisma, RouteAssignment, RouteAssignmentStatus, RouteQuota, DriverStatus } from '@prisma/client';
+import {
+  Prisma,
+  RouteAssignment,
+  RouteAssignmentStatus,
+  RouteQuota,
+  PaymentStatus,
+} from '@prisma/client';
 
 @Injectable()
 export class PrismaRouteAssignmentRepository implements IRouteAssignmentRepository {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   async upsertMany(data: RouteAssignmentUpsertRow[]): Promise<RouteAssignment[]> {
     return this.prisma.$transaction(async (tx) => {
@@ -30,7 +36,8 @@ export class PrismaRouteAssignmentRepository implements IRouteAssignmentReposito
               approved_by_user_id: row.approved_by_user_id ?? null,
               approved_at: row.approved_at ?? null,
               route_quota_id: row.route_quota_id ?? null,
-              history_status: row.history_status ?? undefined, // ✅
+              history_status: row.history_status ?? undefined,
+              payment_status: row.payment_status, // ✅ NEW
             },
           });
           results.push(updated);
@@ -48,7 +55,8 @@ export class PrismaRouteAssignmentRepository implements IRouteAssignmentReposito
               approved_by_user_id: row.approved_by_user_id ?? null,
               approved_at: row.approved_at ?? null,
               route_quota_id: row.route_quota_id ?? null,
-              history_status: row.history_status ?? undefined, // ✅
+              history_status: row.history_status ?? undefined,
+              payment_status: row.payment_status, // ✅ NEW
             },
           });
           results.push(created);
@@ -58,17 +66,15 @@ export class PrismaRouteAssignmentRepository implements IRouteAssignmentReposito
     });
   }
 
-
   async approveMany(ids: number[], approver_user_id: number): Promise<number> {
-    const r = await this.prisma.routeAssignment
-      .updateMany({
-        where: { id: { in: ids } },
-        data: {
-          status: RouteAssignmentStatus.Approved,
-          approved_by_user_id: approver_user_id,
-          approved_at: new Date(),
-        },
-      });
+    const r = await this.prisma.routeAssignment.updateMany({
+      where: { id: { in: ids } },
+      data: {
+        status: RouteAssignmentStatus.Approved,
+        approved_by_user_id: approver_user_id,
+        approved_at: new Date(),
+      },
+    });
     return r.count;
   }
 
@@ -79,15 +85,16 @@ export class PrismaRouteAssignmentRepository implements IRouteAssignmentReposito
       ...(filter.status ? { status: filter.status } : {}),
       ...(typeof filter.is_weekly === 'boolean' ? { is_weekly: filter.is_weekly } : {}),
       ...(filter.vehicle_id ? { vehicle_id: filter.vehicle_id } : {}),
+      ...(filter.payment_status ? { payment_status: filter.payment_status } : {}),
       ...(filter.date_from || filter.date_to
         ? {
-          NOT: {
-            OR: [
-              ...(filter.date_from ? [{ end_date: { lt: filter.date_from } }] : []),
-              ...(filter.date_to ? [{ start_date: { gt: filter.date_to } }] : []),
-            ],
-          },
-        }
+            NOT: {
+              OR: [
+                ...(filter.date_from ? [{ end_date: { lt: filter.date_from } }] : []),
+                ...(filter.date_to ? [{ start_date: { gt: filter.date_to } }] : []),
+              ],
+            },
+          }
         : {}),
     };
     return this.prisma.routeAssignment.findMany({ where, orderBy: { id: 'desc' } });
@@ -102,7 +109,11 @@ export class PrismaRouteAssignmentRepository implements IRouteAssignmentReposito
     return this.prisma.routeQuota.findUnique({ where: { id } });
   }
 
-  async hasApprovedOnDate(association_id: number, vehicle_id: number, day: Date): Promise<boolean> {
+  async hasApprovedOnDate(
+    association_id: number,
+    vehicle_id: number,
+    day: Date,
+  ): Promise<boolean> {
     const start = new Date(day);
     start.setHours(0, 0, 0, 0);
     const end = new Date(day);
@@ -118,6 +129,7 @@ export class PrismaRouteAssignmentRepository implements IRouteAssignmentReposito
     });
     return cnt > 0;
   }
+
   async remove(id: number): Promise<RouteAssignment> {
     try {
       return await this.prisma.routeAssignment.delete({ where: { id } });
@@ -126,5 +138,4 @@ export class PrismaRouteAssignmentRepository implements IRouteAssignmentReposito
       throw e;
     }
   }
-
 }

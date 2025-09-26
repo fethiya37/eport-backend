@@ -1,4 +1,10 @@
-import { RouteAssignment, RouteAssignmentHistoryStatus, RouteAssignmentStatus, RouteQuota } from '@prisma/client';
+import {
+  RouteAssignment,
+  RouteAssignmentHistoryStatus,
+  RouteAssignmentStatus,
+  RouteQuota,
+  PaymentStatus,
+} from '@prisma/client';
 
 export const ROUTE_ASSIGNMENT_REPOSITORY = Symbol('ROUTE_ASSIGNMENT_REPOSITORY');
 
@@ -16,8 +22,8 @@ export type RouteAssignmentUpsertRow = {
   approved_at?: Date | null;
   route_quota_id?: number | null;
   history_status?: RouteAssignmentHistoryStatus | null;
+  payment_status: PaymentStatus; // ✅ NEW
 };
-
 
 export type RouteAssignmentFindFilter = {
   association_id?: number;
@@ -27,6 +33,7 @@ export type RouteAssignmentFindFilter = {
   date_from?: Date;
   date_to?: Date;
   vehicle_id?: number;
+  payment_status?: PaymentStatus; // ✅ optional filter
 };
 
 export interface IRouteAssignmentRepository {
@@ -37,9 +44,7 @@ export interface IRouteAssignmentRepository {
 
   getQuotaById(id: number): Promise<RouteQuota | null>;
 
-  // ✅ NEW helpers for status refresh
   hasApprovedOnDate(association_id: number, vehicle_id: number, day: Date): Promise<boolean>;
 
-  remove(id: number): Promise<RouteAssignment>;   // ✅ NEW
-
+  remove(id: number): Promise<RouteAssignment>;
 }
