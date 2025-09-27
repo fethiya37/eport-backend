@@ -110,7 +110,7 @@ export class RouteAssignmentService {
         throw new BadRequestException(`Vehicle ${it.vehicle_id} has overlapping assignment`);
       }
 
-      // 🔑 check driver’s active_until_date for payment_status
+      // 🔑 set payment_status
       const driver = await this.prisma.driver.findFirst({
         where: { vehicle: { id: it.vehicle_id } },
         select: { active_until_date: true },
@@ -143,12 +143,11 @@ export class RouteAssignmentService {
         approved_at: isAdminLike(ctx.user_type) ? now : null,
         route_quota_id: it.route_quota_id ?? null,
         history_status: it.history_status ?? undefined,
-        payment_status, // ✅ new
+        payment_status,
       });
     }
 
-    const saved = await this.repo.upsertMany(rows);
-    return saved;
+    return this.repo.upsertMany(rows);
   }
 
   // -----------------------------
@@ -226,7 +225,7 @@ export class RouteAssignmentService {
         assigned_by_user_id: existing.assigned_by_user_id,
         route_quota_id: dto.route_quota_id ?? existing.route_quota_id,
         history_status: dto.history_status ?? existing.history_status,
-        payment_status, // ✅ new
+        payment_status,
       },
     ]);
 
@@ -251,20 +250,41 @@ export class RouteAssignmentService {
   // Visible Coverage
   // -----------------------------
   async visibleCoverage(ctx: UserContext, q: { plate_number?: string; driver_id?: number }) {
-    let vehicle: { id: number; association_id: number; driver_id: number | null; is_weekly: boolean } | null = null;
+    let vehicle: {
+      id: number;
+      association_id: number;
+      driver_id: number | null;
+      is_weekly: boolean;
+      plate_number: string;
+      status: string;
+    } | null = null;
+
     let driver: {
       id: number;
       full_name: string;
       phone_number: string;
       active_until_date: Date | null;
       association_id: number;
-      vehicle?: { id: number; association_id: number; is_weekly: boolean } | null;
+      vehicle?: {
+        id: number;
+        association_id: number;
+        is_weekly: boolean;
+        plate_number: string;
+        status: string;
+      } | null;
     } | null = null;
 
     if (q.plate_number) {
       vehicle = await this.prisma.vehicle.findUnique({
         where: { plate_number: q.plate_number },
-        select: { id: true, association_id: true, driver_id: true, is_weekly: true },
+        select: {
+          id: true,
+          association_id: true,
+          driver_id: true,
+          is_weekly: true,
+          plate_number: true,
+          status: true,
+        },
       });
       if (!vehicle) throw new NotFoundException('Vehicle not found');
       if (!vehicle.driver_id) throw new BadRequestException('No driver assigned to this vehicle');
@@ -288,7 +308,15 @@ export class RouteAssignmentService {
           phone_number: true,
           active_until_date: true,
           association_id: true,
-          vehicle: { select: { id: true, association_id: true, is_weekly: true } },
+          vehicle: {
+            select: {
+              id: true,
+              association_id: true,
+              is_weekly: true,
+              plate_number: true,
+              status: true,
+            },
+          },
         },
       });
       if (!driver) throw new NotFoundException('Driver not found');
@@ -299,6 +327,8 @@ export class RouteAssignmentService {
         association_id: driver.vehicle.association_id,
         driver_id: driver.id,
         is_weekly: driver.vehicle.is_weekly,
+        plate_number: driver.vehicle.plate_number,
+        status: driver.vehicle.status,
       };
     } else {
       throw new BadRequestException('Either plate_number or driver_id is required');
@@ -308,44 +338,47 @@ export class RouteAssignmentService {
 
     const today = startOfDay(new Date());
     if (!driver.active_until_date || startOfDay(driver.active_until_date) < today) {
-      return {
-        coverage_active: false,
-        plate_number: q.plate_number ?? null,
-        driver_id: driver.id,
-        driver_name: driver.full_name,
-      };
+      return { not_full_filled: true };
     }
 
     const windowStart = vehicle.is_weekly ? startOfWeekMonday(today) : etMonthStart(today);
     const windowEnd = endOfDay(driver.active_until_date);
 
-    const rows = await this.prisma.routeAssignment.findMany({
+    const assignments = await this.prisma.routeAssignment.findMany({
       where: {
         vehicle_id: vehicle.id,
         association_id: vehicle.association_id,
         status: { in: [RouteAssignmentStatus.Pending, RouteAssignmentStatus.Approved] },
+        payment_status: PaymentStatus.ACTIVE,
         NOT: [{ end_date: { lt: windowStart } }, { start_date: { gt: windowEnd } }],
       },
       include: { route: true },
       orderBy: { start_date: 'asc' },
     });
 
+    // 🚫 If vehicle inactive or no active assignments → not full filled
+    if (vehicle.status === 'INACTIVE' || assignments.length === 0) {
+      return { not_full_filled: true };
+    }
+
+    const association = await this.prisma.association.findUnique({
+      where: { id: vehicle.association_id },
+      select: { name: true },
+    });
+
     return {
-      coverage_active: true,
-      plate_number: q.plate_number ?? (vehicle ? vehicle.id.toString() : null),
-      driver_id: driver.id,
+      association_name: association?.name ?? '',
+      plate_number: vehicle.plate_number,
       driver_name: driver.full_name,
-      active_until_gc: driver.active_until_date,
-      active_until_ec: gcToEthiopian(driver.active_until_date),
-      assignments: rows.map((r) => ({
-        id: r.id,
-        status: r.status,
-        history_status: r.history_status,
+      assignments: assignments.map((r) => ({
+        route: {
+          id: r.route.id,
+          departure: r.route.departure,
+          arrival: r.route.arrival,
+        },
         start_date_gc: r.start_date.toISOString(),
         end_date_gc: r.end_date.toISOString(),
-        start_date_ec: gcToEthiopian(r.start_date),
-        end_date_ec: gcToEthiopian(r.end_date),
-        route: { id: r.route.id, departure: r.route.departure, arrival: r.route.arrival },
+        status: r.status,
       })),
     };
   }

@@ -2,7 +2,7 @@ import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 
 export type AuthUserPayload = {
   userId: number;
-  user_type: 'Superadmin' | 'Admin' | 'Association' | 'Driver' | 'Controller' | 'Owner';
+  user_type: 'Superadmin' | 'Admin' | 'Association' | 'Driver' | 'Controller';
   association_id: number | null;
   jti: string;
   exp: number; // seconds since epoch

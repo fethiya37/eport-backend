@@ -23,6 +23,22 @@ export class VehicleController {
   findAll(@AuthUser() user: UserContext, @Query() filter: VehicleFilterDto) {
     return this.service.findAll(user, filter);
   }
+
+  @Get('resolve')
+  @Roles('Driver')
+  resolveForPayment(
+    @AuthUser() user: UserContext,
+    @Query('plate') plate?: string,
+    @Query('driver_id') driver_id?: string,
+  ) {
+    return this.service.resolveForPayment(user, {
+      plate,
+      driver_id: driver_id ? Number(driver_id) : undefined,
+    });
+  }
+
+
+
   @Get(':id')
   @Roles('Admin', 'Superadmin', 'Association')
   findOne(@AuthUser() user: UserContext, @Param('id', ParseIntPipe) id: number) {
@@ -35,6 +51,7 @@ export class VehicleController {
   create(@AuthUser() user: UserContext, @Body() dto: CreateVehicleDto) {
     return this.service.create(user, dto);
   }
+
 
   @Patch(':id')
   @Roles('Association')
@@ -49,15 +66,7 @@ export class VehicleController {
   }
 
 
-  @Get('resolve')
-  @Roles('Admin', 'Superadmin', 'Association', 'Driver', 'Owner', 'Controller')
-  resolveForPayment(
-    @AuthUser() user: UserContext,
-    @Query('plate') plate?: string,
-    @Query('driver_id', ParseIntPipe) driver_id?: number,
-  ) {
-    return this.service.resolveForPayment(user, { plate, driver_id });
-  }
+
 
 
 

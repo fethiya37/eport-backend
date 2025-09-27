@@ -12,7 +12,6 @@ type JwtPayload = {
     | 'Association'
     | 'Driver'
     | 'Controller'
-    | 'Owner';
   association_id: number | null;
   jti: string;
   exp: number;  // seconds since epoch (auto present)

@@ -240,23 +240,36 @@ export class VehicleService {
   }
 
 
-  async resolveForPayment(ctx: UserContext, q: { plate?: string | null; driver_id?: number | null }) {
-    let vehicle: { driver_id: number | null; association_id: number; is_weekly: boolean } | null = null;
+  async resolveForPayment(
+    ctx: UserContext,
+    q: { plate?: string | null; driver_id?: number | null },
+  ) {
+    let vehicle: {
+      driver_id: number | null;
+      association_id: number;
+      is_weekly: boolean;
+      plate_number?: string;
+    } | null = null;
+
     let driver: {
       id: number;
       full_name: string;
-      phone_number: string;
       active_until_date: Date | null;
       interest_accrued: number | null;
       association_id: number;
-      vehicle?: { is_weekly: boolean } | null;
+      vehicle?: { is_weekly: boolean; plate_number?: string } | null;
     } | null = null;
 
     if (q.plate) {
       // 🔎 Lookup by plate
       vehicle = await this.prisma.vehicle.findUnique({
         where: { plate_number: q.plate },
-        select: { driver_id: true, association_id: true, is_weekly: true },
+        select: {
+          driver_id: true,
+          association_id: true,
+          is_weekly: true,
+          plate_number: true,
+        },
       });
       if (!vehicle) throw new NotFoundException('Vehicle not found');
       if (!vehicle.driver_id) throw new BadRequestException('No driver assigned to this plate');
@@ -266,7 +279,6 @@ export class VehicleService {
         select: {
           id: true,
           full_name: true,
-          phone_number: true,
           active_until_date: true,
           interest_accrued: true,
           association_id: true,
@@ -285,11 +297,10 @@ export class VehicleService {
         select: {
           id: true,
           full_name: true,
-          phone_number: true,
           active_until_date: true,
           interest_accrued: true,
           association_id: true,
-          vehicle: { select: { is_weekly: true } },
+          vehicle: { select: { is_weekly: true, plate_number: true } },
         },
       });
       if (!d) throw new NotFoundException('Driver not found');
@@ -303,6 +314,7 @@ export class VehicleService {
         driver_id: d.id,
         association_id: d.association_id,
         is_weekly: Boolean(d.vehicle?.is_weekly),
+        plate_number: d.vehicle?.plate_number ?? undefined,
       };
     } else {
       throw new BadRequestException('Either plate or driver_id is required');
@@ -313,10 +325,15 @@ export class VehicleService {
     const policy = await this.policyRepo.get(driver.association_id);
     if (!policy) throw new NotFoundException('Association policy not found');
 
+    const association = await this.prisma.association.findUnique({
+      where: { id: driver.association_id },
+      select: { name: true },
+    });
+
     return {
-      id: driver.id,
-      name: driver.full_name,
-      phone: driver.phone_number,
+      association_name: association?.name ?? '',
+      driver_name: driver.full_name,
+      plate_number: vehicle?.plate_number ?? null,
       is_weekly: Boolean(vehicle?.is_weekly),
       active_until_date: driver.active_until_date
         ? new Date(driver.active_until_date).toISOString().slice(0, 10)

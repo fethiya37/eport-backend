@@ -21,7 +21,7 @@ export class PaymentsController {
    * - Admin/Superadmin can pay for any association.
    */
   @Post('apply')
-  @Roles('Admin', 'Superadmin', 'Association', 'Driver', 'Owner', 'Controller')
+  @Roles('Admin', 'Superadmin', 'Association', 'Driver', 'Controller')
   apply(@AuthUser() user: UserContext, @Body() dto: PayDto) {
     return this.service.applyPayment(user, dto);
   }

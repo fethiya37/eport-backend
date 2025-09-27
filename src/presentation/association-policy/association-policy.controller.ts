@@ -17,7 +17,7 @@ export class AssociationPolicyController {
 
   // ✅ Allow every signed-in role used by the mobile app to READ
   @Get()
-  @Roles('Admin','Superadmin','Association','Driver','Owner','Controller')
+  @Roles('Admin','Superadmin','Association','Driver','Controller')
   get(@AuthUser() user: UserContext) {
     return this.service.get(user);
   }
