@@ -19,7 +19,7 @@ import {
   type IAssociationPolicyRepository,
 } from '../../domain/repositories/association-policy.repository';
 import type { UserContext } from 'src/common/context/user-context';
-import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { PrismaService } from '../../../prisma/prisma.service';
 import { PayDto } from '../../presentation/payments/dto/pay.dto';
 import { isAdminLike } from '../../common/auth/roles.util';
 import { PaymentMethod } from '@prisma/client';

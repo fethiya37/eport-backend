@@ -1,5 +1,5 @@
 import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../../../prisma/prisma.service';
 import { IOwnerRepository } from '../../domain/repositories/owner.repository';
 import { Owner, Prisma } from '@prisma/client';
 import { isAdminLike } from '../../common/auth/roles.util';

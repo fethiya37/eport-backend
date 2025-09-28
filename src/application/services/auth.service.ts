@@ -2,7 +2,7 @@ import { Injectable, ForbiddenException, UnauthorizedException } from '@nestjs/c
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
-import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { PrismaService } from '../../../prisma/prisma.service';
 import { UserType } from '@prisma/client';
 
 type LoginInput = { phone_number: string; password: string };

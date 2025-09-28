@@ -26,7 +26,7 @@ import { RouteQuotaFilterDto } from '../../presentation/route-quota/dto/route-qu
 import { CreateManyRouteQuotasDto } from '../../presentation/route-quota/dto/create-many-route-quotas.dto';
 
 import { isAdminLike } from '../../common/auth/roles.util';
-import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { PrismaService } from '../../../prisma/prisma.service';
 import type { UserContext } from 'src/common/context/user-context';
 import { VehicleStatus } from '@prisma/client';
 

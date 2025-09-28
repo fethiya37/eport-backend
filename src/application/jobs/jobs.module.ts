@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { BillingJobs } from './billing.jobs';
-import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { PrismaService } from '../../../prisma/prisma.service';
 import { ROUTE_ASSIGNMENT_REPOSITORY } from '../../domain/repositories/route-assignment.repository';
 import { PrismaRouteAssignmentRepository } from '../../infrastructure/repositories/prisma-route-assignment.repository';
 

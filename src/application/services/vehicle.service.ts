@@ -10,7 +10,7 @@ import type { IVehicleRepository } from '../../domain/repositories/vehicle.repos
 import { VEHICLE_REPOSITORY, VehicleFilter } from '../../domain/repositories/vehicle.repository';
 import { CreateVehicleDto } from '../../presentation/vehicle/dto/create-vehicle.dto';
 import { UpdateVehicleDto } from '../../presentation/vehicle/dto/update-vehicle.dto';
-import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { PrismaService } from '../../../prisma/prisma.service';
 import { VehicleStatus } from '@prisma/client';
 import { isAdminLike } from '../../common/auth/roles.util';
 import { UserContext } from 'src/common/context/user-context';

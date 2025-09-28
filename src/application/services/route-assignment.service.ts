@@ -13,7 +13,7 @@ import {
 import { isAdminLike } from '../../common/auth/roles.util';
 import type { UserContext } from 'src/common/context/user-context';
 import { RouteAssignmentStatus, PaymentStatus } from '@prisma/client';
-import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { PrismaService } from '../../../prisma/prisma.service';
 import { BulkUpsertAssignmentsDto } from '../../presentation/route-assignment/dto/bulk-upsert.dto';
 import { ApproveAssignmentsDto } from '../../presentation/route-assignment/dto/approve.dto';
 import { UpdateAssignmentDto } from '../../presentation/route-assignment/dto/update-assignment.dto';

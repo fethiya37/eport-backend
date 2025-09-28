@@ -1,7 +1,7 @@
 import { Inject, Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { OWNER_REPOSITORY } from '../../domain/repositories/owner.repository';
 import type { IOwnerRepository } from '../../domain/repositories/owner.repository';
-import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { PrismaService } from '../../../prisma/prisma.service';
 import { CreateOwnerDto } from '../../presentation/owner/dto/create-owner.dto';
 import { UpdateOwnerDto } from '../../presentation/owner/dto/update-owner.dto';
 import { isAdminLike } from '../../common/auth/roles.util';

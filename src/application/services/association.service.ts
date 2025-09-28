@@ -11,7 +11,7 @@ import {
 } from '../../domain/repositories/association.repository';
 import { CreateAssociationDto } from '../../presentation/association/dto/create-association.dto';
 import { UpdateAssociationDto } from '../../presentation/association/dto/update-association.dto';
-import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { PrismaService } from '../../../prisma/prisma.service';
 import { DriverStatus } from '@prisma/client';
 import { isAdminLike } from '../../common/auth/roles.util';
 import type { UserContext } from 'src/common/context/user-context';

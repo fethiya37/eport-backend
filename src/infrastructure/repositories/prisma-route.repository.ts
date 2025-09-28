@@ -1,5 +1,5 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../../../prisma/prisma.service';
 
 import { Prisma } from '@prisma/client';
 import { IRoutesRepository, RouteFilter, RouteUpsertInput, UpsertGroupWithRoutesArgs } from 'src/domain/repositories/route.repository';

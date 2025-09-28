@@ -10,7 +10,7 @@ import type { IUserRepository } from '../../domain/repositories/user.repository'
 import { CreateUserDto } from '../../presentation/user/dto/create-user.dto';
 import { UpdateUserDto } from '../../presentation/user/dto/update-user.dto';
 import { ChangePasswordDto } from '../../presentation/user/dto/change-password.dto';
-import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { PrismaService } from '../../../prisma/prisma.service';
 import { UserType } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { isAdminLike } from '../../common/auth/roles.util';

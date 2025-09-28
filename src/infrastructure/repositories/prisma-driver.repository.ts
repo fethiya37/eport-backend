@@ -1,5 +1,5 @@
 import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../../../prisma/prisma.service';
 import { IDriverRepository, DriverFilter } from '../../domain/repositories/driver.repository';
 import { Driver, Prisma } from '@prisma/client';
 import { isAdminLike } from '../../common/auth/roles.util';

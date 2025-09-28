@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { RouteQuotaController } from './route-quota.controller';
 import { RouteQuotaService } from '../../application/services/route-quota.service';
-import { PrismaModule } from '../../infrastructure/prisma/prisma.module';
+import { PrismaModule } from '../../../prisma/prisma.module';
 
 import { ROUTE_QUOTA_REPOSITORY } from '../../domain/repositories/route-quota.repository';
 import { PrismaRouteQuotaRepository } from '../../infrastructure/repositories/prisma-route-quota.repository';

@@ -15,7 +15,7 @@ import {
   ASSOCIATION_POLICY_REPOSITORY,
   type IAssociationPolicyRepository,
 } from '../../domain/repositories/association-policy.repository';
-import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { PrismaService } from '../../../prisma/prisma.service';
 import { CreateDriverDto } from '../../presentation/driver/dto/create-driver.dto';
 import { UpdateDriverDto } from '../../presentation/driver/dto/update-driver.dto';
 import { DriverStatus } from '@prisma/client';

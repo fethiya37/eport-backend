@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { PaymentsController } from './payments.controller';
-import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { PrismaService } from '../../../prisma/prisma.service';
 
 import { DRIVER_REPOSITORY } from '../../domain/repositories/driver.repository';
 import { PrismaDriverRepository } from '../../infrastructure/repositories/prisma-driver.repository';

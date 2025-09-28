@@ -4,7 +4,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../../../prisma/prisma.service';
 import { IVehicleRepository, VehicleFilter } from '../../domain/repositories/vehicle.repository';
 import { Vehicle, Prisma, VehicleStatus } from '@prisma/client';
 import { isAdminLike } from '../../common/auth/roles.util';

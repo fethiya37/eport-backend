@@ -2,7 +2,7 @@
 import { Module } from '@nestjs/common';
 import { RouteAssignmentController } from './route-assignment.controller';
 import { RouteAssignmentService } from '../../application/services/route-assignment.service';
-import { PrismaModule } from '../../infrastructure/prisma/prisma.module';
+import { PrismaModule } from '../../../prisma/prisma.module';
 
 import { ROUTE_ASSIGNMENT_REPOSITORY } from '../../domain/repositories/route-assignment.repository';
 import { PrismaRouteAssignmentRepository } from '../../infrastructure/repositories/prisma-route-assignment.repository';

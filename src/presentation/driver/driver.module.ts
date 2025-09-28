@@ -2,7 +2,7 @@
 import { Module } from '@nestjs/common';
 import { DriverController } from './driver.controller';
 import { DriverService } from '../../application/services/driver.service';
-import { PrismaModule } from '../../infrastructure/prisma/prisma.module';
+import { PrismaModule } from '../../../prisma/prisma.module';
 
 import { DRIVER_REPOSITORY } from '../../domain/repositories/driver.repository';
 import { PrismaDriverRepository } from '../../infrastructure/repositories/prisma-driver.repository';
