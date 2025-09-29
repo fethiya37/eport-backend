@@ -16,19 +16,22 @@ async function bootstrap() {
     }),
   );
 
+  // 🔑 Global API prefix
+  app.setGlobalPrefix('api');
+
   // Swagger
   const config = new DocumentBuilder()
     .setTitle('Clean Architecture API')
     .setDescription('API documentation for Clean Architecture project')
     .setVersion('1.0')
-    .addBearerAuth() // JWT support if needed later
+    .addBearerAuth()
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, document);
+  SwaggerModule.setup('api/docs', app, document); // put Swagger under /api/docs
 
   await app.listen(process.env.PORT ?? 3000);
   console.log(`🚀 Server running at http://localhost:${process.env.PORT ?? 3000}`);
-  console.log(`📚 Swagger docs available at http://localhost:${process.env.PORT ?? 3000}/api`);
+  console.log(`📚 Swagger docs available at http://localhost:${process.env.PORT ?? 3000}/api/docs`);
 }
 bootstrap();
