@@ -16,10 +16,9 @@ async function bootstrap() {
     }),
   );
 
-  // 🔑 Global API prefix
-  app.setGlobalPrefix('api');
+  // ❌ Removed: app.setGlobalPrefix('api');
 
-  // Swagger
+  // Swagger (now at /docs instead of /api/docs)
   const config = new DocumentBuilder()
     .setTitle('Clean Architecture API')
     .setDescription('API documentation for Clean Architecture project')
@@ -28,10 +27,10 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document); // put Swagger under /api/docs
+  SwaggerModule.setup('docs', app, document);
 
   await app.listen(process.env.PORT ?? 3000);
   console.log(`🚀 Server running at http://localhost:${process.env.PORT ?? 3000}`);
-  console.log(`📚 Swagger docs available at http://localhost:${process.env.PORT ?? 3000}/api/docs`);
+  console.log(`📚 Swagger docs available at http://localhost:${process.env.PORT ?? 3000}/docs`);
 }
 bootstrap();
