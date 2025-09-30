@@ -16,7 +16,7 @@ async function bootstrap() {
     }),
   );
 
-  // ❌ Removed: app.setGlobalPrefix('api');
+  app.setGlobalPrefix('api');
 
   // Swagger (now at /docs instead of /api/docs)
   const config = new DocumentBuilder()
@@ -31,6 +31,6 @@ async function bootstrap() {
 
   await app.listen(process.env.PORT ?? 3000);
   console.log(`🚀 Server running at http://localhost:${process.env.PORT ?? 3000}`);
-  console.log(`📚 Swagger docs available at http://localhost:${process.env.PORT ?? 3000}/docs`);
+  console.log(`📚 Swagger docs available at http://localhost:${process.env.PORT ?? 3000}/api/docs`);
 }
 bootstrap();
