@@ -127,6 +127,8 @@ export class PrismaDriverRepository implements IDriverRepository {
     return tx.driver.delete({ where: { id } });
   }
 
+
+
   async findWithoutVehicle(ctx: UserContext): Promise<Driver[]> {
     const baseScope = this.scopeWhere(ctx);
 

@@ -38,13 +38,19 @@ export class PaymentsService {
   ) { }
 
   // ===== date helpers (EAT, UTC+03) =====
-  private pad2(n: number) { return n < 10 ? `0${n}` : `${n}`; }
-  private ymdUTC(d: Date) { return d.toISOString().slice(0, 10); }
+  private pad2(n: number) {
+    return n < 10 ? `0${n}` : `${n}`;
+  }
+  private ymdUTC(d: Date) {
+    return d.toISOString().slice(0, 10);
+  }
   private todayEatYmd(): string {
     const now = new Date();
     const eatMs = now.getTime() + 3 * 3600_000;
     const eat = new Date(eatMs);
-    return `${eat.getUTCFullYear()}-${this.pad2(eat.getUTCMonth() + 1)}-${this.pad2(eat.getUTCDate())}`;
+    return `${eat.getUTCFullYear()}-${this.pad2(eat.getUTCMonth() + 1)}-${this.pad2(
+      eat.getUTCDate(),
+    )}`;
   }
   private isOverdueEAT(activeUntil?: Date | null): boolean {
     if (!activeUntil) return true;
@@ -72,14 +78,13 @@ export class PaymentsService {
     const v = value.trim().toUpperCase();
     switch (v) {
       case 'CASH':
-      case 'CARD':
       case 'BANK':
       case 'MOBILE':
       case 'OTHER':
         return v as PaymentMethod;
       default:
         throw new BadRequestException(
-          'Invalid payment_method. Use one of: CASH | CARD | BANK | MOBILE | OTHER',
+          'Invalid payment_method. Use one of: CASH | BANK | MOBILE | OTHER',
         );
     }
   }
@@ -116,6 +121,17 @@ export class PaymentsService {
       }
     }
 
+    // Attach vehicle info
+    const vehicle = await this.prisma.vehicle.findUnique({
+      where: { driver_id: d.id },
+      select: { id: true, plate_number: true, is_weekly: true },
+    });
+    if (!vehicle) throw new BadRequestException('Driver has no assigned vehicle');
+
+    d.vehicle_id = vehicle.id;
+    d.vehicle_plate = vehicle.plate_number;
+    d.is_weekly = vehicle.is_weekly;
+
     return d;
   }
 
@@ -123,11 +139,11 @@ export class PaymentsService {
   async applyPayment(ctx: UserContext, dto: PayDto) {
     const d = await this.resolveDriver(ctx, dto.driver_id, dto.plate_number);
 
-    // 1) Plan validation
-    const driverWeekly = Boolean((d as any).is_weekly);
-    if (dto.is_weekly !== driverWeekly) {
+    // 1) Plan validation (✅ from vehicle.is_weekly)
+    const driverPlan = d.is_weekly ? 'WEEKLY' : 'MONTHLY';
+    if (dto.fee_plan !== driverPlan) {
       throw new BadRequestException(
-        `Plan mismatch: driver is ${driverWeekly ? 'WEEKLY' : 'MONTHLY'}, but payload says ${dto.is_weekly ? 'WEEKLY' : 'MONTHLY'}.`,
+        `Plan mismatch: driver is ${driverPlan}, but payload says ${dto.fee_plan}.`,
       );
     }
 
@@ -137,26 +153,37 @@ export class PaymentsService {
     if (isNaN(startGc.getTime()) || isNaN(endGc.getTime())) {
       throw new BadRequestException('covered_start_date/covered_end_date must be valid ISO 8601');
     }
-    if (startGc > endGc) throw new BadRequestException('covered_start_date must be <= covered_end_date');
+    if (startGc > endGc)
+      throw new BadRequestException('covered_start_date must be <= covered_end_date');
 
-    const prepayQty = Math.max(0, dto.prepay_qty ?? 0);
-    if (dto.is_weekly) {
+    const prepayQty = Math.max(0, dto.prepaid_qty ?? 0);
+    const isOverdue = this.isOverdueEAT(d.active_until_date ?? null);
+
+    if (dto.fee_plan === 'WEEKLY') {
       const days =
         Math.floor(this.startOfDay(endGc).getTime() - this.startOfDay(startGc).getTime()) /
         86_400_000 +
         1;
-      const expectedWeeks = 1 + prepayQty;
+
+      const expectedWeeks = isOverdue ? 1 + prepayQty : Math.max(1, prepayQty);
+
+      console.log('Start:', dto.covered_start_date, startGc.toISOString());
+      console.log('End:', dto.covered_end_date, endGc.toISOString());
+      console.log('Days calculated:', days);
+      console.log('Expected weeks:', expectedWeeks);
+
       if (days % 7 !== 0 || days / 7 !== expectedWeeks) {
-        throw new BadRequestException('Weekly coverage length must equal 7 * (1 + prepay_qty) days.');
+        throw new BadRequestException(
+          `Weekly coverage length must equal ${expectedWeeks} week(s) = ${expectedWeeks * 7} days.`,
+        );
       }
     }
 
     // 3) Pricing
-    const fees = await this.getFees((d as any).association_id);
-    const baseFee = dto.is_weekly ? fees.weekly_fee : fees.monthly_fee;
+    const fees = await this.getFees(d.association_id);
+    const baseFee = dto.fee_plan === 'WEEKLY' ? fees.weekly_fee : fees.monthly_fee;
 
-    const isOverdue = this.isOverdueEAT((d as any).active_until_date ?? null);
-    const interestAccrued = Number((d as any).interest_accrued ?? 0);
+    const interestAccrued = Number(d.interest_accrued ?? 0);
 
     const currentFee = isOverdue ? baseFee : 0;
     const interest = isOverdue ? interestAccrued : 0;
@@ -164,20 +191,20 @@ export class PaymentsService {
 
     const total = Math.round((currentFee + interest + futureFee + Number.EPSILON) * 100) / 100;
 
-    if (dto.total_override !== undefined) {
-      const provided = Math.round((dto.total_override + Number.EPSILON) * 100) / 100;
+    if (dto.amount !== undefined) {
+      const provided = Math.round((dto.amount + Number.EPSILON) * 100) / 100;
       if (provided !== total) {
         throw new BadRequestException(`Total mismatch. Expected ${total}, got ${provided}`);
       }
     }
 
-    // 4) Persist payment + update assignments instead of driver.payment_status
+    // 4) Persist payment + update assignments
     await this.prisma.$transaction(async (tx) => {
       await this.payments.create(
         {
-          association_id: (d as any).association_id,
-          driver_id: (d as any).id,
-          fee_plan: dto.is_weekly ? 'WEEKLY' : 'MONTHLY',
+          association_id: d.association_id,
+          driver_id: d.id,
+          fee_plan: dto.fee_plan,
           prepaid_qty: prepayQty,
           amount: total,
           covered_start_date: startGc,
@@ -185,12 +212,12 @@ export class PaymentsService {
           paid_at: new Date(),
           created_by_user_id: ctx.userId,
           payment_method: this.parsePaymentMethod(dto.payment_method),
+          plate_number: dto.plate_number ?? d.vehicle_plate ?? null,
         },
         tx,
       );
 
-      // ✅ update route assignments payment_status
-      const vehicleId = (d as any).vehicle_id;
+      const vehicleId = d.vehicle_id;
       if (!vehicleId) throw new BadRequestException('Driver has no assigned vehicle');
 
       // 1️⃣ find latest ACTIVE assignment for this vehicle
@@ -210,8 +237,8 @@ export class PaymentsService {
         data: { payment_status: 'ACTIVE' },
       });
 
-      // 3️⃣ still extend driver.active_until_date for coverage logic
-      await this.drivers.update(ctx, (d as any).id, {
+      // 3️⃣ extend driver coverage
+      await this.drivers.update(ctx, d.id, {
         active_until_date: endGc,
         interest_accrued: 0,
         last_accrual_amount: 0,
@@ -220,22 +247,26 @@ export class PaymentsService {
     });
 
     // 5) Fetch new coverage (with routes) and send SMS
-    const coverage = await this.routeService.visibleCoverage(ctx, { plate_number: dto.plate_number! });
+    const coverage = await this.routeService.visibleCoverage(ctx, {
+      plate_number: dto.plate_number ?? d.vehicle_plate,
+    });
 
     // const msg = this.formatCoverageSmsCompact(coverage);
-    // await this.smsGateway.sendSms((d as any).phone_number, msg);
+    // await this.smsGateway.sendSms(d.phone_number, msg);
 
     return {
       payment: {
-        driver_id: (d as any).id,
-        fee_plan: dto.is_weekly ? 'WEEKLY' : 'MONTHLY',
+        plate_number: dto.plate_number ?? d.vehicle_plate ?? null,
+        fee_plan: dto.fee_plan,
         breakdown: { interest, current_fee: currentFee, future_fee: futureFee, total },
-        coverage: { from: startGc.toISOString(), to: endGc.toISOString() },
+        coverage: {
+          from: this.ymdUTC(startGc),  // "2025-10-06"
+          to: this.ymdUTC(endGc),      // "2025-10-12"
+        },
       },
-      coverage,
     };
-  }
 
+  }
 
   // ===== Compact SMS formatter =====
   private formatCoverageSmsCompact(data: any): string {

@@ -295,8 +295,8 @@ model AssociationPolicy {
 model DriverPayment {
   id                 Int @id @default(autoincrement())
   association_id     Int
-  driver_id          Int
-  created_by_user_id Int
+  driver_id          Int?
+  created_by_user_id Int?
 
   fee_plan           FeePlan
   prepaid_qty        Int            @default(0)
@@ -305,12 +305,14 @@ model DriverPayment {
   covered_end_date   DateTime
   paid_at            DateTime       @default(now())
   payment_method     PaymentMethod?
+  plate_number       String?        @db.VarChar(20) // ✅ new column
 
-  association Association @relation(fields: [association_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  driver      Driver      @relation(fields: [driver_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  creator     User        @relation("payment_creator", fields: [created_by_user_id], references: [id], onDelete: Restrict)
+  association Association @relation(fields: [association_id], references: [id], onDelete: Cascade, onUpdate: Cascade) // ✅ delete payments if assoc deleted
+  driver      Driver?     @relation(fields: [driver_id], references: [id], onDelete: SetNull, onUpdate: Cascade) // ✅ keep record, null driver
+  creator     User?       @relation("payment_creator", fields: [created_by_user_id], references: [id], onDelete: SetNull, onUpdate: Cascade) // ✅ keep record, null creator
 
   @@index([association_id])
   @@index([driver_id])
   @@map("driver_payments")
 }
+

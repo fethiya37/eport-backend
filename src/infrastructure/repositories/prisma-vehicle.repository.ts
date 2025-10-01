@@ -53,21 +53,37 @@ export class PrismaVehicleRepository implements IVehicleRepository {
       }
     }
 
-    return this.prisma.vehicle.create({
-      data: {
-        plate_number: data.plate_number,
-        libre_no: data.libre_no ?? null,
-        owner_id: data.owner_id,
-        association_id: data.association_id,
-        driver_id: data.driver_id ?? null,
-        make: data.make ?? null,
-        model: data.model ?? null,
-        color: data.color ?? null,
-        capacity: data.capacity ?? null,
-        status: VehicleStatus.ACTIVE,
-        is_weekly: data.is_weekly, // ✅ now persisted
-      },
-    });
+    try {
+      return await this.prisma.vehicle.create({
+        data: {
+          plate_number: data.plate_number,
+          libre_no: data.libre_no ?? null,
+          owner_id: data.owner_id,
+          association_id: data.association_id,
+          driver_id: data.driver_id ?? null,
+          make: data.make ?? null,
+          model: data.model ?? null,
+          color: data.color ?? null,
+          capacity: data.capacity ?? null,
+          status: VehicleStatus.ACTIVE,
+          is_weekly: data.is_weekly,
+        },
+      });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        const target = Array.isArray(err.meta?.target)
+          ? (err.meta?.target as string[])
+          : [String(err.meta?.target ?? '')];
+
+        if (target.includes('plate_number')) {
+          throw new BadRequestException('Plate number already exists');
+        }
+        if (target.includes('driver_id')) {
+          throw new BadRequestException('This driver is already assigned to another vehicle');
+        }
+      }
+      throw err;
+    }
   }
 
   async findAll(ctx: UserContext, filter?: VehicleFilter): Promise<Vehicle[]> {
@@ -157,22 +173,38 @@ export class PrismaVehicleRepository implements IVehicleRepository {
       }
     }
 
-    return this.prisma.vehicle.update({
-      where: { id },
-      data: {
-        ...(data.plate_number !== undefined ? { plate_number: data.plate_number } : {}),
-        ...(data.libre_no !== undefined ? { libre_no: data.libre_no } : {}),
-        ...(data.owner_id !== undefined ? { owner_id: data.owner_id } : {}),
-        ...(data.driver_id !== undefined ? { driver_id: data.driver_id } : {}),
-        ...(data.make !== undefined ? { make: data.make } : {}),
-        ...(data.model !== undefined ? { model: data.model } : {}),
-        ...(data.color !== undefined ? { color: data.color } : {}),
-        ...(data.capacity !== undefined ? { capacity: data.capacity } : {}),
-        ...(data.status !== undefined ? { status: data.status } : {}),
-        ...(data.is_weekly !== undefined ? { is_weekly: data.is_weekly } : {}), // ✅ update weekly
-      } as Prisma.VehicleUncheckedUpdateInput,
-      include: { association: true, owner: true, driver: true },
-    });
+    try {
+      return await this.prisma.vehicle.update({
+        where: { id },
+        data: {
+          ...(data.plate_number !== undefined ? { plate_number: data.plate_number } : {}),
+          ...(data.libre_no !== undefined ? { libre_no: data.libre_no } : {}),
+          ...(data.owner_id !== undefined ? { owner_id: data.owner_id } : {}),
+          ...(data.driver_id !== undefined ? { driver_id: data.driver_id } : {}),
+          ...(data.make !== undefined ? { make: data.make } : {}),
+          ...(data.model !== undefined ? { model: data.model } : {}),
+          ...(data.color !== undefined ? { color: data.color } : {}),
+          ...(data.capacity !== undefined ? { capacity: data.capacity } : {}),
+          ...(data.status !== undefined ? { status: data.status } : {}),
+          ...(data.is_weekly !== undefined ? { is_weekly: data.is_weekly } : {}),
+        } as Prisma.VehicleUncheckedUpdateInput,
+        include: { association: true, owner: true, driver: true },
+      });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        const target = Array.isArray(err.meta?.target)
+          ? (err.meta?.target as string[])
+          : [String(err.meta?.target ?? '')];
+
+        if (target.includes('plate_number')) {
+          throw new BadRequestException('Plate number already exists');
+        }
+        if (target.includes('driver_id')) {
+          throw new BadRequestException('This driver is already assigned to another vehicle');
+        }
+      }
+      throw err;
+    }
   }
 
   async remove(ctx: UserContext, id: number): Promise<Vehicle> {
@@ -185,14 +217,11 @@ export class PrismaVehicleRepository implements IVehicleRepository {
     });
   }
 
-
   async findAvailableForQuotaOrDirect(
     ctx: UserContext,
-    input: { association_id?: number; is_weekly: boolean; start_date: Date; mode: 'quota' | 'direct' }
+    input: { association_id?: number; is_weekly: boolean; start_date: Date; mode: 'quota' | 'direct' },
   ): Promise<{ count: number; vehicles?: Vehicle[] }> {
-    const assocId = isAdminLike(ctx.user_type)
-      ? input.association_id
-      : ctx.association_id;
+    const assocId = isAdminLike(ctx.user_type) ? input.association_id : ctx.association_id;
 
     if (!assocId) throw new BadRequestException('association_id is required');
 
@@ -230,5 +259,4 @@ export class PrismaVehicleRepository implements IVehicleRepository {
     }
     return { count: available.length, vehicles: available };
   }
-
 }

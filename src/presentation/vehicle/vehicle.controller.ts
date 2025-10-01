@@ -25,7 +25,7 @@ export class VehicleController {
   }
 
   @Get('resolve')
-  @Roles('Driver')
+  @Roles('Driver', 'Association')
   resolveForPayment(
     @AuthUser() user: UserContext,
     @Query('plate') plate?: string,
@@ -54,13 +54,13 @@ export class VehicleController {
 
 
   @Patch(':id')
-  @Roles('Association')
+  @Roles('Admin', 'Superadmin', 'Association')
   update(@AuthUser() user: UserContext, @Param('id', ParseIntPipe) id: number, @Body() dto: UpdateVehicleDto) {
     return this.service.update(user, id, dto);
   }
 
   @Delete(':id')
-  @Roles('Association')
+  @Roles('Admin', 'Superadmin', 'Association')
   remove(@AuthUser() user: UserContext, @Param('id', ParseIntPipe) id: number) {
     return this.service.remove(user, id);
   }

@@ -12,7 +12,8 @@ export type DriverPaymentCreate = {
   covered_end_date: Date;
   paid_at: Date;
   created_by_user_id: number;
-  payment_method?: PaymentMethod | null; // <- NEW (enum, nullable)
+  payment_method?: PaymentMethod | null; // ✅ enum, nullable
+  plate_number?: string | null;          // ✅ NEW field
 };
 
 export interface IDriverPaymentRepository {

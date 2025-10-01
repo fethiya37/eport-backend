@@ -25,7 +25,11 @@ export class DriverController {
     return this.service.findAll(user, filter);
   }
 
-
+  @Get('without-vehicle')
+  @Roles('Admin', 'Superadmin', 'Association')
+  findWithoutVehicle(@AuthUser() user: UserContext) {
+    return this.service.findDriversWithoutVehicle(user);
+  }
 
   // DETAIL: returns single driver + active_plate_number
   @Get(':id')
@@ -41,21 +45,14 @@ export class DriverController {
   }
 
   @Patch(':id')
-  @Roles('Association')
+  @Roles('Admin', 'Superadmin', 'Association')
   update(@AuthUser() user: UserContext, @Param('id', ParseIntPipe) id: number, @Body() dto: UpdateDriverDto) {
     return this.service.update(user, id, dto);
   }
 
   @Delete(':id')
-  @Roles('Association')
+  @Roles('Admin', 'Superadmin', 'Association')
   remove(@AuthUser() user: UserContext, @Param('id', ParseIntPipe) id: number) {
     return this.service.remove(user, id);
-  }
-
-
-  @Get('without-vehicle')
-  @Roles('Admin', 'Superadmin', 'Association')
-  findWithoutVehicle(@AuthUser() user: UserContext) {
-    return this.service.findDriversWithoutVehicle(user);
   }
 }

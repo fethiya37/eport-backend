@@ -143,10 +143,22 @@ export class DriverService {
     if (!driver) throw new NotFoundException('Driver not found');
 
     return this.prisma.$transaction(async (tx) => {
+      // 1️⃣ delete the Driver first
+      await this.drivers.remove(ctx, id, tx);
+
+      // 2️⃣ unlink vehicle if one exists (set driver_id = null)
+      await tx.vehicle.updateMany({
+        where: { driver_id: id },
+        data: { driver_id: null },
+      });
+
+      // 3️⃣ then delete the linked User
       await tx.user.delete({ where: { id: (driver as any).user_id } });
-      return this.drivers.remove(ctx, id, tx);
+
+      return driver;
     });
   }
+
 
   async findDriversWithoutVehicle(ctx: UserContext) {
     return this.drivers.findWithoutVehicle(ctx);

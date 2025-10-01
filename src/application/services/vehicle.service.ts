@@ -305,6 +305,10 @@ export class VehicleService {
       });
       if (!d) throw new NotFoundException('Driver not found');
 
+      if (!d.vehicle) {
+        throw new BadRequestException('This driver does not have a vehicle assigned');
+      }
+
       driver = {
         ...d,
         interest_accrued: d.interest_accrued ? Number(d.interest_accrued) : 0,
@@ -313,8 +317,8 @@ export class VehicleService {
       vehicle = {
         driver_id: d.id,
         association_id: d.association_id,
-        is_weekly: Boolean(d.vehicle?.is_weekly),
-        plate_number: d.vehicle?.plate_number ?? undefined,
+        is_weekly: Boolean(d.vehicle.is_weekly),
+        plate_number: d.vehicle.plate_number ?? undefined,
       };
     } else {
       throw new BadRequestException('Either plate or driver_id is required');
@@ -345,8 +349,6 @@ export class VehicleService {
       },
     };
   }
-
-
 
   async findAvailableForQuotaOrDirect(
     ctx: UserContext,

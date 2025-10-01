@@ -12,7 +12,7 @@ import {
 } from '../../domain/repositories/route-assignment.repository';
 import { isAdminLike } from '../../common/auth/roles.util';
 import type { UserContext } from 'src/common/context/user-context';
-import { RouteAssignmentStatus, PaymentStatus } from '@prisma/client';
+import { RouteAssignmentStatus, PaymentStatus, VehicleStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { BulkUpsertAssignmentsDto } from '../../presentation/route-assignment/dto/bulk-upsert.dto';
 import { ApproveAssignmentsDto } from '../../presentation/route-assignment/dto/approve.dto';
@@ -32,7 +32,7 @@ export class RouteAssignmentService {
     @Inject(ROUTE_ASSIGNMENT_REPOSITORY)
     private readonly repo: IRouteAssignmentRepository,
     private readonly prisma: PrismaService,
-  ) {}
+  ) { }
 
   // -----------------------------
   // Helpers
@@ -202,9 +202,9 @@ export class RouteAssignmentService {
 
     const driver = vehicle.driver_id
       ? await this.prisma.driver.findUnique({
-          where: { id: vehicle.driver_id },
-          select: { active_until_date: true },
-        })
+        where: { id: vehicle.driver_id },
+        select: { active_until_date: true },
+      })
       : null;
 
     const payment_status =
@@ -249,137 +249,147 @@ export class RouteAssignmentService {
   // -----------------------------
   // Visible Coverage
   // -----------------------------
-  async visibleCoverage(ctx: UserContext, q: { plate_number?: string; driver_id?: number }) {
-    let vehicle: {
+ async visibleCoverage(ctx: UserContext, q: { plate_number?: string; driver_id?: number }) {
+  let vehicle: {
+    id: number;
+    association_id: number;
+    driver_id: number | null;
+    is_weekly: boolean;
+    plate_number: string;
+    status: VehicleStatus;
+  } | null = null;
+
+  let driver: {
+    id: number;
+    full_name: string;
+    phone_number: string;
+    active_until_date: Date | null;
+    association_id: number;
+    vehicle?: {
       id: number;
       association_id: number;
-      driver_id: number | null;
       is_weekly: boolean;
       plate_number: string;
-      status: string;
-    } | null = null;
+      status: VehicleStatus;
+    } | null;
+  } | null = null;
 
-    let driver: {
-      id: number;
-      full_name: string;
-      phone_number: string;
-      active_until_date: Date | null;
-      association_id: number;
-      vehicle?: {
-        id: number;
-        association_id: number;
-        is_weekly: boolean;
-        plate_number: string;
-        status: string;
-      } | null;
-    } | null = null;
+  // --- Resolve by plate_number or driver_id
+  if (q.plate_number) {
+    vehicle = await this.prisma.vehicle.findUnique({
+      where: { plate_number: q.plate_number },
+      select: {
+        id: true,
+        association_id: true,
+        driver_id: true,
+        is_weekly: true,
+        plate_number: true,
+        status: true,
+      },
+    });
+    if (!vehicle) throw new NotFoundException('Vehicle not found');
+    if (!vehicle.driver_id) throw new BadRequestException('No driver assigned to this vehicle');
 
-    if (q.plate_number) {
-      vehicle = await this.prisma.vehicle.findUnique({
-        where: { plate_number: q.plate_number },
-        select: {
-          id: true,
-          association_id: true,
-          driver_id: true,
-          is_weekly: true,
-          plate_number: true,
-          status: true,
-        },
-      });
-      if (!vehicle) throw new NotFoundException('Vehicle not found');
-      if (!vehicle.driver_id) throw new BadRequestException('No driver assigned to this vehicle');
-
-      driver = await this.prisma.driver.findUnique({
-        where: { id: vehicle.driver_id },
-        select: {
-          id: true,
-          full_name: true,
-          phone_number: true,
-          active_until_date: true,
-          association_id: true,
-        },
-      });
-    } else if (q.driver_id) {
-      driver = await this.prisma.driver.findUnique({
-        where: { id: q.driver_id },
-        select: {
-          id: true,
-          full_name: true,
-          phone_number: true,
-          active_until_date: true,
-          association_id: true,
-          vehicle: {
-            select: {
-              id: true,
-              association_id: true,
-              is_weekly: true,
-              plate_number: true,
-              status: true,
-            },
+    driver = await this.prisma.driver.findUnique({
+      where: { id: vehicle.driver_id },
+      select: {
+        id: true,
+        full_name: true,
+        phone_number: true,
+        active_until_date: true,
+        association_id: true,
+      },
+    });
+  } else if (q.driver_id) {
+    driver = await this.prisma.driver.findUnique({
+      where: { id: q.driver_id },
+      select: {
+        id: true,
+        full_name: true,
+        phone_number: true,
+        active_until_date: true,
+        association_id: true,
+        vehicle: {
+          select: {
+            id: true,
+            association_id: true,
+            is_weekly: true,
+            plate_number: true,
+            status: true,
           },
         },
-      });
-      if (!driver) throw new NotFoundException('Driver not found');
-      if (!driver.vehicle) throw new BadRequestException('No vehicle assigned to this driver');
-
-      vehicle = {
-        id: driver.vehicle.id,
-        association_id: driver.vehicle.association_id,
-        driver_id: driver.id,
-        is_weekly: driver.vehicle.is_weekly,
-        plate_number: driver.vehicle.plate_number,
-        status: driver.vehicle.status,
-      };
-    } else {
-      throw new BadRequestException('Either plate_number or driver_id is required');
-    }
-
-    if (!driver) throw new NotFoundException('Driver not found');
-
-    const today = startOfDay(new Date());
-    if (!driver.active_until_date || startOfDay(driver.active_until_date) < today) {
-      return { not_full_filled: true };
-    }
-
-    const windowStart = vehicle.is_weekly ? startOfWeekMonday(today) : etMonthStart(today);
-    const windowEnd = endOfDay(driver.active_until_date);
-
-    const assignments = await this.prisma.routeAssignment.findMany({
-      where: {
-        vehicle_id: vehicle.id,
-        association_id: vehicle.association_id,
-        status: { in: [RouteAssignmentStatus.Pending, RouteAssignmentStatus.Approved] },
-        payment_status: PaymentStatus.ACTIVE,
-        NOT: [{ end_date: { lt: windowStart } }, { start_date: { gt: windowEnd } }],
       },
-      include: { route: true },
-      orderBy: { start_date: 'asc' },
     });
+    if (!driver) throw new NotFoundException('Driver not found');
+    if (!driver.vehicle) throw new BadRequestException('No vehicle assigned to this driver');
 
-    // 🚫 If vehicle inactive or no active assignments → not full filled
-    if (vehicle.status === 'INACTIVE' || assignments.length === 0) {
-      return { not_full_filled: true };
-    }
+    vehicle = {
+      id: driver.vehicle.id,
+      association_id: driver.vehicle.association_id,
+      driver_id: driver.id,
+      is_weekly: driver.vehicle.is_weekly,
+      plate_number: driver.vehicle.plate_number,
+      status: driver.vehicle.status,
+    };
+  } else {
+    throw new BadRequestException('Either plate_number or driver_id is required');
+  }
 
-    const association = await this.prisma.association.findUnique({
-      where: { id: vehicle.association_id },
-      select: { name: true },
-    });
+  if (!driver) throw new NotFoundException('Driver not found');
 
+  // --- Check active_until_date and vehicle status
+  const today = startOfDay(new Date());
+  if (!driver.active_until_date || startOfDay(driver.active_until_date) < today || vehicle.status === VehicleStatus.INACTIVE) {
+    return { not_full_filled: true };
+  }
+
+  // --- Window boundaries
+  const windowStart = vehicle.is_weekly ? startOfWeekMonday(today) : etMonthStart(today);
+  const windowEnd = endOfDay(driver.active_until_date);
+
+  // --- Get assignments fully contained in window
+  const assignments = await this.prisma.routeAssignment.findMany({
+    where: {
+      vehicle_id: vehicle.id,
+      association_id: vehicle.association_id,
+      status: { in: [RouteAssignmentStatus.Pending, RouteAssignmentStatus.Approved] },
+      payment_status: PaymentStatus.ACTIVE,
+      start_date: { gte: windowStart },
+      end_date: { lte: windowEnd },
+    },
+    include: { route: true },
+    orderBy: { start_date: 'asc' },
+  });
+
+  if (assignments.length === 0) {
     return {
-      association_name: association?.name ?? '',
-      plate_number: vehicle.plate_number,
-      driver_name: driver.full_name,
-      assignments: assignments.map((r) => ({
-        route: {
-          id: r.route.id,
-          departure: r.route.departure,
-          arrival: r.route.arrival,
-        },
-        start_date_gc: r.start_date.toISOString(),
-        end_date_gc: r.end_date.toISOString(),
-        status: r.status,
-      })),
+      message: `Route assignment doesn't exist for ${windowStart.toISOString().slice(0, 10)} - ${windowEnd.toISOString().slice(0, 10)}`,
+      driver_active_until: driver.active_until_date.toISOString().slice(0, 10),
     };
   }
+
+  // --- Association name
+  const association = await this.prisma.association.findUnique({
+    where: { id: vehicle.association_id },
+    select: { name: true },
+  });
+
+  return {
+    association_name: association?.name ?? '',
+    plate_number: vehicle.plate_number,
+    driver_name: driver.full_name,
+    driver_active_until: driver.active_until_date.toISOString().slice(0, 10),
+    assignments: assignments.map((r) => ({
+      route: {
+        id: r.route.id,
+        departure: r.route.departure,
+        arrival: r.route.arrival,
+      },
+      start_date_gc: r.start_date.toISOString(),
+      end_date_gc: r.end_date.toISOString(),
+      status: r.status,
+    })),
+  };
+}
+
 }

@@ -1,3 +1,4 @@
+// src/infrastructure/repositories/prisma-driver-payment.repository.ts
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
@@ -24,7 +25,8 @@ export class PrismaDriverPaymentRepository implements IDriverPaymentRepository {
       covered_end_date: row.covered_end_date,
       paid_at: row.paid_at,
       created_by_user_id: row.created_by_user_id,
-      payment_method: (row.payment_method ?? null) as PaymentMethod | null, // <- NEW
+      payment_method: (row.payment_method ?? null) as PaymentMethod | null,
+      plate_number: row.plate_number ?? null, // ✅ NEW
     };
 
     if (tx) {
