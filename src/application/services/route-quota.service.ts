@@ -1,4 +1,3 @@
-// src/application/services/route-quota.service.ts
 import {
   Inject,
   Injectable,
@@ -28,7 +27,7 @@ import { CreateManyRouteQuotasDto } from '../../presentation/route-quota/dto/cre
 import { isAdminLike } from '../../common/auth/roles.util';
 import { PrismaService } from '../../../prisma/prisma.service';
 import type { UserContext } from 'src/common/context/user-context';
-import { VehicleStatus } from '@prisma/client';
+import { VehicleStatus, RouteQuotaStatus } from '@prisma/client'; // ✅ import enum
 
 @Injectable()
 export class RouteQuotaService {
@@ -37,9 +36,9 @@ export class RouteQuotaService {
     @Inject(ASSOCIATION_REPOSITORY) private readonly associations: IAssociationRepository,
     @Inject(ROUTES_REPOSITORY) private readonly routesRepo: IRoutesRepository,
     private readonly prisma: PrismaService,
-  ) { }
+  ) {}
 
-  // ========== CREATE (GC in/out) ==========
+  // ========== CREATE ==========
   async create(ctx: UserContext, dto: CreateRouteQuotaDto) {
     if (!isAdminLike(ctx.user_type)) throw new ForbiddenException('Only Admin/Superadmin');
 
@@ -63,10 +62,12 @@ export class RouteQuotaService {
       start_date,
       end_date,
       no_vehicles: dto.no_vehicles,
+      remaining_vehicles: dto.no_vehicles,
+      status: RouteQuotaStatus.Pending, // ✅ use enum
     });
   }
 
-  // ========== CREATE MANY (GC in/out) ==========
+  // ========== CREATE MANY ==========
   async createMany(ctx: UserContext, dto: CreateManyRouteQuotasDto) {
     if (!isAdminLike(ctx.user_type)) throw new ForbiddenException('Only Admin/Superadmin');
 
@@ -96,22 +97,23 @@ export class RouteQuotaService {
         start_date,
         end_date,
         no_vehicles: item.no_vehicles,
+        remaining_vehicles: item.no_vehicles,
+        status: RouteQuotaStatus.Pending, // ✅ enum
       });
     }
 
     return this.quotas.createMany(rows);
   }
 
-  // ========== FIND (passes GC filter straight through) ==========
+  // ========== FIND ==========
   find(ctx: UserContext, filter: RouteQuotaFilterDto) {
     if (!isAdminLike(ctx.user_type) && ctx.association_id) {
       filter.association_id = ctx.association_id;
     }
-    // If filter contains date_from/date_to, they must already be GC; no conversion here.
     return this.quotas.find(filter);
   }
 
-  // ========== UPDATE (GC in/out) ==========
+  // ========== UPDATE ==========
   async update(ctx: UserContext, id: number, dto: UpdateRouteQuotaDto) {
     if (!isAdminLike(ctx.user_type)) throw new ForbiddenException('Only Admin/Superadmin');
 
@@ -125,7 +127,14 @@ export class RouteQuotaService {
       throw new ForbiddenException('Cannot update quota with approved assignments');
     }
 
-    const patch: Partial<{ start_date: Date; end_date: Date; no_vehicles: number }> = {};
+    const patch: Partial<{
+      start_date: Date;
+      end_date: Date;
+      no_vehicles: number;
+      remaining_vehicles: number;
+      status: RouteQuotaStatus; // ✅ enum
+    }> = {};
+
     if (dto.start_date) patch.start_date = this.parseGc(dto.start_date, 'start_date');
     if (dto.end_date) patch.end_date = this.parseGc(dto.end_date, 'end_date');
     if (patch.start_date && patch.end_date && patch.start_date > patch.end_date) {
@@ -135,6 +144,14 @@ export class RouteQuotaService {
     if (dto.no_vehicles !== undefined) {
       await this.ensureCapacity(existing.association_id, dto.no_vehicles);
       patch.no_vehicles = dto.no_vehicles;
+    }
+
+    if (dto.remaining_vehicles !== undefined) {
+      patch.remaining_vehicles = dto.remaining_vehicles;
+    }
+
+    if (dto.status !== undefined) {
+      patch.status = dto.status;
     }
 
     await this.ensureNoOverlap(
@@ -193,13 +210,13 @@ export class RouteQuotaService {
       );
     }
   }
+
   async remove(ctx: UserContext, id: number) {
     if (!isAdminLike(ctx.user_type)) throw new ForbiddenException('Only Admin/Superadmin');
 
     const existing = await this.quotas.findById(id);
     if (!existing) throw new NotFoundException('Route quota not found');
 
-    // Block deletion if quota already has approved assignments
     const approvedCount = await this.prisma.routeAssignment.count({
       where: { route_quota_id: id, status: 'Approved' },
     });
@@ -209,5 +226,4 @@ export class RouteQuotaService {
 
     return this.quotas.remove(id);
   }
-
 }

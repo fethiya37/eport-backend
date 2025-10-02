@@ -17,6 +17,11 @@ enum UserType {
   Controller
 }
 
+enum RouteQuotaStatus {
+  Pending
+  Fulfilled
+}
+
 enum VehicleStatus {
   ACTIVE
   INACTIVE
@@ -225,14 +230,16 @@ model Route {
 }
 
 model RouteQuota {
-  id             Int      @id @default(autoincrement())
-  association_id Int
-  route_id       Int
-  start_date     DateTime
-  end_date       DateTime
-  no_vehicles    Int
-  created_at     DateTime @default(now())
-  updated_at     DateTime @updatedAt
+  id                 Int              @id @default(autoincrement())
+  association_id     Int
+  route_id           Int
+  start_date         DateTime
+  end_date           DateTime
+  no_vehicles        Int
+  remaining_vehicles Int              @default(0)
+  status             RouteQuotaStatus @default(Pending)
+  created_at         DateTime         @default(now())
+  updated_at         DateTime         @updatedAt
 
   association Association @relation(fields: [association_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
   route       Route       @relation(fields: [route_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
@@ -293,7 +300,7 @@ model AssociationPolicy {
 }
 
 model DriverPayment {
-  id                 Int @id @default(autoincrement())
+  id                 Int  @id @default(autoincrement())
   association_id     Int
   driver_id          Int?
   created_by_user_id Int?
@@ -315,4 +322,3 @@ model DriverPayment {
   @@index([driver_id])
   @@map("driver_payments")
 }
-

@@ -1,75 +1,78 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { RouteQuota, RouteQuotaStatus } from '@prisma/client';
 import {
   IRouteQuotaRepository,
   RouteQuotaCreateRow,
-} from '../../domain/repositories/route-quota.repository';
-import { RouteQuota, Prisma } from '@prisma/client';
+} from 'src/domain/repositories/route-quota.repository';
 
 @Injectable()
 export class PrismaRouteQuotaRepository implements IRouteQuotaRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  create(data: RouteQuotaCreateRow): Promise<RouteQuota> {
-    return this.prisma.routeQuota.create({ data }).catch((e: any) => {
-      if (e?.code === 'P2002') {
-        // in case you later add a unique constraint
-        throw new BadRequestException('Quota for this window already exists');
-      }
-      throw e;
+  async create(data: RouteQuotaCreateRow): Promise<RouteQuota> {
+    return this.prisma.routeQuota.create({
+      data: {
+        association_id: data.association_id,
+        route_id: data.route_id,
+        start_date: data.start_date,
+        end_date: data.end_date,
+        no_vehicles: data.no_vehicles,
+        remaining_vehicles: data.remaining_vehicles ?? data.no_vehicles,
+        status: data.status ?? RouteQuotaStatus.Pending, // ✅ enum
+      },
     });
   }
 
-  // 👇 NEW
   async createMany(rows: RouteQuotaCreateRow[]): Promise<RouteQuota[]> {
-    return this.prisma.$transaction(async (tx) => {
-      const created: RouteQuota[] = [];
-      for (const r of rows) {
-        const q = await tx.routeQuota.create({ data: r }).catch((e: any) => {
-          if (e?.code === 'P2002') {
-            throw new BadRequestException('Quota for this window already exists');
-          }
-          throw e;
-        });
-        created.push(q);
-      }
-      return created;
-    });
+    return this.prisma.$transaction(
+      rows.map((r) =>
+        this.prisma.routeQuota.create({
+          data: {
+            association_id: r.association_id,
+            route_id: r.route_id,
+            start_date: r.start_date,
+            end_date: r.end_date,
+            no_vehicles: r.no_vehicles,
+            remaining_vehicles: r.remaining_vehicles ?? r.no_vehicles,
+            status: r.status ?? RouteQuotaStatus.Pending, // ✅ enum
+          },
+        }),
+      ),
+    );
   }
 
   find(filter: { association_id?: number; route_id?: number }): Promise<RouteQuota[]> {
-    const where: Prisma.RouteQuotaWhereInput = {
-      ...(filter.association_id ? { association_id: filter.association_id } : {}),
-      ...(filter.route_id ? { route_id: filter.route_id } : {}),
-    };
-    return this.prisma.routeQuota.findMany({ where, orderBy: { id: 'desc' } });
+    return this.prisma.routeQuota.findMany({
+      where: {
+        ...(filter.association_id ? { association_id: filter.association_id } : {}),
+        ...(filter.route_id ? { route_id: filter.route_id } : {}),
+      },
+      orderBy: { id: 'asc' },
+    });
   }
 
   async update(
     id: number,
-    data: Partial<{ start_date: Date; end_date: Date; no_vehicles: number }>
+    data: Partial<{
+      start_date: Date;
+      end_date: Date;
+      no_vehicles: number;
+      remaining_vehicles: number;
+      status: RouteQuotaStatus; // ✅ enum type
+    }>,
   ): Promise<RouteQuota> {
-    try {
-      return await this.prisma.routeQuota.update({ where: { id }, data });
-    } catch (e: any) {
-      if (e?.code === 'P2025') throw new NotFoundException('Route quota not found');
-      if (e?.code === 'P2002') {
-        throw new BadRequestException('Quota for this window already exists');
-      }
-      throw e;
-    }
+    return this.prisma.routeQuota.update({
+      where: { id },
+      data,
+    });
   }
 
   findById(id: number): Promise<RouteQuota | null> {
     return this.prisma.routeQuota.findUnique({ where: { id } });
   }
 
-  async remove(id: number): Promise<RouteQuota> {
-  try {
-    return await this.prisma.routeQuota.delete({ where: { id } });
-  } catch (e: any) {
-    if (e?.code === 'P2025') throw new NotFoundException('Route quota not found');
-    throw e;
+  remove(id: number): Promise<RouteQuota> {
+    return this.prisma.routeQuota.delete({ where: { id } });
   }
-}
 }
