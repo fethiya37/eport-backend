@@ -1,0 +1,149 @@
+import type { IVehicleRepository } from '../../domain/repositories/vehicle.repository';
+import { VehicleFilter } from '../../domain/repositories/vehicle.repository';
+import { CreateVehicleDto } from '../../presentation/vehicle/dto/create-vehicle.dto';
+import { UpdateVehicleDto } from '../../presentation/vehicle/dto/update-vehicle.dto';
+import { PrismaService } from '../../../prisma/prisma.service';
+import { UserContext } from 'src/common/context/user-context';
+import { type IAssociationPolicyRepository } from '../../domain/repositories/association-policy.repository';
+export declare class VehicleService {
+    private readonly vehicles;
+    private readonly policyRepo;
+    private readonly prisma;
+    constructor(vehicles: IVehicleRepository, policyRepo: IAssociationPolicyRepository, prisma: PrismaService);
+    private pad2;
+    private ymdUTC;
+    private todayEatYmd;
+    private dbDateEqualsTodayEAT;
+    private isOverdueEAT;
+    private computeTodaysInterest;
+    private subtractTodaysInterestForOverdueDriver;
+    private reAddTodaysInterestForOverdueDriver;
+    create(ctx: UserContext, dto: CreateVehicleDto): Promise<{
+        id: number;
+        association_id: number;
+        created_at: Date;
+        updated_at: Date;
+        status: import("@prisma/client").$Enums.VehicleStatus;
+        plate_number: string;
+        libre_no: string | null;
+        owner_id: number;
+        driver_id: number | null;
+        make: string | null;
+        model: string | null;
+        color: string | null;
+        capacity: number | null;
+        is_weekly: boolean;
+        deleted_at: Date | null;
+    }>;
+    findAll(ctx: UserContext, filter: VehicleFilter & {
+        association_id?: number;
+    }): Promise<{
+        id: number;
+        association_id: number;
+        created_at: Date;
+        updated_at: Date;
+        status: import("@prisma/client").$Enums.VehicleStatus;
+        plate_number: string;
+        libre_no: string | null;
+        owner_id: number;
+        driver_id: number | null;
+        make: string | null;
+        model: string | null;
+        color: string | null;
+        capacity: number | null;
+        is_weekly: boolean;
+        deleted_at: Date | null;
+    }[]>;
+    findOne(ctx: UserContext, id: number): Promise<{
+        id: number;
+        association_id: number;
+        created_at: Date;
+        updated_at: Date;
+        status: import("@prisma/client").$Enums.VehicleStatus;
+        plate_number: string;
+        libre_no: string | null;
+        owner_id: number;
+        driver_id: number | null;
+        make: string | null;
+        model: string | null;
+        color: string | null;
+        capacity: number | null;
+        is_weekly: boolean;
+        deleted_at: Date | null;
+    }>;
+    findActiveWithoutDriver(ctx: UserContext): Promise<{
+        id: number;
+        association_id: number;
+        created_at: Date;
+        updated_at: Date;
+        status: import("@prisma/client").$Enums.VehicleStatus;
+        plate_number: string;
+        libre_no: string | null;
+        owner_id: number;
+        driver_id: number | null;
+        make: string | null;
+        model: string | null;
+        color: string | null;
+        capacity: number | null;
+        is_weekly: boolean;
+        deleted_at: Date | null;
+    }[]>;
+    update(ctx: UserContext, id: number, dto: UpdateVehicleDto): Promise<{
+        id: number;
+        association_id: number;
+        created_at: Date;
+        updated_at: Date;
+        status: import("@prisma/client").$Enums.VehicleStatus;
+        plate_number: string;
+        libre_no: string | null;
+        owner_id: number;
+        driver_id: number | null;
+        make: string | null;
+        model: string | null;
+        color: string | null;
+        capacity: number | null;
+        is_weekly: boolean;
+        deleted_at: Date | null;
+    }>;
+    remove(ctx: UserContext, id: number): Promise<{
+        id: number;
+        association_id: number;
+        created_at: Date;
+        updated_at: Date;
+        status: import("@prisma/client").$Enums.VehicleStatus;
+        plate_number: string;
+        libre_no: string | null;
+        owner_id: number;
+        driver_id: number | null;
+        make: string | null;
+        model: string | null;
+        color: string | null;
+        capacity: number | null;
+        is_weekly: boolean;
+        deleted_at: Date | null;
+    }>;
+    resolveForPayment(ctx: UserContext, q: {
+        plate?: string | null;
+        driver_id?: number | null;
+    }): Promise<{
+        association_name: string;
+        driver_name: string;
+        plate_number: string | null;
+        is_weekly: boolean;
+        active_until_date: string | null;
+        interest_accrued: number;
+        policy: {
+            plan_fee: number;
+            daily_fine_percent: number;
+        };
+    }>;
+    findAvailableForQuotaOrDirect(ctx: UserContext, input: {
+        association_id?: number;
+        is_weekly: boolean;
+        start_date: Date;
+        mode: 'quota' | 'direct';
+    }): Promise<{
+        count: number;
+        vehicles?: import("@prisma/client").Vehicle[];
+    }>;
+}

@@ -1,0 +1,80 @@
+import { type IRouteQuotaRepository } from '../../domain/repositories/route-quota.repository';
+import { type IAssociationRepository } from '../../domain/repositories/association.repository';
+import { type IRoutesRepository } from '../../domain/repositories/route.repository';
+import { CreateRouteQuotaDto } from '../../presentation/route-quota/dto/create-route-quota.dto';
+import { UpdateRouteQuotaDto } from '../../presentation/route-quota/dto/update-route-quota.dto';
+import { RouteQuotaFilterDto } from '../../presentation/route-quota/dto/route-quota-filter.dto';
+import { CreateManyRouteQuotasDto } from '../../presentation/route-quota/dto/create-many-route-quotas.dto';
+import { PrismaService } from '../../../prisma/prisma.service';
+import type { UserContext } from 'src/common/context/user-context';
+export declare class RouteQuotaService {
+    private readonly quotas;
+    private readonly associations;
+    private readonly routesRepo;
+    private readonly prisma;
+    constructor(quotas: IRouteQuotaRepository, associations: IAssociationRepository, routesRepo: IRoutesRepository, prisma: PrismaService);
+    create(ctx: UserContext, dto: CreateRouteQuotaDto): Promise<{
+        id: number;
+        association_id: number;
+        created_at: Date;
+        updated_at: Date;
+        status: import("@prisma/client").$Enums.RouteQuotaStatus;
+        start_date: Date;
+        route_id: number;
+        end_date: Date;
+        no_vehicles: number;
+        remaining_vehicles: number;
+    }>;
+    createMany(ctx: UserContext, dto: CreateManyRouteQuotasDto): Promise<{
+        id: number;
+        association_id: number;
+        created_at: Date;
+        updated_at: Date;
+        status: import("@prisma/client").$Enums.RouteQuotaStatus;
+        start_date: Date;
+        route_id: number;
+        end_date: Date;
+        no_vehicles: number;
+        remaining_vehicles: number;
+    }[]>;
+    find(ctx: UserContext, filter: RouteQuotaFilterDto): Promise<{
+        id: number;
+        association_id: number;
+        created_at: Date;
+        updated_at: Date;
+        status: import("@prisma/client").$Enums.RouteQuotaStatus;
+        start_date: Date;
+        route_id: number;
+        end_date: Date;
+        no_vehicles: number;
+        remaining_vehicles: number;
+    }[]>;
+    update(ctx: UserContext, id: number, dto: UpdateRouteQuotaDto): Promise<{
+        id: number;
+        association_id: number;
+        created_at: Date;
+        updated_at: Date;
+        status: import("@prisma/client").$Enums.RouteQuotaStatus;
+        start_date: Date;
+        route_id: number;
+        end_date: Date;
+        no_vehicles: number;
+        remaining_vehicles: number;
+    }>;
+    private parseGc;
+    private countActivePairs;
+    private ensureCapacity;
+    private ensureNoOverlap;
+    remove(ctx: UserContext, id: number): Promise<{
+        id: number;
+        association_id: number;
+        created_at: Date;
+        updated_at: Date;
+        status: import("@prisma/client").$Enums.RouteQuotaStatus;
+        start_date: Date;
+        route_id: number;
+        end_date: Date;
+        no_vehicles: number;
+        remaining_vehicles: number;
+    }>;
+}

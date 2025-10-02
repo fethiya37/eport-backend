@@ -1,0 +1,35 @@
+import { Route, RouteGroup } from '@prisma/client';
+export declare const ROUTES_REPOSITORY: unique symbol;
+export type RouteFilter = {
+    route_group_id?: number;
+    departure_contains?: string;
+    arrival_contains?: string;
+};
+export type RouteUpsertInput = {
+    id?: number;
+    departure: string;
+    arrival: string;
+    kilometer?: string | number | null;
+    tariff?: string | number | null;
+};
+export type UpsertGroupWithRoutesArgs = {
+    route_group_id?: number;
+    route_group?: string;
+    routes: RouteUpsertInput[];
+};
+export interface IRoutesRepository {
+    listRouteGroups(includeRoutes: boolean): Promise<(RouteGroup & {
+        routes?: Route[];
+    })[]>;
+    listRoutes(filter: RouteFilter): Promise<Route[]>;
+    getRoute(id: number): Promise<Route | null>;
+    getRouteGroup(id: number, includeRoutes: boolean): Promise<(RouteGroup & {
+        routes?: Route[];
+    }) | null>;
+    upsertGroupWithRoutes(args: UpsertGroupWithRoutesArgs): Promise<RouteGroup & {
+        routes: Route[];
+    }>;
+    updateSingleRoute(id: number, data: RouteUpsertInput): Promise<Route>;
+    deleteGroup(id: number): Promise<void>;
+    existsRoute(id: number): Promise<boolean>;
+}

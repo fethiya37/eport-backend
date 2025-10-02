@@ -1,0 +1,48 @@
+import { OwnerService } from '../../application/services/owner.service';
+import { CreateOwnerDto } from './dto/create-owner.dto';
+import { UpdateOwnerDto } from './dto/update-owner.dto';
+import type { UserContext } from 'src/common/context/user-context';
+export declare class OwnerController {
+    private readonly service;
+    constructor(service: OwnerService);
+    findAll(user: UserContext, association_id?: number): Promise<{
+        id: number;
+        phone_number: string;
+        association_id: number;
+        created_at: Date;
+        updated_at: Date;
+        full_name: string;
+    }[]>;
+    findOne(user: UserContext, id: number): Promise<{
+        id: number;
+        phone_number: string;
+        association_id: number;
+        created_at: Date;
+        updated_at: Date;
+        full_name: string;
+    }>;
+    create(user: UserContext, dto: CreateOwnerDto): Promise<{
+        id: number;
+        phone_number: string;
+        association_id: number;
+        created_at: Date;
+        updated_at: Date;
+        full_name: string;
+    }>;
+    update(user: UserContext, id: number, dto: UpdateOwnerDto): Promise<{
+        id: number;
+        phone_number: string;
+        association_id: number;
+        created_at: Date;
+        updated_at: Date;
+        full_name: string;
+    }>;
+    remove(user: UserContext, id: number): Promise<{
+        id: number;
+        phone_number: string;
+        association_id: number;
+        created_at: Date;
+        updated_at: Date;
+        full_name: string;
+    }>;
+}
