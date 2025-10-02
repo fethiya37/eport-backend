@@ -35,28 +35,34 @@ export class PaymentsService {
     private readonly prisma: PrismaService,
     private readonly routeService: RouteAssignmentService,
     private readonly smsGateway: SmsGatewayService,
-  ) { }
+  ) {}
 
   // ===== date helpers (EAT, UTC+03) =====
   private pad2(n: number) {
     return n < 10 ? `0${n}` : `${n}`;
   }
-  private ymdUTC(d: Date) {
-    return d.toISOString().slice(0, 10);
+
+  /** Ethiopia local calendar date (UTC+03) in YYYY-MM-DD */
+  private ymdEAT(d: Date): string {
+    const eatMs = d.getTime() + 3 * 3600_000; // shift +3h
+    const eat = new Date(eatMs);
+    const y = eat.getUTCFullYear();
+    const m = this.pad2(eat.getUTCMonth() + 1);
+    const day = this.pad2(eat.getUTCDate());
+    return `${y}-${m}-${day}`;
   }
+
   private todayEatYmd(): string {
     const now = new Date();
-    const eatMs = now.getTime() + 3 * 3600_000;
-    const eat = new Date(eatMs);
-    return `${eat.getUTCFullYear()}-${this.pad2(eat.getUTCMonth() + 1)}-${this.pad2(
-      eat.getUTCDate(),
-    )}`;
+    return this.ymdEAT(now);
   }
+
   private isOverdueEAT(activeUntil?: Date | null): boolean {
     if (!activeUntil) return true;
-    const au = this.ymdUTC(activeUntil);
+    const au = this.ymdEAT(activeUntil);
     return au < this.todayEatYmd();
   }
+
   private startOfDay(d: Date): Date {
     return new Date(d.getFullYear(), d.getMonth(), d.getDate());
   }
@@ -139,7 +145,7 @@ export class PaymentsService {
   async applyPayment(ctx: UserContext, dto: PayDto) {
     const d = await this.resolveDriver(ctx, dto.driver_id, dto.plate_number);
 
-    // 1) Plan validation (✅ from vehicle.is_weekly)
+    // 1) Plan validation
     const driverPlan = d.is_weekly ? 'WEEKLY' : 'MONTHLY';
     if (dto.fee_plan !== driverPlan) {
       throw new BadRequestException(
@@ -162,7 +168,7 @@ export class PaymentsService {
     if (dto.fee_plan === 'WEEKLY') {
       const days =
         Math.floor(this.startOfDay(endGc).getTime() - this.startOfDay(startGc).getTime()) /
-        86_400_000 +
+          86_400_000 +
         1;
 
       const expectedWeeks = isOverdue ? 1 + prepayQty : Math.max(1, prepayQty);
@@ -260,12 +266,11 @@ export class PaymentsService {
         fee_plan: dto.fee_plan,
         breakdown: { interest, current_fee: currentFee, future_fee: futureFee, total },
         coverage: {
-          from: this.ymdUTC(startGc),  // "2025-10-06"
-          to: this.ymdUTC(endGc),      // "2025-10-12"
+          from: this.ymdEAT(startGc), // ✅ now local EAT dates
+          to: this.ymdEAT(endGc),
         },
       },
     };
-
   }
 
   // ===== Compact SMS formatter =====
