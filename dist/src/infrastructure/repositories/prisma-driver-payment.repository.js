@@ -32,10 +32,37 @@ let PrismaDriverPaymentRepository = class PrismaDriverPaymentRepository {
             payment_method: (row.payment_method ?? null),
             plate_number: row.plate_number ?? null,
         };
-        if (tx) {
+        if (tx)
             return tx.driverPayment.create({ data });
-        }
         return this.prisma.driverPayment.create({ data });
+    }
+    async findMany(filters) {
+        return this.prisma.driverPayment.findMany({
+            where: {
+                ...(filters.association_id && { association_id: Number(filters.association_id) }),
+                ...(filters.driver_id && { driver_id: Number(filters.driver_id) }),
+                ...(filters.created_by_user_id && { created_by_user_id: Number(filters.created_by_user_id) }),
+                ...(filters.fee_plan && { fee_plan: filters.fee_plan }),
+                ...(filters.plate_number && { plate_number: filters.plate_number }),
+                ...(filters.payment_method && { payment_method: filters.payment_method }),
+                ...(filters.from_date && {
+                    paid_at: { gte: new Date(filters.from_date + 'T00:00:00+03:00') },
+                }),
+                ...(filters.to_date && {
+                    paid_at: { lte: new Date(filters.to_date + 'T23:59:59+03:00') },
+                }),
+            },
+            include: {
+                driver: {
+                    select: {
+                        full_name: true,
+                        phone_number: true,
+                        user: { select: { name: true } },
+                    },
+                },
+            },
+            orderBy: { id: 'desc' },
+        });
     }
 };
 exports.PrismaDriverPaymentRepository = PrismaDriverPaymentRepository;

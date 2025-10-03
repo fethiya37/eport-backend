@@ -35,7 +35,7 @@ export class PaymentsService {
     private readonly prisma: PrismaService,
     private readonly routeService: RouteAssignmentService,
     private readonly smsGateway: SmsGatewayService,
-  ) {}
+  ) { }
 
   // ===== date helpers (EAT, UTC+03) =====
   private pad2(n: number) {
@@ -168,7 +168,7 @@ export class PaymentsService {
     if (dto.fee_plan === 'WEEKLY') {
       const days =
         Math.floor(this.startOfDay(endGc).getTime() - this.startOfDay(startGc).getTime()) /
-          86_400_000 +
+        86_400_000 +
         1;
 
       const expectedWeeks = isOverdue ? 1 + prepayQty : Math.max(1, prepayQty);
@@ -252,8 +252,15 @@ export class PaymentsService {
       plate_number: dto.plate_number ?? d.vehicle_plate,
     });
 
-    // const msg = this.formatCoverageSmsCompact(coverage);
-    // await this.smsGateway.sendSms(d.phone_number, msg);
+    // if (!d.has_smartphone) {
+    //   const msg = this.formatCoverageSmsCompact(coverage);
+    //   try {
+    //     await this.smsGateway.sendSms(d.phone_number, msg);
+    //   } catch (err) {
+    //     // log but don’t block payment success
+    //     console.error('Failed to send SMS', err);
+    //   }
+    // }
 
     return {
       payment: {
@@ -281,5 +288,34 @@ export class PaymentsService {
       .join('\n');
 
     return `Plate: ${data.plate_number}\n${assignments}`;
+  }
+
+  // ===== NEW: listPayments with filters =====
+  async listPayments(ctx: UserContext, filters: any) {
+    if (!isAdminLike(ctx.user_type)) {
+      filters.association_id = ctx.association_id;
+    }
+
+    const rows = await this.payments.findMany(filters);
+    return rows.map((p) => ({
+      id: p.id,
+      association_id: p.association_id,
+      driver_id: p.driver_id,
+      plate_number: p.plate_number,
+      fee_plan: p.fee_plan,
+      prepaid_qty: p.prepaid_qty,
+      amount: Number(p.amount),
+      payment_method: p.payment_method,
+      covered_start_date: this.ymdEAT(p.covered_start_date),
+      covered_end_date: this.ymdEAT(p.covered_end_date),
+      paid_at: this.ymdEAT(p.paid_at), // ✅ convert to EAT
+      driver: p.driver
+        ? {
+          full_name: p.driver.full_name,
+          phone_number: p.driver.phone_number,
+          username: p.driver.user?.name,
+        }
+        : null,
+    }));
   }
 }

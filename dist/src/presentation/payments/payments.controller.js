@@ -20,6 +20,7 @@ const roles_decorator_1 = require("../../common/decorators/roles.decorator");
 const auth_user_decorator_1 = require("../../common/decorators/auth-user.decorator");
 const pay_dto_1 = require("./dto/pay.dto");
 const payments_service_1 = require("../../application/services/payments.service");
+const list_payments_dto_1 = require("./dto/list-payments.dto");
 let PaymentsController = class PaymentsController {
     service;
     constructor(service) {
@@ -27,6 +28,9 @@ let PaymentsController = class PaymentsController {
     }
     apply(user, dto) {
         return this.service.applyPayment(user, dto);
+    }
+    list(user, filters) {
+        return this.service.listPayments(user, filters);
     }
 };
 exports.PaymentsController = PaymentsController;
@@ -39,6 +43,15 @@ __decorate([
     __metadata("design:paramtypes", [Object, pay_dto_1.PayDto]),
     __metadata("design:returntype", void 0)
 ], PaymentsController.prototype, "apply", null);
+__decorate([
+    (0, common_1.Get)(),
+    (0, roles_decorator_1.Roles)('Admin', 'Superadmin', 'Association'),
+    __param(0, (0, auth_user_decorator_1.AuthUser)()),
+    __param(1, (0, common_1.Query)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, list_payments_dto_1.ListPaymentsDto]),
+    __metadata("design:returntype", void 0)
+], PaymentsController.prototype, "list", null);
 exports.PaymentsController = PaymentsController = __decorate([
     (0, swagger_1.ApiTags)('payments'),
     (0, swagger_1.ApiBearerAuth)(),

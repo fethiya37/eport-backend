@@ -5,4 +5,5 @@ export declare class PrismaDriverPaymentRepository implements IDriverPaymentRepo
     private readonly prisma;
     constructor(prisma: PrismaService);
     create(row: DriverPaymentCreate, tx?: Prisma.TransactionClient): Promise<DriverPayment>;
+    findMany(filters: any): Promise<any[]>;
 }

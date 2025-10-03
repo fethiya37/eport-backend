@@ -12,8 +12,8 @@ export type DriverPaymentCreate = {
   covered_end_date: Date;
   paid_at: Date;
   created_by_user_id: number;
-  payment_method?: PaymentMethod | null; // ✅ enum, nullable
-  plate_number?: string | null;          // ✅ NEW field
+  payment_method?: PaymentMethod | null; 
+  plate_number?: string | null;
 };
 
 export interface IDriverPaymentRepository {
@@ -21,4 +21,6 @@ export interface IDriverPaymentRepository {
     data: DriverPaymentCreate,
     tx?: Prisma.TransactionClient
   ): Promise<DriverPayment>;
+
+  findMany(filters: any): Promise<any[]>;
 }

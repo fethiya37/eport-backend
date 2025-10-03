@@ -39,4 +39,22 @@ export declare class PaymentsService {
         };
     }>;
     private formatCoverageSmsCompact;
+    listPayments(ctx: UserContext, filters: any): Promise<{
+        id: any;
+        association_id: any;
+        driver_id: any;
+        plate_number: any;
+        fee_plan: any;
+        prepaid_qty: any;
+        amount: number;
+        payment_method: any;
+        covered_start_date: string;
+        covered_end_date: string;
+        paid_at: string;
+        driver: {
+            full_name: any;
+            phone_number: any;
+            username: any;
+        } | null;
+    }[]>;
 }
