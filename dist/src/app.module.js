@@ -25,6 +25,7 @@ const association_policy_module_1 = require("./presentation/association-policy/a
 const payments_module_1 = require("./presentation/payments/payments.module");
 const jobs_module_1 = require("./application/jobs/jobs.module");
 const sms_module_1 = require("./presentation/sms/sms.module");
+const health_controller_1 = require("./health.controller");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -46,6 +47,7 @@ exports.AppModule = AppModule = __decorate([
             jobs_module_1.JobsModule,
             sms_module_1.SmsModule
         ],
+        controllers: [health_controller_1.HealthController],
         providers: [
             { provide: core_1.APP_GUARD, useClass: jwt_guard_1.JwtAuthGuard },
             { provide: core_1.APP_GUARD, useClass: roles_guard_1.RolesGuard },

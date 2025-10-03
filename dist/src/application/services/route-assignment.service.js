@@ -127,6 +127,7 @@ let RouteAssignmentService = class RouteAssignmentService {
             date_to,
             vehicle_id: f.vehicle_id,
             payment_status: f.payment_status,
+            route_quota_id: f.route_quota_id,
         });
         return results.map(r => ({
             id: r.id,

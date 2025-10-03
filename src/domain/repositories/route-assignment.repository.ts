@@ -36,7 +36,8 @@ export type RouteAssignmentFindFilter = {
   date_from?: Date;
   date_to?: Date;
   vehicle_id?: number;
-  payment_status?: PaymentStatus; // ✅ NEW filter
+  payment_status?: PaymentStatus;
+  route_quota_id?: number; // ✅ NEW
 };
 
 // -----------------------------

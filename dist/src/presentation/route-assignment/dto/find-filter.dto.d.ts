@@ -9,4 +9,5 @@ export declare class RouteAssignmentFilterDto {
     driver_id?: number;
     vehicle_id?: number;
     payment_status?: PaymentStatus;
+    route_quota_id?: number;
 }

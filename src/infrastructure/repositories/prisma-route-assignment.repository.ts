@@ -86,6 +86,7 @@ export class PrismaRouteAssignmentRepository implements IRouteAssignmentReposito
       ...(typeof filter.is_weekly === 'boolean' ? { is_weekly: filter.is_weekly } : {}),
       ...(filter.vehicle_id ? { vehicle_id: filter.vehicle_id } : {}),
       ...(filter.payment_status ? { payment_status: filter.payment_status } : {}),
+      ...(filter.route_quota_id ? { route_quota_id: filter.route_quota_id } : {}), // ✅ NEW
       ...(filter.date_from || filter.date_to
         ? {
           NOT: {
@@ -107,27 +108,13 @@ export class PrismaRouteAssignmentRepository implements IRouteAssignmentReposito
             id: true,
             plate_number: true,
             driver: {
-              select: {
-                id: true,
-                full_name: true,
-                phone_number: true,
-              },
+              select: { id: true, full_name: true, phone_number: true },
             },
           },
         },
-        route: {
-          select: {
-            id: true,
-            departure: true,
-            arrival: true,
-          },
-        },
-        assigned_by: {
-          select: { id: true, name: true },
-        },
-        approved_by: {
-          select: { id: true, name: true },
-        },
+        route: { select: { id: true, departure: true, arrival: true } },
+        assigned_by: { select: { id: true, name: true } },
+        approved_by: { select: { id: true, name: true } },
       },
     });
   }

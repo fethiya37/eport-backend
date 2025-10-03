@@ -25,6 +25,7 @@ export type RouteAssignmentFindFilter = {
     date_to?: Date;
     vehicle_id?: number;
     payment_status?: PaymentStatus;
+    route_quota_id?: number;
 };
 export type RouteAssignmentWithRelations = RouteAssignment & {
     vehicle: {

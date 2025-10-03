@@ -6,7 +6,6 @@ import { RouteAssignmentStatus, PaymentStatus } from '@prisma/client';
 
 export class RouteAssignmentFilterDto {
   @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsInt() @Min(1) association_id?: number;
-
   @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsInt() @Min(1) route_id?: number;
 
   @ApiPropertyOptional({ enum: RouteAssignmentStatus })
@@ -29,8 +28,15 @@ export class RouteAssignmentFilterDto {
   @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsInt() @Min(1)
   vehicle_id?: number;
 
-  // ✅ NEW
   @ApiPropertyOptional({ enum: PaymentStatus })
   @IsOptional() @IsEnum(PaymentStatus)
   payment_status?: PaymentStatus;
+
+  // ✅ NEW
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  route_quota_id?: number;
 }

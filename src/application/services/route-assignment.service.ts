@@ -168,8 +168,8 @@ export class RouteAssignmentService {
       f.association_id = ctx.association_id;
     }
 
-    const date_from = f.date_from ? this.parseGcDate(f.date_from as any) : undefined;
-    const date_to = f.date_to ? this.parseGcDate(f.date_to as any) : undefined;
+    const date_from = f.date_from ? this.parseGcDate(f.date_from) : undefined;
+    const date_to = f.date_to ? this.parseGcDate(f.date_to) : undefined;
 
     const results = await this.repo.find({
       association_id: f.association_id,
@@ -179,9 +179,9 @@ export class RouteAssignmentService {
       date_to,
       vehicle_id: f.vehicle_id,
       payment_status: f.payment_status,
+      route_quota_id: f.route_quota_id, // ✅ NEW
     });
 
-    // Already typed with relations, you can return directly
     return results.map(r => ({
       id: r.id,
       start_date: r.start_date,

@@ -16,6 +16,7 @@ import { AssociationPolicyModule } from './presentation/association-policy/assoc
 import { PaymentsModule } from './presentation/payments/payments.module';
 import { JobsModule } from './application/jobs/jobs.module';
 import { SmsModule } from './presentation/sms/sms.module';
+import { HealthController } from './health.controller';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { SmsModule } from './presentation/sms/sms.module';
     JobsModule,
     SmsModule
   ],
+  controllers: [HealthController],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard }, // every route needs a valid JWT
     { provide: APP_GUARD, useClass: RolesGuard },   // @Roles() works anywhere
