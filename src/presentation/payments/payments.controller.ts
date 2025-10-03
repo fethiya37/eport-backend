@@ -17,14 +17,14 @@ export class PaymentsController {
   constructor(private readonly service: PaymentsService) { }
 
   @Post('apply')
-  @Roles('Admin', 'Superadmin', 'Association', 'Driver', 'Controller')
+  @Roles('Association', 'Driver')
   apply(@AuthUser() user: UserContext, @Body() dto: PayDto) {
     return this.service.applyPayment(user, dto);
   }
 
 
   @Get()
-  @Roles('Admin', 'Superadmin', 'Association')
+  @Roles('Association')
   list(@AuthUser() user: UserContext, @Query() filters: ListPaymentsDto) {
     return this.service.listPayments(user, filters);
   }
