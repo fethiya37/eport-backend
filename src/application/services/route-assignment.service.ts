@@ -167,18 +167,39 @@ export class RouteAssignmentService {
     if (!isAdminLike(ctx.user_type) && ctx.association_id) {
       f.association_id = ctx.association_id;
     }
+
     const date_from = f.date_from ? this.parseGcDate(f.date_from as any) : undefined;
     const date_to = f.date_to ? this.parseGcDate(f.date_to as any) : undefined;
 
-    return this.repo.find({
+    const results = await this.repo.find({
       association_id: f.association_id,
       route_id: f.route_id,
       status: f.status,
       date_from,
       date_to,
       vehicle_id: f.vehicle_id,
+      payment_status: f.payment_status,
     });
+
+    // Already typed with relations, you can return directly
+    return results.map(r => ({
+      id: r.id,
+      start_date: r.start_date,
+      end_date: r.end_date,
+      status: r.status,
+      payment_status: r.payment_status,
+      is_weekly: r.is_weekly,
+      vehicle: {
+        id: r.vehicle.id,
+        plate_number: r.vehicle.plate_number,
+        driver: r.vehicle.driver,
+      },
+      route: r.route,
+      assigned_by: r.assigned_by,
+      approved_by: r.approved_by,
+    }));
   }
+
 
   // -----------------------------
   // Update One
@@ -249,147 +270,147 @@ export class RouteAssignmentService {
   // -----------------------------
   // Visible Coverage
   // -----------------------------
- async visibleCoverage(ctx: UserContext, q: { plate_number?: string; driver_id?: number }) {
-  let vehicle: {
-    id: number;
-    association_id: number;
-    driver_id: number | null;
-    is_weekly: boolean;
-    plate_number: string;
-    status: VehicleStatus;
-  } | null = null;
-
-  let driver: {
-    id: number;
-    full_name: string;
-    phone_number: string;
-    active_until_date: Date | null;
-    association_id: number;
-    vehicle?: {
+  async visibleCoverage(ctx: UserContext, q: { plate_number?: string; driver_id?: number }) {
+    let vehicle: {
       id: number;
       association_id: number;
+      driver_id: number | null;
       is_weekly: boolean;
       plate_number: string;
       status: VehicleStatus;
-    } | null;
-  } | null = null;
+    } | null = null;
 
-  // --- Resolve by plate_number or driver_id
-  if (q.plate_number) {
-    vehicle = await this.prisma.vehicle.findUnique({
-      where: { plate_number: q.plate_number },
-      select: {
-        id: true,
-        association_id: true,
-        driver_id: true,
-        is_weekly: true,
-        plate_number: true,
-        status: true,
-      },
-    });
-    if (!vehicle) throw new NotFoundException('Vehicle not found');
-    if (!vehicle.driver_id) throw new BadRequestException('No driver assigned to this vehicle');
+    let driver: {
+      id: number;
+      full_name: string;
+      phone_number: string;
+      active_until_date: Date | null;
+      association_id: number;
+      vehicle?: {
+        id: number;
+        association_id: number;
+        is_weekly: boolean;
+        plate_number: string;
+        status: VehicleStatus;
+      } | null;
+    } | null = null;
 
-    driver = await this.prisma.driver.findUnique({
-      where: { id: vehicle.driver_id },
-      select: {
-        id: true,
-        full_name: true,
-        phone_number: true,
-        active_until_date: true,
-        association_id: true,
-      },
-    });
-  } else if (q.driver_id) {
-    driver = await this.prisma.driver.findUnique({
-      where: { id: q.driver_id },
-      select: {
-        id: true,
-        full_name: true,
-        phone_number: true,
-        active_until_date: true,
-        association_id: true,
-        vehicle: {
-          select: {
-            id: true,
-            association_id: true,
-            is_weekly: true,
-            plate_number: true,
-            status: true,
+    // --- Resolve by plate_number or driver_id
+    if (q.plate_number) {
+      vehicle = await this.prisma.vehicle.findUnique({
+        where: { plate_number: q.plate_number },
+        select: {
+          id: true,
+          association_id: true,
+          driver_id: true,
+          is_weekly: true,
+          plate_number: true,
+          status: true,
+        },
+      });
+      if (!vehicle) throw new NotFoundException('Vehicle not found');
+      if (!vehicle.driver_id) throw new BadRequestException('No driver assigned to this vehicle');
+
+      driver = await this.prisma.driver.findUnique({
+        where: { id: vehicle.driver_id },
+        select: {
+          id: true,
+          full_name: true,
+          phone_number: true,
+          active_until_date: true,
+          association_id: true,
+        },
+      });
+    } else if (q.driver_id) {
+      driver = await this.prisma.driver.findUnique({
+        where: { id: q.driver_id },
+        select: {
+          id: true,
+          full_name: true,
+          phone_number: true,
+          active_until_date: true,
+          association_id: true,
+          vehicle: {
+            select: {
+              id: true,
+              association_id: true,
+              is_weekly: true,
+              plate_number: true,
+              status: true,
+            },
           },
         },
-      },
-    });
+      });
+      if (!driver) throw new NotFoundException('Driver not found');
+      if (!driver.vehicle) throw new BadRequestException('No vehicle assigned to this driver');
+
+      vehicle = {
+        id: driver.vehicle.id,
+        association_id: driver.vehicle.association_id,
+        driver_id: driver.id,
+        is_weekly: driver.vehicle.is_weekly,
+        plate_number: driver.vehicle.plate_number,
+        status: driver.vehicle.status,
+      };
+    } else {
+      throw new BadRequestException('Either plate_number or driver_id is required');
+    }
+
     if (!driver) throw new NotFoundException('Driver not found');
-    if (!driver.vehicle) throw new BadRequestException('No vehicle assigned to this driver');
 
-    vehicle = {
-      id: driver.vehicle.id,
-      association_id: driver.vehicle.association_id,
-      driver_id: driver.id,
-      is_weekly: driver.vehicle.is_weekly,
-      plate_number: driver.vehicle.plate_number,
-      status: driver.vehicle.status,
-    };
-  } else {
-    throw new BadRequestException('Either plate_number or driver_id is required');
-  }
+    // --- Check active_until_date and vehicle status
+    const today = startOfDay(new Date());
+    if (!driver.active_until_date || startOfDay(driver.active_until_date) < today || vehicle.status === VehicleStatus.INACTIVE) {
+      return { not_full_filled: true };
+    }
 
-  if (!driver) throw new NotFoundException('Driver not found');
+    // --- Window boundaries
+    const windowStart = vehicle.is_weekly ? startOfWeekMonday(today) : etMonthStart(today);
+    const windowEnd = endOfDay(driver.active_until_date);
 
-  // --- Check active_until_date and vehicle status
-  const today = startOfDay(new Date());
-  if (!driver.active_until_date || startOfDay(driver.active_until_date) < today || vehicle.status === VehicleStatus.INACTIVE) {
-    return { not_full_filled: true };
-  }
-
-  // --- Window boundaries
-  const windowStart = vehicle.is_weekly ? startOfWeekMonday(today) : etMonthStart(today);
-  const windowEnd = endOfDay(driver.active_until_date);
-
-  // --- Get assignments fully contained in window
-  const assignments = await this.prisma.routeAssignment.findMany({
-    where: {
-      vehicle_id: vehicle.id,
-      association_id: vehicle.association_id,
-      status: { in: [RouteAssignmentStatus.Pending, RouteAssignmentStatus.Approved] },
-      payment_status: PaymentStatus.ACTIVE,
-      start_date: { gte: windowStart },
-      end_date: { lte: windowEnd },
-    },
-    include: { route: true },
-    orderBy: { start_date: 'asc' },
-  });
-
-  if (assignments.length === 0) {
-    return {
-      message: `Route assignment doesn't exist for ${windowStart.toISOString().slice(0, 10)} - ${windowEnd.toISOString().slice(0, 10)}`,
-      driver_active_until: driver.active_until_date.toISOString().slice(0, 10),
-    };
-  }
-
-  // --- Association name
-  const association = await this.prisma.association.findUnique({
-    where: { id: vehicle.association_id },
-    select: { name: true },
-  });
-
-  return {
-    association_name: association?.name ?? '',
-    plate_number: vehicle.plate_number,
-    driver_name: driver.full_name,
-    driver_active_until: driver.active_until_date.toISOString().slice(0, 10),
-    assignments: assignments.map((r) => ({
-      route: {
-        id: r.route.id,
-        departure: r.route.departure,
-        arrival: r.route.arrival,
+    // --- Get assignments fully contained in window
+    const assignments = await this.prisma.routeAssignment.findMany({
+      where: {
+        vehicle_id: vehicle.id,
+        association_id: vehicle.association_id,
+        status: { in: [RouteAssignmentStatus.Pending, RouteAssignmentStatus.Approved] },
+        payment_status: PaymentStatus.ACTIVE,
+        start_date: { gte: windowStart },
+        end_date: { lte: windowEnd },
       },
-      start_date_gc: r.start_date.toISOString(),
-      end_date_gc: r.end_date.toISOString(),
-      status: r.status,
-    })),
-  };
-}
+      include: { route: true },
+      orderBy: { start_date: 'asc' },
+    });
+
+    if (assignments.length === 0) {
+      return {
+        message: `Route assignment doesn't exist for ${windowStart.toISOString().slice(0, 10)} - ${windowEnd.toISOString().slice(0, 10)}`,
+        driver_active_until: driver.active_until_date.toISOString().slice(0, 10),
+      };
+    }
+
+    // --- Association name
+    const association = await this.prisma.association.findUnique({
+      where: { id: vehicle.association_id },
+      select: { name: true },
+    });
+
+    return {
+      association_name: association?.name ?? '',
+      plate_number: vehicle.plate_number,
+      driver_name: driver.full_name,
+      driver_active_until: driver.active_until_date.toISOString().slice(0, 10),
+      assignments: assignments.map((r) => ({
+        route: {
+          id: r.route.id,
+          departure: r.route.departure,
+          arrival: r.route.arrival,
+        },
+        start_date_gc: r.start_date.toISOString(),
+        end_date_gc: r.end_date.toISOString(),
+        status: r.status,
+      })),
+    };
+  }
 
 }

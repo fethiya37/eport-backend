@@ -4,18 +4,18 @@ import {
   IRouteAssignmentRepository,
   RouteAssignmentFindFilter,
   RouteAssignmentUpsertRow,
+  RouteAssignmentWithRelations,
 } from '../../domain/repositories/route-assignment.repository';
 import {
   Prisma,
   RouteAssignment,
   RouteAssignmentStatus,
   RouteQuota,
-  PaymentStatus,
 } from '@prisma/client';
 
 @Injectable()
 export class PrismaRouteAssignmentRepository implements IRouteAssignmentRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async upsertMany(data: RouteAssignmentUpsertRow[]): Promise<RouteAssignment[]> {
     return this.prisma.$transaction(async (tx) => {
@@ -78,7 +78,7 @@ export class PrismaRouteAssignmentRepository implements IRouteAssignmentReposito
     return r.count;
   }
 
-  find(filter: RouteAssignmentFindFilter): Promise<RouteAssignment[]> {
+  async find(filter: RouteAssignmentFindFilter): Promise<RouteAssignmentWithRelations[]> {
     const where: Prisma.RouteAssignmentWhereInput = {
       ...(filter.association_id ? { association_id: filter.association_id } : {}),
       ...(filter.route_id ? { route_id: filter.route_id } : {}),
@@ -88,17 +88,50 @@ export class PrismaRouteAssignmentRepository implements IRouteAssignmentReposito
       ...(filter.payment_status ? { payment_status: filter.payment_status } : {}),
       ...(filter.date_from || filter.date_to
         ? {
-            NOT: {
-              OR: [
-                ...(filter.date_from ? [{ end_date: { lt: filter.date_from } }] : []),
-                ...(filter.date_to ? [{ start_date: { gt: filter.date_to } }] : []),
-              ],
-            },
-          }
+          NOT: {
+            OR: [
+              ...(filter.date_from ? [{ end_date: { lt: filter.date_from } }] : []),
+              ...(filter.date_to ? [{ start_date: { gt: filter.date_to } }] : []),
+            ],
+          },
+        }
         : {}),
     };
-    return this.prisma.routeAssignment.findMany({ where, orderBy: { id: 'desc' } });
+
+    return this.prisma.routeAssignment.findMany({
+      where,
+      orderBy: { id: 'desc' },
+      include: {
+        vehicle: {
+          select: {
+            id: true,
+            plate_number: true,
+            driver: {
+              select: {
+                id: true,
+                full_name: true,
+                phone_number: true,
+              },
+            },
+          },
+        },
+        route: {
+          select: {
+            id: true,
+            departure: true,
+            arrival: true,
+          },
+        },
+        assigned_by: {
+          select: { id: true, name: true },
+        },
+        approved_by: {
+          select: { id: true, name: true },
+        },
+      },
+    });
   }
+
 
   findByIds(ids: number[]): Promise<RouteAssignment[]> {
     if (!ids.length) return Promise.resolve([]);

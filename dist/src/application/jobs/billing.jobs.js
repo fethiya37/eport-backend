@@ -28,11 +28,6 @@ function ymdToUtcDate(ymd) {
     const [y, m, d] = ymd.split('-').map(Number);
     return new Date(Date.UTC(y, m - 1, d));
 }
-function eatDayRangeUtc(ymd) {
-    const from = ymdToUtcDate(ymd);
-    const to = new Date(from.getTime() + 86_400_000 - 1);
-    return { from, to };
-}
 function ymdUTC(d) {
     if (!d)
         return null;
@@ -42,37 +37,6 @@ function isOverdueEat(activeUntil, todayEatYmd) {
     const today = todayEatYmd ?? eatYmdNow();
     const au = activeUntil ? ymdUTC(activeUntil) : null;
     return !au || au < today;
-}
-const EC_EPOCH_JDN = 1724221;
-function gcToJdnUTC(date) {
-    const y = date.getUTCFullYear();
-    const m = date.getUTCMonth() + 1;
-    const d = date.getUTCDate();
-    const a = Math.floor((14 - m) / 12);
-    const y2 = y + 4800 - a;
-    const m2 = m + 12 * a - 3;
-    return (d +
-        Math.floor((153 * m2 + 2) / 5) +
-        365 * y2 +
-        Math.floor(y2 / 4) -
-        Math.floor(y2 / 100) +
-        Math.floor(y2 / 400) -
-        32045);
-}
-function ecFromGcUTC(g) {
-    const j = gcToJdnUTC(g);
-    const r = j - EC_EPOCH_JDN;
-    const quad = Math.floor(r / 1461);
-    const rem = r % 1461;
-    const year = quad * 4 + Math.floor(rem / 365) + 1;
-    const doy = rem % 365;
-    const month = Math.floor(doy / 30) + 1;
-    const day = (doy % 30) + 1;
-    return { year, month, day };
-}
-function isFirstDayOfEthiopianMonthUTC(g) {
-    const ec = ecFromGcUTC(g);
-    return ec.day === 1;
 }
 let BillingJobs = BillingJobs_1 = class BillingJobs {
     prisma;

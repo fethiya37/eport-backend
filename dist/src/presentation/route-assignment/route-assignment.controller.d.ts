@@ -31,21 +31,33 @@ export declare class RouteAssignmentController {
     }>;
     find(user: UserContext, filter: RouteAssignmentFilterDto): Promise<{
         id: number;
-        association_id: number;
-        created_at: Date;
-        updated_at: Date;
-        status: import("@prisma/client").$Enums.RouteAssignmentStatus;
-        is_weekly: boolean;
         start_date: Date;
-        route_id: number;
-        vehicle_id: number;
         end_date: Date;
-        history_status: import("@prisma/client").$Enums.RouteAssignmentHistoryStatus | null;
+        status: import("@prisma/client").$Enums.RouteAssignmentStatus;
         payment_status: import("@prisma/client").$Enums.PaymentStatus;
-        assigned_by_user_id: number;
-        approved_by_user_id: number | null;
-        approved_at: Date | null;
-        route_quota_id: number | null;
+        is_weekly: boolean;
+        vehicle: {
+            id: number;
+            plate_number: string;
+            driver: {
+                id: number;
+                full_name: string;
+                phone_number: string;
+            } | null;
+        };
+        route: {
+            id: number;
+            departure: string;
+            arrival: string;
+        };
+        assigned_by: {
+            id: number;
+            name: string | null;
+        };
+        approved_by: {
+            id: number;
+            name: string | null;
+        } | null;
     }[]>;
     updateOne(user: UserContext, id: number, dto: UpdateAssignmentDto): Promise<{
         id: number;

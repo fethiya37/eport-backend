@@ -78,7 +78,7 @@ let PrismaRouteAssignmentRepository = class PrismaRouteAssignmentRepository {
         });
         return r.count;
     }
-    find(filter) {
+    async find(filter) {
         const where = {
             ...(filter.association_id ? { association_id: filter.association_id } : {}),
             ...(filter.route_id ? { route_id: filter.route_id } : {}),
@@ -97,7 +97,38 @@ let PrismaRouteAssignmentRepository = class PrismaRouteAssignmentRepository {
                 }
                 : {}),
         };
-        return this.prisma.routeAssignment.findMany({ where, orderBy: { id: 'desc' } });
+        return this.prisma.routeAssignment.findMany({
+            where,
+            orderBy: { id: 'desc' },
+            include: {
+                vehicle: {
+                    select: {
+                        id: true,
+                        plate_number: true,
+                        driver: {
+                            select: {
+                                id: true,
+                                full_name: true,
+                                phone_number: true,
+                            },
+                        },
+                    },
+                },
+                route: {
+                    select: {
+                        id: true,
+                        departure: true,
+                        arrival: true,
+                    },
+                },
+                assigned_by: {
+                    select: { id: true, name: true },
+                },
+                approved_by: {
+                    select: { id: true, name: true },
+                },
+            },
+        });
     }
     findByIds(ids) {
         if (!ids.length)

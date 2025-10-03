@@ -119,14 +119,31 @@ let RouteAssignmentService = class RouteAssignmentService {
         }
         const date_from = f.date_from ? this.parseGcDate(f.date_from) : undefined;
         const date_to = f.date_to ? this.parseGcDate(f.date_to) : undefined;
-        return this.repo.find({
+        const results = await this.repo.find({
             association_id: f.association_id,
             route_id: f.route_id,
             status: f.status,
             date_from,
             date_to,
             vehicle_id: f.vehicle_id,
+            payment_status: f.payment_status,
         });
+        return results.map(r => ({
+            id: r.id,
+            start_date: r.start_date,
+            end_date: r.end_date,
+            status: r.status,
+            payment_status: r.payment_status,
+            is_weekly: r.is_weekly,
+            vehicle: {
+                id: r.vehicle.id,
+                plate_number: r.vehicle.plate_number,
+                driver: r.vehicle.driver,
+            },
+            route: r.route,
+            assigned_by: r.assigned_by,
+            approved_by: r.approved_by,
+        }));
     }
     async updateOne(ctx, id, dto) {
         const existing = (await this.repo.findByIds([id]))[0];

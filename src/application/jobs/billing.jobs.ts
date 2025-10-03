@@ -25,12 +25,7 @@ function ymdToUtcDate(ymd: string): Date {
   return new Date(Date.UTC(y, m - 1, d));
 }
 
-/** Inclusive day range [from, to] in UTC for the given EAT YYYY-MM-DD */
-function eatDayRangeUtc(ymd: string): { from: Date; to: Date } {
-  const from = ymdToUtcDate(ymd);
-  const to = new Date(from.getTime() + 86_400_000 - 1); // 23:59:59.999 UTC
-  return { from, to };
-}
+
 
 /** Compare two dates (DB DATEs or JS Dates) by YYYY-MM-DD in UTC */
 function ymdUTC(d: Date | null | undefined): string | null {
@@ -45,45 +40,10 @@ function isOverdueEat(activeUntil?: Date | null, todayEatYmd?: string): boolean 
   return !au || au < today;
 }
 
-// -----------------------------
-// Ethiopian Calendar (UTC-safe)
-// -----------------------------
-const EC_EPOCH_JDN = 1724221; // JDN for EC 1-1-1
 
-function gcToJdnUTC(date: Date): number {
-  const y = date.getUTCFullYear();
-  const m = date.getUTCMonth() + 1;
-  const d = date.getUTCDate();
-  const a = Math.floor((14 - m) / 12);
-  const y2 = y + 4800 - a;
-  const m2 = m + 12 * a - 3;
-  return (
-    d +
-    Math.floor((153 * m2 + 2) / 5) +
-    365 * y2 +
-    Math.floor(y2 / 4) -
-    Math.floor(y2 / 100) +
-    Math.floor(y2 / 400) -
-    32045
-  );
-}
 
-function ecFromGcUTC(g: Date): { year: number; month: number; day: number } {
-  const j = gcToJdnUTC(g);
-  const r = j - EC_EPOCH_JDN;
-  const quad = Math.floor(r / 1461);
-  const rem = r % 1461;
-  const year = quad * 4 + Math.floor(rem / 365) + 1;
-  const doy = rem % 365;
-  const month = Math.floor(doy / 30) + 1;
-  const day = (doy % 30) + 1;
-  return { year, month, day };
-}
 
-function isFirstDayOfEthiopianMonthUTC(g: Date): boolean {
-  const ec = ecFromGcUTC(g);
-  return ec.day === 1;
-}
+
 
 @Injectable()
 export class BillingJobs {

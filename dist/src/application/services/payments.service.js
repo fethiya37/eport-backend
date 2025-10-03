@@ -144,10 +144,6 @@ let PaymentsService = class PaymentsService {
                 86_400_000 +
                 1;
             const expectedWeeks = isOverdue ? 1 + prepayQty : Math.max(1, prepayQty);
-            console.log('Start:', dto.covered_start_date, startGc.toISOString());
-            console.log('End:', dto.covered_end_date, endGc.toISOString());
-            console.log('Days calculated:', days);
-            console.log('Expected weeks:', expectedWeeks);
             if (days % 7 !== 0 || days / 7 !== expectedWeeks) {
                 throw new common_1.BadRequestException(`Weekly coverage length must equal ${expectedWeeks} week(s) = ${expectedWeeks * 7} days.`);
             }

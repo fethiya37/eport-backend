@@ -26,10 +26,34 @@ export type RouteAssignmentFindFilter = {
     vehicle_id?: number;
     payment_status?: PaymentStatus;
 };
+export type RouteAssignmentWithRelations = RouteAssignment & {
+    vehicle: {
+        id: number;
+        plate_number: string;
+        driver: {
+            id: number;
+            full_name: string;
+            phone_number: string;
+        } | null;
+    };
+    route: {
+        id: number;
+        departure: string;
+        arrival: string;
+    };
+    assigned_by: {
+        id: number;
+        name: string | null;
+    };
+    approved_by: {
+        id: number;
+        name: string | null;
+    } | null;
+};
 export interface IRouteAssignmentRepository {
     upsertMany(data: RouteAssignmentUpsertRow[]): Promise<RouteAssignment[]>;
     approveMany(ids: number[], approver_user_id: number): Promise<number>;
-    find(filter: RouteAssignmentFindFilter): Promise<RouteAssignment[]>;
+    find(filter: RouteAssignmentFindFilter): Promise<RouteAssignmentWithRelations[]>;
     findByIds(ids: number[]): Promise<RouteAssignment[]>;
     getQuotaById(id: number): Promise<RouteQuota | null>;
     hasApprovedOnDate(association_id: number, vehicle_id: number, day: Date): Promise<boolean>;
