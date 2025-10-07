@@ -39,4 +39,8 @@ export declare class PaymentsController {
             username: any;
         } | null;
     }[]>;
+    total(user: UserContext): Promise<{
+        total_amount: number;
+        total_transactions: number;
+    }>;
 }

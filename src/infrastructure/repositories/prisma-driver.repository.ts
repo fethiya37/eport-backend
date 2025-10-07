@@ -140,5 +140,4 @@ export class PrismaDriverRepository implements IDriverRepository {
       orderBy: { id: 'asc' },
     });
   }
-
 }

@@ -64,6 +64,17 @@ let PrismaDriverPaymentRepository = class PrismaDriverPaymentRepository {
             orderBy: { id: 'desc' },
         });
     }
+    async getTotalByAssociation(association_id) {
+        const result = await this.prisma.driverPayment.aggregate({
+            _sum: { amount: true },
+            _count: { id: true },
+            where: { association_id },
+        });
+        return {
+            total_amount: Number(result._sum.amount ?? 0),
+            count: result._count.id,
+        };
+    }
 };
 exports.PrismaDriverPaymentRepository = PrismaDriverPaymentRepository;
 exports.PrismaDriverPaymentRepository = PrismaDriverPaymentRepository = __decorate([

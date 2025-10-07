@@ -32,6 +32,9 @@ let PaymentsController = class PaymentsController {
     list(user, filters) {
         return this.service.listPayments(user, filters);
     }
+    total(user) {
+        return this.service.totalPayments(user);
+    }
 };
 exports.PaymentsController = PaymentsController;
 __decorate([
@@ -52,6 +55,14 @@ __decorate([
     __metadata("design:paramtypes", [Object, list_payments_dto_1.ListPaymentsDto]),
     __metadata("design:returntype", void 0)
 ], PaymentsController.prototype, "list", null);
+__decorate([
+    (0, common_1.Get)('total'),
+    (0, roles_decorator_1.Roles)('Association'),
+    __param(0, (0, auth_user_decorator_1.AuthUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], PaymentsController.prototype, "total", null);
 exports.PaymentsController = PaymentsController = __decorate([
     (0, swagger_1.ApiTags)('payments'),
     (0, swagger_1.ApiBearerAuth)(),

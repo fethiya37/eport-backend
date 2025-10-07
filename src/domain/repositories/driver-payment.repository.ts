@@ -12,7 +12,7 @@ export type DriverPaymentCreate = {
   covered_end_date: Date;
   paid_at: Date;
   created_by_user_id: number;
-  payment_method?: PaymentMethod | null; 
+  payment_method?: PaymentMethod | null;
   plate_number?: string | null;
 };
 
@@ -23,4 +23,12 @@ export interface IDriverPaymentRepository {
   ): Promise<DriverPayment>;
 
   findMany(filters: any): Promise<any[]>;
+
+  // ✅ NEW METHOD
+  getTotalByAssociation(
+    association_id: number
+  ): Promise<{
+    total_amount: number;
+    count: number;
+  }>;
 }

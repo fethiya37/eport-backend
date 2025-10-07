@@ -57,4 +57,8 @@ export declare class PaymentsService {
             username: any;
         } | null;
     }[]>;
+    totalPayments(ctx: UserContext): Promise<{
+        total_amount: number;
+        total_transactions: number;
+    }>;
 }

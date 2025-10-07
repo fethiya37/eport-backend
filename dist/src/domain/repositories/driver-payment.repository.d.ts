@@ -16,4 +16,8 @@ export type DriverPaymentCreate = {
 export interface IDriverPaymentRepository {
     create(data: DriverPaymentCreate, tx?: Prisma.TransactionClient): Promise<DriverPayment>;
     findMany(filters: any): Promise<any[]>;
+    getTotalByAssociation(association_id: number): Promise<{
+        total_amount: number;
+        count: number;
+    }>;
 }

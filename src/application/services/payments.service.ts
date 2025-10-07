@@ -318,4 +318,17 @@ export class PaymentsService {
         : null,
     }));
   }
+
+  async totalPayments(ctx: UserContext) {
+    if (!ctx.association_id) {
+      throw new ForbiddenException('Association context required');
+    }
+
+    const totals = await this.payments.getTotalByAssociation(ctx.association_id);
+
+    return {
+      total_amount: totals.total_amount,
+      total_transactions: totals.count,
+    };
+  }
 }

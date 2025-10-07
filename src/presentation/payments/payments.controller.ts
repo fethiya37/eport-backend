@@ -29,4 +29,10 @@ export class PaymentsController {
     return this.service.listPayments(user, filters);
   }
 
+
+  @Get('total')
+  @Roles('Association')
+  total(@AuthUser() user: UserContext) {
+    return this.service.totalPayments(user);
+  }
 }

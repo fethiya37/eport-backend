@@ -81,6 +81,8 @@ model User {
   approved_route_assignments RouteAssignment[] @relation("approver")
   driver_payments_created    DriverPayment[]   @relation("payment_creator")
 
+  @@index([association_id])
+  @@index([user_type, association_id])
   @@map("users")
 }
 
@@ -126,6 +128,8 @@ model Association {
   payment_policy  AssociationPolicy?
   driver_payments DriverPayment[]
 
+  @@index([name])
+  @@index([phone_number])
   @@map("associations")
 }
 
@@ -141,6 +145,7 @@ model Owner {
   vehicles    Vehicle[]
 
   @@unique([association_id, phone_number])
+  @@index([association_id, full_name])
   @@map("owners")
 }
 
@@ -165,11 +170,14 @@ model Driver {
   user        User        @relation(fields: [user_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
   association Association @relation(fields: [association_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
-  vehicle  Vehicle?        @relation("DriverVehicle") // ✅ one-to-one
+  vehicle  Vehicle?        @relation("DriverVehicle")
   payments DriverPayment[]
 
   @@unique([association_id, phone_number])
   @@index([association_id, active_until_date])
+  @@index([association_id, status])
+  @@index([association_id, full_name])
+  @@index([status])
   @@index([last_accrual_date])
   @@map("drivers")
 }
@@ -180,7 +188,7 @@ model Vehicle {
   libre_no       String?
   owner_id       Int
   association_id Int
-  driver_id      Int?          @unique // ✅ enforce 1-to-1
+  driver_id      Int?          @unique
   make           String?
   model          String?
   color          String?
@@ -197,6 +205,9 @@ model Vehicle {
 
   RouteAssignment RouteAssignment[]
 
+  @@index([association_id, status])
+  @@index([driver_id])
+  @@index([owner_id])
   @@map("vehicles")
 }
 
@@ -208,6 +219,7 @@ model RouteGroup {
 
   routes Route[]
 
+  @@index([route_group])
   @@map("route_groups")
 }
 
@@ -226,6 +238,7 @@ model Route {
   route_assignments RouteAssignment[]
 
   @@index([route_group_id])
+  @@index([departure, arrival])
   @@map("routes")
 }
 
@@ -247,6 +260,7 @@ model RouteQuota {
   assignments RouteAssignment[]
 
   @@index([association_id, route_id, start_date, end_date])
+  @@index([association_id, status])
   @@map("route_quotas")
 }
 
@@ -263,7 +277,7 @@ model RouteAssignment {
   updated_at     DateTime              @updatedAt
 
   history_status RouteAssignmentHistoryStatus? @default(WORKED)
-  payment_status PaymentStatus                 @default(INACTIVE) // ✅ moved here
+  payment_status PaymentStatus                 @default(INACTIVE)
 
   assigned_by_user_id Int
   approved_by_user_id Int?
@@ -279,6 +293,9 @@ model RouteAssignment {
   approved_by User? @relation("approver", fields: [approved_by_user_id], references: [id], onDelete: SetNull)
 
   @@index([association_id, route_id, start_date, end_date])
+  @@index([association_id, vehicle_id, status])
+  @@index([vehicle_id, payment_status])
+  @@index([payment_status])
   @@index([assigned_by_user_id])
   @@index([approved_by_user_id])
   @@map("route_assignments")
@@ -312,13 +329,16 @@ model DriverPayment {
   covered_end_date   DateTime
   paid_at            DateTime       @default(now())
   payment_method     PaymentMethod?
-  plate_number       String?        @db.VarChar(20) // ✅ new column
+  plate_number       String?        @db.VarChar(20)
 
-  association Association @relation(fields: [association_id], references: [id], onDelete: Cascade, onUpdate: Cascade) // ✅ delete payments if assoc deleted
-  driver      Driver?     @relation(fields: [driver_id], references: [id], onDelete: SetNull, onUpdate: Cascade) // ✅ keep record, null driver
-  creator     User?       @relation("payment_creator", fields: [created_by_user_id], references: [id], onDelete: SetNull, onUpdate: Cascade) // ✅ keep record, null creator
+  association Association @relation(fields: [association_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  driver      Driver?     @relation(fields: [driver_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  creator     User?       @relation("payment_creator", fields: [created_by_user_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
   @@index([association_id])
   @@index([driver_id])
+  @@index([association_id, paid_at])
+  @@index([driver_id, paid_at])
+  @@index([association_id, plate_number])
   @@map("driver_payments")
 }
