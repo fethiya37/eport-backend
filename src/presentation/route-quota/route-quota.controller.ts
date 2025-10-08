@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RouteQuotaService } from '../../application/services/route-quota.service';
 import { CreateRouteQuotaDto } from './dto/create-route-quota.dto';
 import { UpdateRouteQuotaDto } from './dto/update-route-quota.dto';
@@ -30,10 +30,12 @@ export class RouteQuotaController {
   }
 
   @Patch(':id')
-  @Roles('Admin', 'Superadmin')
+  @Roles('Admin', 'Superadmin', 'Association') // ✅ add Association
+  @ApiOperation({ summary: 'Update route quota (Admins full edit, Association partial)' })
   update(@AuthUser() user: UserContext, @Param('id', ParseIntPipe) id: number, @Body() dto: UpdateRouteQuotaDto) {
     return this.service.update(user, id, dto);
   }
+
 
   @Post('bulk')
   @Roles('Admin', 'Superadmin')

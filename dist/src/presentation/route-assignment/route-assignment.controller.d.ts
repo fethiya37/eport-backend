@@ -36,6 +36,11 @@ export declare class RouteAssignmentController {
         status: import("@prisma/client").$Enums.RouteAssignmentStatus;
         payment_status: import("@prisma/client").$Enums.PaymentStatus;
         is_weekly: boolean;
+        route_quota_id: number | null;
+        association: {
+            id: number;
+            name: string;
+        };
         vehicle: {
             id: number;
             plate_number: string;

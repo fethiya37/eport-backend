@@ -60,6 +60,7 @@ export type RouteAssignmentWithRelations = RouteAssignment & {
   };
   assigned_by: { id: number; name: string | null };
   approved_by: { id: number; name: string | null } | null;
+  association: { id: number; name: string }; // ✅ Added
 };
 
 // -----------------------------

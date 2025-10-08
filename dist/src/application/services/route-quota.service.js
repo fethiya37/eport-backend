@@ -97,36 +97,57 @@ let RouteQuotaService = class RouteQuotaService {
         return this.quotas.find(filter);
     }
     async update(ctx, id, dto) {
-        if (!(0, roles_util_1.isAdminLike)(ctx.user_type))
-            throw new common_1.ForbiddenException('Only Admin/Superadmin');
         const existing = await this.quotas.findById(id);
         if (!existing)
             throw new common_1.NotFoundException('Route quota not found');
+        const isAssociation = ctx.user_type === 'Association';
+        const isAdmin = (0, roles_util_1.isAdminLike)(ctx.user_type);
+        if (!isAdmin && !isAssociation) {
+            throw new common_1.ForbiddenException('Only Admin, Superadmin or Association can update quota');
+        }
+        if (isAssociation && ctx.association_id !== existing.association_id) {
+            throw new common_1.ForbiddenException('Cannot modify quota outside your association');
+        }
         const approvedCount = await this.prisma.routeAssignment.count({
             where: { route_quota_id: id, status: 'Approved' },
         });
-        if (approvedCount > 0) {
+        if (approvedCount > 0 && !isAdmin) {
             throw new common_1.ForbiddenException('Cannot update quota with approved assignments');
         }
         const patch = {};
-        if (dto.start_date)
-            patch.start_date = this.parseGc(dto.start_date, 'start_date');
-        if (dto.end_date)
-            patch.end_date = this.parseGc(dto.end_date, 'end_date');
-        if (patch.start_date && patch.end_date && patch.start_date > patch.end_date) {
-            throw new common_1.BadRequestException('start_date must be <= end_date');
+        if (isAdmin) {
+            if (dto.start_date)
+                patch.start_date = this.parseGc(dto.start_date, 'start_date');
+            if (dto.end_date)
+                patch.end_date = this.parseGc(dto.end_date, 'end_date');
+            if (patch.start_date && patch.end_date && patch.start_date > patch.end_date) {
+                throw new common_1.BadRequestException('start_date must be <= end_date');
+            }
+            if (dto.no_vehicles !== undefined) {
+                await this.ensureCapacity(existing.association_id, dto.no_vehicles);
+                patch.no_vehicles = dto.no_vehicles;
+            }
         }
-        if (dto.no_vehicles !== undefined) {
-            await this.ensureCapacity(existing.association_id, dto.no_vehicles);
-            patch.no_vehicles = dto.no_vehicles;
+        if (isAssociation) {
+            if (dto.remaining_vehicles !== undefined) {
+                if (dto.remaining_vehicles < 0 || dto.remaining_vehicles > existing.no_vehicles) {
+                    throw new common_1.BadRequestException('remaining_vehicles must be between 0 and no_vehicles');
+                }
+                patch.remaining_vehicles = dto.remaining_vehicles;
+            }
+            if (dto.status !== undefined) {
+                if (dto.status !== client_1.RouteQuotaStatus.Fulfilled) {
+                    throw new common_1.ForbiddenException('Association can only mark quota as Fulfilled');
+                }
+                patch.status = dto.status;
+            }
         }
-        if (dto.remaining_vehicles !== undefined) {
-            patch.remaining_vehicles = dto.remaining_vehicles;
-        }
-        if (dto.status !== undefined) {
+        if (dto.status !== undefined && isAdmin) {
             patch.status = dto.status;
         }
-        await this.ensureNoOverlap(existing.association_id, existing.route_id, patch.start_date ?? existing.start_date, patch.end_date ?? existing.end_date, id);
+        if (isAdmin) {
+            await this.ensureNoOverlap(existing.association_id, existing.route_id, patch.start_date ?? existing.start_date, patch.end_date ?? existing.end_date, id);
+        }
         return this.quotas.update(id, patch);
     }
     parseGc(input, field) {

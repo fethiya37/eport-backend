@@ -179,7 +179,7 @@ export class RouteAssignmentService {
       date_to,
       vehicle_id: f.vehicle_id,
       payment_status: f.payment_status,
-      route_quota_id: f.route_quota_id, // ✅ NEW
+      route_quota_id: f.route_quota_id,
     });
 
     return results.map(r => ({
@@ -189,6 +189,11 @@ export class RouteAssignmentService {
       status: r.status,
       payment_status: r.payment_status,
       is_weekly: r.is_weekly,
+      route_quota_id: r.route_quota_id, // ✅ Send route_quota_id
+      association: {
+        id: r.association.id,
+        name: r.association.name,       // ✅ Send name instead of id only
+      },
       vehicle: {
         id: r.vehicle.id,
         plate_number: r.vehicle.plate_number,

@@ -36,7 +36,7 @@ export class RouteQuotaService {
     @Inject(ASSOCIATION_REPOSITORY) private readonly associations: IAssociationRepository,
     @Inject(ROUTES_REPOSITORY) private readonly routesRepo: IRoutesRepository,
     private readonly prisma: PrismaService,
-  ) {}
+  ) { }
 
   // ========== CREATE ==========
   async create(ctx: UserContext, dto: CreateRouteQuotaDto) {
@@ -115,55 +115,97 @@ export class RouteQuotaService {
 
   // ========== UPDATE ==========
   async update(ctx: UserContext, id: number, dto: UpdateRouteQuotaDto) {
-    if (!isAdminLike(ctx.user_type)) throw new ForbiddenException('Only Admin/Superadmin');
-
     const existing = await this.quotas.findById(id);
     if (!existing) throw new NotFoundException('Route quota not found');
 
+    // ------------------------------
+    // 1️⃣ Role validation
+    // ------------------------------
+    const isAssociation = ctx.user_type === 'Association';
+    const isAdmin = isAdminLike(ctx.user_type);
+
+    if (!isAdmin && !isAssociation) {
+      throw new ForbiddenException('Only Admin, Superadmin or Association can update quota');
+    }
+
+    // Association-scoped restriction
+    if (isAssociation && ctx.association_id !== existing.association_id) {
+      throw new ForbiddenException('Cannot modify quota outside your association');
+    }
+
+    // Prevent updates on approved quotas
     const approvedCount = await this.prisma.routeAssignment.count({
       where: { route_quota_id: id, status: 'Approved' },
     });
-    if (approvedCount > 0) {
+    if (approvedCount > 0 && !isAdmin) {
+      // only admin can edit after approval
       throw new ForbiddenException('Cannot update quota with approved assignments');
     }
 
+    // ------------------------------
+    // 2️⃣ Build the patch payload
+    // ------------------------------
     const patch: Partial<{
       start_date: Date;
       end_date: Date;
       no_vehicles: number;
       remaining_vehicles: number;
-      status: RouteQuotaStatus; // ✅ enum
+      status: RouteQuotaStatus;
     }> = {};
 
-    if (dto.start_date) patch.start_date = this.parseGc(dto.start_date, 'start_date');
-    if (dto.end_date) patch.end_date = this.parseGc(dto.end_date, 'end_date');
-    if (patch.start_date && patch.end_date && patch.start_date > patch.end_date) {
-      throw new BadRequestException('start_date must be <= end_date');
+    // ✅ Admin/Superadmin can edit all fields
+    if (isAdmin) {
+      if (dto.start_date) patch.start_date = this.parseGc(dto.start_date, 'start_date');
+      if (dto.end_date) patch.end_date = this.parseGc(dto.end_date, 'end_date');
+      if (patch.start_date && patch.end_date && patch.start_date > patch.end_date) {
+        throw new BadRequestException('start_date must be <= end_date');
+      }
+
+      if (dto.no_vehicles !== undefined) {
+        await this.ensureCapacity(existing.association_id, dto.no_vehicles);
+        patch.no_vehicles = dto.no_vehicles;
+      }
     }
 
-    if (dto.no_vehicles !== undefined) {
-      await this.ensureCapacity(existing.association_id, dto.no_vehicles);
-      patch.no_vehicles = dto.no_vehicles;
+    // ✅ Association users can only update remaining_vehicles or status
+    if (isAssociation) {
+      if (dto.remaining_vehicles !== undefined) {
+        if (dto.remaining_vehicles < 0 || dto.remaining_vehicles > existing.no_vehicles) {
+          throw new BadRequestException('remaining_vehicles must be between 0 and no_vehicles');
+        }
+        patch.remaining_vehicles = dto.remaining_vehicles;
+      }
+
+      if (dto.status !== undefined) {
+        // Allow them to mark as fulfilled only
+        if (dto.status !== RouteQuotaStatus.Fulfilled) {
+          throw new ForbiddenException('Association can only mark quota as Fulfilled');
+        }
+        patch.status = dto.status;
+      }
     }
 
-    if (dto.remaining_vehicles !== undefined) {
-      patch.remaining_vehicles = dto.remaining_vehicles;
-    }
-
-    if (dto.status !== undefined) {
+    if (dto.status !== undefined && isAdmin) {
       patch.status = dto.status;
     }
 
-    await this.ensureNoOverlap(
-      existing.association_id,
-      existing.route_id,
-      patch.start_date ?? existing.start_date,
-      patch.end_date ?? existing.end_date,
-      id,
-    );
+    // ✅ Overlap check for Admin only (since association cannot change dates)
+    if (isAdmin) {
+      await this.ensureNoOverlap(
+        existing.association_id,
+        existing.route_id,
+        patch.start_date ?? existing.start_date,
+        patch.end_date ?? existing.end_date,
+        id,
+      );
+    }
 
+    // ------------------------------
+    // 3️⃣ Save
+    // ------------------------------
     return this.quotas.update(id, patch);
   }
+
 
   // ========== helpers ==========
   private parseGc(input: string | Date, field: string): Date {

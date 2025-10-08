@@ -252,15 +252,14 @@ export class PaymentsService {
       plate_number: dto.plate_number ?? d.vehicle_plate,
     });
 
-    // if (!d.has_smartphone) {
-    //   const msg = this.formatCoverageSmsCompact(coverage);
-    //   try {
-    //     await this.smsGateway.sendSms(d.phone_number, msg);
-    //   } catch (err) {
-    //     // log but don’t block payment success
-    //     console.error('Failed to send SMS', err);
-    //   }
-    // }
+    if (!d.has_smartphone) {
+      const msg = this.formatCoverageSmsCompact(coverage);
+      try {
+        await this.smsGateway.sendSms(d.phone_number, msg);
+      } catch (err) {
+        console.error('Failed to send SMS', err);
+      }
+    }
 
     return {
       payment: {

@@ -114,6 +114,7 @@ let PrismaRouteAssignmentRepository = class PrismaRouteAssignmentRepository {
                 route: { select: { id: true, departure: true, arrival: true } },
                 assigned_by: { select: { id: true, name: true } },
                 approved_by: { select: { id: true, name: true } },
+                association: { select: { id: true, name: true } },
             },
         });
     }

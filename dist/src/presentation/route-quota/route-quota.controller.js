@@ -65,7 +65,8 @@ __decorate([
 ], RouteQuotaController.prototype, "find", null);
 __decorate([
     (0, common_1.Patch)(':id'),
-    (0, roles_decorator_1.Roles)('Admin', 'Superadmin'),
+    (0, roles_decorator_1.Roles)('Admin', 'Superadmin', 'Association'),
+    (0, swagger_1.ApiOperation)({ summary: 'Update route quota (Admins full edit, Association partial)' }),
     __param(0, (0, auth_user_decorator_1.AuthUser)()),
     __param(1, (0, common_1.Param)('id', common_1.ParseIntPipe)),
     __param(2, (0, common_1.Body)()),

@@ -136,6 +136,11 @@ let RouteAssignmentService = class RouteAssignmentService {
             status: r.status,
             payment_status: r.payment_status,
             is_weekly: r.is_weekly,
+            route_quota_id: r.route_quota_id,
+            association: {
+                id: r.association.id,
+                name: r.association.name,
+            },
             vehicle: {
                 id: r.vehicle.id,
                 plate_number: r.vehicle.plate_number,

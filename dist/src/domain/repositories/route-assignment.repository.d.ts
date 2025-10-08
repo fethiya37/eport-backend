@@ -50,6 +50,10 @@ export type RouteAssignmentWithRelations = RouteAssignment & {
         id: number;
         name: string | null;
     } | null;
+    association: {
+        id: number;
+        name: string;
+    };
 };
 export interface IRouteAssignmentRepository {
     upsertMany(data: RouteAssignmentUpsertRow[]): Promise<RouteAssignment[]>;
