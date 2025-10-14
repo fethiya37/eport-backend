@@ -165,9 +165,20 @@ export class RouteQuotaService {
         await this.ensureCapacity(existing.association_id, dto.no_vehicles);
         patch.no_vehicles = dto.no_vehicles;
       }
+
+      if (dto.remaining_vehicles !== undefined) {
+        if (dto.remaining_vehicles < 0 || dto.remaining_vehicles > (dto.no_vehicles ?? existing.no_vehicles)) {
+          throw new BadRequestException('remaining_vehicles must be between 0 and no_vehicles');
+        }
+        patch.remaining_vehicles = dto.remaining_vehicles;
+      }
+
+      if (dto.status !== undefined) {
+        patch.status = dto.status;
+      }
     }
 
-    // ✅ Association users can only update remaining_vehicles or status
+    // ✅ Association users can only update remaining_vehicles or mark as Fulfilled
     if (isAssociation) {
       if (dto.remaining_vehicles !== undefined) {
         if (dto.remaining_vehicles < 0 || dto.remaining_vehicles > existing.no_vehicles) {
@@ -177,16 +188,11 @@ export class RouteQuotaService {
       }
 
       if (dto.status !== undefined) {
-        // Allow them to mark as fulfilled only
         if (dto.status !== RouteQuotaStatus.Fulfilled) {
           throw new ForbiddenException('Association can only mark quota as Fulfilled');
         }
         patch.status = dto.status;
       }
-    }
-
-    if (dto.status !== undefined && isAdmin) {
-      patch.status = dto.status;
     }
 
     // ✅ Overlap check for Admin only (since association cannot change dates)
@@ -205,6 +211,7 @@ export class RouteQuotaService {
     // ------------------------------
     return this.quotas.update(id, patch);
   }
+
 
 
   // ========== helpers ==========

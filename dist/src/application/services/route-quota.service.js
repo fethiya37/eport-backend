@@ -127,6 +127,15 @@ let RouteQuotaService = class RouteQuotaService {
                 await this.ensureCapacity(existing.association_id, dto.no_vehicles);
                 patch.no_vehicles = dto.no_vehicles;
             }
+            if (dto.remaining_vehicles !== undefined) {
+                if (dto.remaining_vehicles < 0 || dto.remaining_vehicles > (dto.no_vehicles ?? existing.no_vehicles)) {
+                    throw new common_1.BadRequestException('remaining_vehicles must be between 0 and no_vehicles');
+                }
+                patch.remaining_vehicles = dto.remaining_vehicles;
+            }
+            if (dto.status !== undefined) {
+                patch.status = dto.status;
+            }
         }
         if (isAssociation) {
             if (dto.remaining_vehicles !== undefined) {
@@ -141,9 +150,6 @@ let RouteQuotaService = class RouteQuotaService {
                 }
                 patch.status = dto.status;
             }
-        }
-        if (dto.status !== undefined && isAdmin) {
-            patch.status = dto.status;
         }
         if (isAdmin) {
             await this.ensureNoOverlap(existing.association_id, existing.route_id, patch.start_date ?? existing.start_date, patch.end_date ?? existing.end_date, id);
