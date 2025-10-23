@@ -13,6 +13,24 @@ async function bootstrap() {
         transform: true,
     }));
     app.setGlobalPrefix('api');
+    const allowlist = (process.env.FRONTEND_ALLOWLIST || '')
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+    app.enableCors({
+        origin: (origin, callback) => {
+            if (!origin)
+                return callback(null, true);
+            if (allowlist.includes(origin))
+                return callback(null, true);
+            return callback(new Error('Not allowed by CORS'), false);
+        },
+        methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
+        credentials: true,
+        preflightContinue: false,
+        optionsSuccessStatus: 204,
+    });
     const config = new swagger_1.DocumentBuilder()
         .setTitle('Clean Architecture API')
         .setDescription('API documentation for Clean Architecture project')

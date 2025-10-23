@@ -43,4 +43,37 @@ export declare class PaymentsController {
         total_amount: number;
         total_transactions: number;
     }>;
+    onlineInit(user: UserContext, dto: PayDto): Promise<{
+        tx_ref: string;
+        amount: number;
+        checkout_url: any;
+        chapa: any;
+    }>;
+    onlineReturn(): string;
+    callback(txRef: string): Promise<{
+        recorded: boolean;
+        status: any;
+        expected?: undefined;
+        paid?: undefined;
+        tx_ref?: undefined;
+        ref_id?: undefined;
+    } | {
+        recorded: boolean;
+        status: string;
+        expected: number;
+        paid: number;
+        tx_ref: string;
+        ref_id?: undefined;
+    } | {
+        recorded: boolean;
+        status: string;
+        ref_id: any;
+        tx_ref: string;
+        expected?: undefined;
+        paid?: undefined;
+    } | {
+        recorded: boolean;
+        status: string;
+        message: any;
+    }>;
 }

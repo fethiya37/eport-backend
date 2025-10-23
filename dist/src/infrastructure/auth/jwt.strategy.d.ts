@@ -10,12 +10,13 @@ declare const JwtStrategy_base: new (...args: any) => any;
 export declare class JwtStrategy extends JwtStrategy_base {
     private readonly prisma;
     constructor(prisma: PrismaService);
-    validate(payload: JwtPayload): Promise<{
+    validate(req: any, payload: JwtPayload): Promise<{
         userId: number;
         user_type: import("@prisma/client").$Enums.UserType;
         association_id: number | null;
         jti: string;
         exp: number;
+        tokenHash: string;
     }>;
 }
 export {};

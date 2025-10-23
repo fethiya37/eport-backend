@@ -22,6 +22,7 @@ __decorate([
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
     (0, class_validator_1.MaxLength)(20),
+    (0, class_validator_1.MinLength)(4),
     __metadata("design:type", String)
 ], LoginDto.prototype, "phone_number", void 0);
 __decorate([

@@ -21,13 +21,14 @@ __decorate([
     (0, swagger_1.ApiProperty)(),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
+    (0, class_validator_1.MinLength)(4),
     __metadata("design:type", String)
 ], ChangePasswordDto.prototype, "old_password", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)(),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
-    (0, class_validator_1.MinLength)(6),
+    (0, class_validator_1.MinLength)(4),
     __metadata("design:type", String)
 ], ChangePasswordDto.prototype, "new_password", void 0);
 //# sourceMappingURL=change-password.dto.js.map

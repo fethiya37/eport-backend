@@ -131,15 +131,25 @@ let AuthService = class AuthService {
         };
     }
     async logout(input) {
-        await this.prisma.revokedToken.upsert({
-            where: { jti: input.jti },
-            create: {
-                jti: input.jti,
-                user_id: input.user_id,
-                expires_at: new Date(input.exp * 1000),
-            },
-            update: { expires_at: new Date(input.exp * 1000) },
-        });
+        await this.prisma.$transaction([
+            this.prisma.revokedToken.upsert({
+                where: { jti: input.jti },
+                create: {
+                    jti: input.jti,
+                    user_id: input.user_id,
+                    expires_at: new Date(input.exp * 1000),
+                },
+                update: { expires_at: new Date(input.exp * 1000) },
+            }),
+            this.prisma.userToken.updateMany({
+                where: {
+                    user_id: input.user_id,
+                    token_hash: input.token_hash,
+                    revoked: false,
+                },
+                data: { revoked: true },
+            }),
+        ]);
         return { status: 'ok' };
     }
 };

@@ -19,37 +19,44 @@ export declare class PaymentsService {
     private todayEatYmd;
     private isOverdueEAT;
     private startOfDay;
-    private toLocalEtMobile;
     private getFees;
     private parsePaymentMethod;
-    private coercePaymentMethodLiteral;
     private resolveDriver;
-    private assertPlanMatches;
-    private assertWeeklyWindow;
-    private parseAndValidateWindow;
-    private computeTotal;
-    private splitName;
     applyPayment(ctx: UserContext, dto: PayDto): Promise<{
-        payment: {
-            plate_number: any;
-            fee_plan: "WEEKLY" | "MONTHLY";
-            breakdown: {
-                interest: number;
-                current_fee: number;
-                future_fee: number;
-                total: number;
-            };
-            coverage: {
-                from: string;
-                to: string;
-            };
+        message: string;
+    }>;
+    initiateChapaPayment(ctx: UserContext, dto: PayDto): Promise<{
+        message: string;
+        tx_ref: string;
+        checkout_url: any;
+    }>;
+    handleChapaCallback(payload: any): Promise<{
+        ok: boolean;
+        message: string;
+        tx_ref?: undefined;
+        record?: undefined;
+    } | {
+        ok: boolean;
+        message: string;
+        tx_ref: any;
+        record: {
+            id: number;
+            association_id: number;
+            plate_number: string | null;
+            driver_id: number | null;
+            fee_plan: import("@prisma/client").$Enums.FeePlan;
+            prepaid_qty: number;
+            covered_start_date: Date;
+            covered_end_date: Date;
+            amount: import("@prisma/client/runtime/library").Decimal;
+            payment_method: import("@prisma/client").$Enums.PaymentMethod | null;
+            created_by_user_id: number | null;
+            paid_at: Date;
         };
     }>;
-    private formatCoverageSmsCompact;
+    verifyChapaPayment(tx_ref: string): Promise<any>;
     listPayments(ctx: UserContext, filters: any): Promise<{
         id: any;
-        association_id: any;
-        driver_id: any;
         plate_number: any;
         fee_plan: any;
         prepaid_qty: any;
@@ -58,45 +65,9 @@ export declare class PaymentsService {
         covered_start_date: string;
         covered_end_date: string;
         paid_at: string;
-        driver: {
-            full_name: any;
-            phone_number: any;
-            username: any;
-        } | null;
     }[]>;
     totalPayments(ctx: UserContext): Promise<{
         total_amount: number;
         total_transactions: number;
     }>;
-    private buildTxRefOnline;
-    private parseTxRefOnline;
-    initOnlineFromPayDto(ctx: UserContext, dto: PayDto): Promise<{
-        tx_ref: string;
-        amount: number;
-        checkout_url: any;
-        chapa: any;
-    }>;
-    recordAfterChapaSuccess(txRef: string): Promise<{
-        recorded: boolean;
-        status: any;
-        expected?: undefined;
-        paid?: undefined;
-        tx_ref?: undefined;
-        ref_id?: undefined;
-    } | {
-        recorded: boolean;
-        status: string;
-        expected: number;
-        paid: number;
-        tx_ref: string;
-        ref_id?: undefined;
-    } | {
-        recorded: boolean;
-        status: string;
-        ref_id: any;
-        tx_ref: string;
-        expected?: undefined;
-        paid?: undefined;
-    }>;
-    verify(txRef: string): Promise<any>;
 }

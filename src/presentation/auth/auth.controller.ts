@@ -1,4 +1,4 @@
-import { Body, Controller, Post, Request, HttpCode } from '@nestjs/common'; // ⬅️ add HttpCode
+import { Body, Controller, Post, Request, HttpCode } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuthService } from '../../application/services/auth.service';
 import { LoginDto } from './dto/login.dto';
@@ -13,7 +13,7 @@ export class AuthController {
 
   @Public()
   @Post('login')
-  @HttpCode(200) // ⬅️ force 200 OK
+  @HttpCode(200)
   @ApiOperation({ summary: 'Login with phone_number + password' })
   @ApiResponse({ status: 200, type: AuthResponseDto })
   async login(@Body() dto: LoginDto): Promise<AuthResponseDto> {
@@ -22,7 +22,7 @@ export class AuthController {
 
   @ApiBearerAuth()
   @Post('logout')
-  @HttpCode(200) // ⬅️ force 200 OK
+  @HttpCode(200)
   @ApiOperation({ summary: 'Logout (revoke current token)' })
   @ApiResponse({ status: 200, type: LogoutResponseDto })
   async logout(@Request() req: any): Promise<LogoutResponseDto> {
@@ -30,6 +30,7 @@ export class AuthController {
       user_id: req.user.userId,
       jti: req.user.jti,
       exp: req.user.exp,
+      token_hash: req.user.tokenHash,  
     });
     return { status: 'ok' };
   }

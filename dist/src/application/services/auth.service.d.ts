@@ -8,6 +8,7 @@ type LogoutInput = {
     user_id: number;
     jti: string;
     exp: number;
+    token_hash: string;
 };
 export declare class AuthService {
     private readonly prisma;

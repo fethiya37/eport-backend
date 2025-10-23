@@ -5,8 +5,8 @@ import * as crypto from 'crypto';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { UserType } from '@prisma/client';
 
-type LoginInput = { phone_number: string; password: string };
-type LogoutInput = { user_id: number; jti: string; exp: number };
+type LoginInput  = { phone_number: string; password: string };
+type LogoutInput = { user_id: number; jti: string; exp: number; token_hash: string }; // ✅ NEW field
 
 @Injectable()
 export class AuthService {
@@ -29,7 +29,6 @@ export class AuthService {
     const ok = await bcrypt.compare(input.password, user.password_hash);
     if (!ok) throw new UnauthorizedException('invalid credentials');
 
-    // 🚫 Require association_id for Association and Driver
     if (
       (user.user_type === UserType.Association || user.user_type === UserType.Driver) &&
       !user.association_id
@@ -39,7 +38,6 @@ export class AuthService {
       );
     }
 
-    // 🔎 fetch driver_id if user_type is DRIVER
     let driver_id: number | null = null;
     if (user.user_type === UserType.Driver) {
       const driver = await this.prisma.driver.findUnique({
@@ -47,32 +45,29 @@ export class AuthService {
         select: { id: true },
       });
       driver_id = driver?.id ?? null;
-
       if (!driver_id) {
         throw new ForbiddenException('Driver account is not linked to driver record');
       }
     }
 
-    // Generate a unique token id (jti)
     const jti = crypto.randomUUID();
     const payload = {
       sub: user.id,
       user_type: user.user_type,
       association_id: user.association_id ?? null,
-      driver_id: driver_id ?? null, // ✅ include driver_id if Driver
+      driver_id: driver_id ?? null,
       jti,
     };
 
-    const expiresIn = process.env.JWT_EXPIRES_IN || '1d';
+    const expiresIn   = process.env.JWT_EXPIRES_IN || '1d';
     const access_token = await this.jwt.signAsync(payload, { expiresIn });
 
-    // Decode exp to store alongside token
     const decoded = this.jwt.decode(access_token) as { exp?: number } | null;
     const exp = decoded?.exp
       ? new Date(decoded.exp * 1000)
       : new Date(Date.now() + 24 * 3600 * 1000);
 
-    // Persist token hash (audit/visibility)
+    // Store fingerprint (no raw token)
     const token_hash = crypto.createHash('sha256').update(access_token).digest('hex');
     await this.prisma.userToken.create({
       data: {
@@ -80,10 +75,11 @@ export class AuthService {
         token_hash,
         expires_at: exp,
         revoked: false,
+        // (optional) If you added a jti column in UserToken, you could also persist it here.
+        // jti,
       },
     });
 
-    // 🔎 fetch association name if available
     let association_name: string | null = null;
     if (user.association_id) {
       const assoc = await this.prisma.association.findUnique({
@@ -101,7 +97,7 @@ export class AuthService {
         user_type: user.user_type,
         association_id: user.association_id ?? null,
         association_name,
-        driver_id, // ✅ exposed in user object
+        driver_id,
         name: user.name ?? null,
       },
       exp: Math.floor(exp.getTime() / 1000),
@@ -110,15 +106,29 @@ export class AuthService {
   }
 
   async logout(input: LogoutInput) {
-    await this.prisma.revokedToken.upsert({
-      where: { jti: input.jti },
-      create: {
-        jti: input.jti,
-        user_id: input.user_id,
-        expires_at: new Date(input.exp * 1000),
-      },
-      update: { expires_at: new Date(input.exp * 1000) },
-    });
+    await this.prisma.$transaction([
+      // 1) Blacklist by jti
+      this.prisma.revokedToken.upsert({
+        where: { jti: input.jti },
+        create: {
+          jti: input.jti,
+          user_id: input.user_id,
+          expires_at: new Date(input.exp * 1000),
+        },
+        update: { expires_at: new Date(input.exp * 1000) },
+      }),
+
+      // 2) Mark this exact stored token as revoked (by fingerprint)
+      this.prisma.userToken.updateMany({
+        where: {
+          user_id: input.user_id,
+          token_hash: input.token_hash,
+          revoked: false,
+        },
+        data: { revoked: true },
+      }),
+    ]);
+
     return { status: 'ok' };
   }
 }

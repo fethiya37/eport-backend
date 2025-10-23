@@ -48,17 +48,34 @@ let PaymentsService = class PaymentsService {
         return `${y}-${m}-${day}`;
     }
     todayEatYmd() {
-        const now = new Date();
-        return this.ymdEAT(now);
+        return this.ymdEAT(new Date());
     }
     isOverdueEAT(activeUntil) {
         if (!activeUntil)
             return true;
-        const au = this.ymdEAT(activeUntil);
-        return au < this.todayEatYmd();
+        return this.ymdEAT(activeUntil) < this.todayEatYmd();
     }
     startOfDay(d) {
         return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    }
+    toLocalEtMobile(phone) {
+        const fallback = '0912345678';
+        if (!phone)
+            return fallback;
+        const digits = phone.replace(/\D/g, '');
+        if (digits.startsWith('251')) {
+            const rest = digits.slice(3);
+            if (rest.startsWith('9') || rest.startsWith('7'))
+                return `0${rest}`;
+            return fallback;
+        }
+        if ((digits.startsWith('09') || digits.startsWith('07')) && digits.length >= 10) {
+            return digits.slice(0, 10);
+        }
+        if ((digits.startsWith('9') || digits.startsWith('7')) && digits.length >= 9) {
+            return `0${digits.slice(0, 9)}`;
+        }
+        return fallback;
     }
     async getFees(association_id) {
         const p = await this.policy.get(association_id);
@@ -84,6 +101,12 @@ let PaymentsService = class PaymentsService {
                 throw new common_1.BadRequestException('Invalid payment_method. Use one of: CASH | BANK | MOBILE | OTHER');
         }
     }
+    coercePaymentMethodLiteral(value) {
+        const v = (value ?? 'MOBILE').trim().toUpperCase();
+        if (v === 'CASH' || v === 'BANK' || v === 'MOBILE' || v === 'OTHER')
+            return v;
+        throw new common_1.BadRequestException('Invalid payment_method. Use one of: CASH | BANK | MOBILE | OTHER');
+    }
     async resolveDriver(ctx, driver_id, plate_number) {
         if (!driver_id && !plate_number) {
             throw new common_1.BadRequestException('Provide driver_id or plate_number');
@@ -101,9 +124,8 @@ let PaymentsService = class PaymentsService {
             });
             if (!v)
                 throw new common_1.NotFoundException('Vehicle not found');
-            if (!v.driver_id) {
+            if (!v.driver_id)
                 throw new common_1.BadRequestException('No driver assigned to this plate_number');
-            }
             d = await this.drivers.findById(ctx, v.driver_id);
             if (!d)
                 throw new common_1.NotFoundException('Driver not found');
@@ -124,42 +146,59 @@ let PaymentsService = class PaymentsService {
         d.is_weekly = vehicle.is_weekly;
         return d;
     }
-    async applyPayment(ctx, dto) {
-        const d = await this.resolveDriver(ctx, dto.driver_id, dto.plate_number);
-        const driverPlan = d.is_weekly ? 'WEEKLY' : 'MONTHLY';
-        if (dto.fee_plan !== driverPlan) {
-            throw new common_1.BadRequestException(`Plan mismatch: driver is ${driverPlan}, but payload says ${dto.fee_plan}.`);
+    assertPlanMatches(driverIsWeekly, feePlan) {
+        const driverPlan = driverIsWeekly ? 'WEEKLY' : 'MONTHLY';
+        if (feePlan !== driverPlan) {
+            throw new common_1.BadRequestException(`Plan mismatch: driver is ${driverPlan}, but payload says ${feePlan}.`);
         }
-        const startGc = new Date(dto.covered_start_date);
-        const endGc = new Date(dto.covered_end_date);
+    }
+    assertWeeklyWindow(startGc, endGc, isOverdue, prepayQty) {
+        const days = Math.floor(this.startOfDay(endGc).getTime() - this.startOfDay(startGc).getTime()) /
+            86_400_000 +
+            1;
+        const expectedWeeks = isOverdue ? 1 + prepayQty : Math.max(1, prepayQty);
+        if (days % 7 !== 0 || days / 7 !== expectedWeeks) {
+            throw new common_1.BadRequestException(`Weekly coverage length must equal ${expectedWeeks} week(s) = ${expectedWeeks * 7} days.`);
+        }
+    }
+    parseAndValidateWindow(feePlan, start, end, isOverdue, prepayQty) {
+        const startGc = new Date(start);
+        const endGc = new Date(end);
         if (isNaN(startGc.getTime()) || isNaN(endGc.getTime())) {
             throw new common_1.BadRequestException('covered_start_date/covered_end_date must be valid ISO 8601');
         }
         if (startGc > endGc)
             throw new common_1.BadRequestException('covered_start_date must be <= covered_end_date');
+        if (feePlan === 'WEEKLY') {
+            this.assertWeeklyWindow(startGc, endGc, isOverdue, prepayQty);
+        }
+        return { startGc, endGc };
+    }
+    computeTotal(feePlan, isOverdue, prepayQty, baseFee, interestAccrued) {
+        const current = isOverdue ? baseFee : 0;
+        const interest = isOverdue ? interestAccrued : 0;
+        const future = prepayQty * baseFee;
+        return Math.round((current + interest + future + Number.EPSILON) * 100) / 100;
+    }
+    splitName(fullName) {
+        const parts = (fullName ?? 'Driver User').trim().split(/\s+/);
+        const firstName = parts[0] || 'Driver';
+        const lastName = parts.slice(1).join(' ') || 'User';
+        return { firstName, lastName };
+    }
+    async applyPayment(ctx, dto) {
+        const d = await this.resolveDriver(ctx, dto.driver_id, dto.plate_number);
+        this.assertPlanMatches(d.is_weekly, dto.fee_plan);
         const prepayQty = Math.max(0, dto.prepaid_qty ?? 0);
         const isOverdue = this.isOverdueEAT(d.active_until_date ?? null);
-        if (dto.fee_plan === 'WEEKLY') {
-            const days = Math.floor(this.startOfDay(endGc).getTime() - this.startOfDay(startGc).getTime()) /
-                86_400_000 +
-                1;
-            const expectedWeeks = isOverdue ? 1 + prepayQty : Math.max(1, prepayQty);
-            if (days % 7 !== 0 || days / 7 !== expectedWeeks) {
-                throw new common_1.BadRequestException(`Weekly coverage length must equal ${expectedWeeks} week(s) = ${expectedWeeks * 7} days.`);
-            }
-        }
+        const { startGc, endGc } = this.parseAndValidateWindow(dto.fee_plan, dto.covered_start_date, dto.covered_end_date, isOverdue, prepayQty);
         const fees = await this.getFees(d.association_id);
         const baseFee = dto.fee_plan === 'WEEKLY' ? fees.weekly_fee : fees.monthly_fee;
-        const interestAccrued = Number(d.interest_accrued ?? 0);
-        const currentFee = isOverdue ? baseFee : 0;
-        const interest = isOverdue ? interestAccrued : 0;
-        const futureFee = prepayQty * baseFee;
-        const total = Math.round((currentFee + interest + futureFee + Number.EPSILON) * 100) / 100;
+        const total = this.computeTotal(dto.fee_plan, isOverdue, prepayQty, baseFee, Number(d.interest_accrued ?? 0));
         if (dto.amount !== undefined) {
             const provided = Math.round((dto.amount + Number.EPSILON) * 100) / 100;
-            if (provided !== total) {
+            if (provided !== total)
                 throw new common_1.BadRequestException(`Total mismatch. Expected ${total}, got ${provided}`);
-            }
         }
         await this.prisma.$transaction(async (tx) => {
             await this.payments.create({
@@ -204,7 +243,7 @@ let PaymentsService = class PaymentsService {
         if (!d.has_smartphone) {
             const msg = this.formatCoverageSmsCompact(coverage);
             try {
-                await this.smsGateway.sendSms(d.phone_number, msg);
+                await this.smsGateway.sendSms(this.toLocalEtMobile(d.phone_number), msg);
             }
             catch (err) {
                 console.error('Failed to send SMS', err);
@@ -214,27 +253,27 @@ let PaymentsService = class PaymentsService {
             payment: {
                 plate_number: dto.plate_number ?? d.vehicle_plate ?? null,
                 fee_plan: dto.fee_plan,
-                breakdown: { interest, current_fee: currentFee, future_fee: futureFee, total },
-                coverage: {
-                    from: this.ymdEAT(startGc),
-                    to: this.ymdEAT(endGc),
+                breakdown: {
+                    interest: isOverdue ? Number(d.interest_accrued ?? 0) : 0,
+                    current_fee: isOverdue ? baseFee : 0,
+                    future_fee: prepayQty * baseFee,
+                    total,
                 },
+                coverage: { from: this.ymdEAT(startGc), to: this.ymdEAT(endGc) },
             },
         };
     }
     formatCoverageSmsCompact(data) {
-        if (!data.coverage_active) {
+        if (!data.coverage_active)
             return `Plate: ${data.plate_number} inactive.`;
-        }
         const assignments = data.assignments
             .map((a) => `${a.route.departure}→${a.route.arrival} (${a.start_date_ec} → ${a.end_date_ec}) [${a.status}]`)
             .join('\n');
         return `Plate: ${data.plate_number}\n${assignments}`;
     }
     async listPayments(ctx, filters) {
-        if (!(0, roles_util_1.isAdminLike)(ctx.user_type)) {
+        if (!(0, roles_util_1.isAdminLike)(ctx.user_type))
             filters.association_id = ctx.association_id;
-        }
         const rows = await this.payments.findMany(filters);
         return rows.map((p) => ({
             id: p.id,
@@ -258,14 +297,169 @@ let PaymentsService = class PaymentsService {
         }));
     }
     async totalPayments(ctx) {
-        if (!ctx.association_id) {
+        if (!ctx.association_id)
             throw new common_1.ForbiddenException('Association context required');
-        }
         const totals = await this.payments.getTotalByAssociation(ctx.association_id);
-        return {
-            total_amount: totals.total_amount,
-            total_transactions: totals.count,
+        return { total_amount: totals.total_amount, total_transactions: totals.count };
+    }
+    buildTxRefOnline(p) {
+        const yymmdd = (d) => d.replace(/-/g, '').slice(2, 8);
+        const rand = Math.random().toString(36).replace(/[^a-z0-9]/g, '').slice(2, 10);
+        const plan = p.fee_plan === 'MONTHLY' ? 'M' : 'W';
+        const q = Math.max(0, p.prepaid_qty ?? 0);
+        const mMap = { CASH: 'c', BANK: 'b', MOBILE: 'm', OTHER: 'o' };
+        const m = (p.payment_method ?? 'MOBILE').toUpperCase();
+        const mSeg = m === 'MOBILE' ? '' : `-m${mMap[m] ?? 'm'}`;
+        const cents = Math.round((p.amount + Number.EPSILON) * 100);
+        const v = cents.toString(36);
+        const qSeg = q > 0 ? `-q${q}` : '';
+        const tx = [
+            `A${p.association_id}`,
+            `D${p.driver_id}`,
+            `P${plan}`,
+            `S${yymmdd(p.covered_start_date)}`,
+            `E${yymmdd(p.covered_end_date)}`,
+        ].join('-') + `${qSeg}${mSeg}-v${v}-r${rand}`;
+        if (tx.length > 50) {
+            const over = tx.length - 50;
+            const newRandLen = Math.max(4, 8 - over);
+            const shortRand = rand.slice(0, newRandLen);
+            return tx.replace(/-r[0-9a-z]+$/i, `-r${shortRand}`);
+        }
+        return tx;
+    }
+    parseTxRefOnline(txRef) {
+        const parts = txRef.split('-');
+        const getVal = (k) => parts.find((s) => s.startsWith(k))?.slice(1) ?? '';
+        const aid = Number(getVal('A'));
+        const did = Number(getVal('D'));
+        const planChar = getVal('P');
+        const s = getVal('S');
+        const e = getVal('E');
+        const q = getVal('q');
+        const m = getVal('m');
+        const v = getVal('v');
+        const toYmd = (yymmdd) => `20${yymmdd.slice(0, 2)}-${yymmdd.slice(2, 4)}-${yymmdd.slice(4, 6)}`;
+        const mRev = {
+            c: 'CASH',
+            b: 'BANK',
+            m: 'MOBILE',
+            o: 'OTHER',
         };
+        const method = m ? (mRev[m] ?? 'MOBILE') : 'MOBILE';
+        const cents = v ? parseInt(v, 36) : 0;
+        const amount = Math.round((cents / 100 + Number.EPSILON) * 100) / 100;
+        return {
+            association_id: aid,
+            driver_id: did,
+            fee_plan: planChar === 'M' ? 'MONTHLY' : 'WEEKLY',
+            covered_start_date: toYmd(s),
+            covered_end_date: toYmd(e),
+            prepaid_qty: q ? Number(q) : 0,
+            payment_method: method,
+            amount,
+        };
+    }
+    async initOnlineFromPayDto(ctx, dto) {
+        const d = await this.resolveDriver(ctx, dto.driver_id, dto.plate_number);
+        this.assertPlanMatches(d.is_weekly, dto.fee_plan);
+        const prepayQty = Math.max(0, dto.prepaid_qty ?? 0);
+        const isOverdue = this.isOverdueEAT(d.active_until_date ?? null);
+        this.parseAndValidateWindow(dto.fee_plan, dto.covered_start_date, dto.covered_end_date, isOverdue, prepayQty);
+        const fees = await this.getFees(d.association_id);
+        const baseFee = dto.fee_plan === 'WEEKLY' ? fees.weekly_fee : fees.monthly_fee;
+        const total = this.computeTotal(dto.fee_plan, isOverdue, prepayQty, baseFee, Number(d.interest_accrued ?? 0));
+        const txRef = this.buildTxRefOnline({
+            association_id: d.association_id,
+            driver_id: d.id,
+            fee_plan: dto.fee_plan,
+            prepaid_qty: prepayQty,
+            covered_start_date: dto.covered_start_date,
+            covered_end_date: dto.covered_end_date,
+            payment_method: this.coercePaymentMethodLiteral(dto.payment_method),
+            amount: total,
+        });
+        const CHAPA_SECRET = process.env.CHAPA_SECRET;
+        const BASE_URL = process.env.BASE_URL;
+        const { firstName, lastName } = this.splitName(d.full_name);
+        const phoneLocal = this.toLocalEtMobile(d.phone_number);
+        const payload = {
+            amount: String(total),
+            currency: 'ETB',
+            first_name: firstName,
+            last_name: lastName,
+            phone_number: phoneLocal,
+            tx_ref: txRef,
+            callback_url: `${BASE_URL}/payments/callback`,
+            return_url: `${BASE_URL}/payments/online/return`,
+            customization: {
+                title: 'MembershipFee',
+                description: 'Driver membership payment',
+            },
+        };
+        const res = await fetch('https://api.chapa.co/v1/transaction/initialize', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${CHAPA_SECRET}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        const chapa = await res.json();
+        if (!res.ok)
+            throw new common_1.BadRequestException(chapa);
+        const checkout_url = chapa?.data?.checkout_url ?? null;
+        return { tx_ref: txRef, amount: total, checkout_url, chapa };
+    }
+    async recordAfterChapaSuccess(txRef) {
+        const verify = await this.verify(txRef);
+        const ok = verify?.status === 'success' && verify?.data?.status === 'success';
+        if (!ok)
+            return { recorded: false, status: verify?.data?.status ?? 'pending' };
+        const parsed = this.parseTxRefOnline(txRef);
+        const driver = await this.prisma.driver.findUnique({
+            where: { id: parsed.driver_id },
+            select: {
+                id: true,
+                user_id: true,
+                association_id: true,
+                active_until_date: true,
+                interest_accrued: true,
+            },
+        });
+        if (!driver)
+            throw new common_1.NotFoundException('Driver not found');
+        const fees = await this.getFees(driver.association_id);
+        const baseFee = parsed.fee_plan === 'WEEKLY' ? fees.weekly_fee : fees.monthly_fee;
+        const isOverdue = this.isOverdueEAT(driver.active_until_date ?? null);
+        const prepayQty = Math.max(0, parsed.prepaid_qty ?? 0);
+        const expected = this.computeTotal(parsed.fee_plan, isOverdue, prepayQty, baseFee, Number(driver.interest_accrued ?? 0));
+        const paid = Number(verify.data.amount);
+        if (paid !== expected) {
+            return { recorded: false, status: 'mismatch', expected, paid, tx_ref: txRef };
+        }
+        const ctx = {
+            userId: driver.user_id,
+            user_type: 'Driver',
+            association_id: driver.association_id,
+        };
+        await this.applyPayment(ctx, {
+            driver_id: driver.id,
+            fee_plan: parsed.fee_plan,
+            prepaid_qty: parsed.prepaid_qty,
+            covered_start_date: parsed.covered_start_date,
+            covered_end_date: parsed.covered_end_date,
+            payment_method: parsed.payment_method,
+        });
+        const ref_id = verify?.data?.reference || verify?.data?.ref_id || null;
+        return { recorded: true, status: 'success', ref_id, tx_ref: txRef };
+    }
+    async verify(txRef) {
+        const CHAPA_SECRET = process.env.CHAPA_SECRET;
+        const res = await fetch(`https://api.chapa.co/v1/transaction/verify/${txRef}`, {
+            headers: { Authorization: `Bearer ${CHAPA_SECRET}` },
+        });
+        const data = await res.json();
+        if (!res.ok)
+            throw new common_1.HttpException(data, res.status);
+        return data;
     }
 };
 exports.PaymentsService = PaymentsService;
