@@ -65,7 +65,7 @@ let PaymentsController = class PaymentsController {
 exports.PaymentsController = PaymentsController;
 __decorate([
     (0, common_1.Post)('apply'),
-    (0, roles_decorator_1.Roles)('Association', 'Driver'),
+    (0, roles_decorator_1.Roles)('Association'),
     __param(0, (0, auth_user_decorator_1.AuthUser)()),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -91,7 +91,7 @@ __decorate([
 ], PaymentsController.prototype, "total", null);
 __decorate([
     (0, common_1.Post)('online/init'),
-    (0, roles_decorator_1.Roles)('Association', 'Driver'),
+    (0, roles_decorator_1.Roles)('Driver'),
     __param(0, (0, auth_user_decorator_1.AuthUser)()),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),

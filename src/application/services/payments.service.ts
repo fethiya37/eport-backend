@@ -447,75 +447,110 @@ export class PaymentsService {
   }
 
   // === Initialize Hosted Checkout using PayDto & driver data ===
-  async initOnlineFromPayDto(ctx: UserContext, dto: PayDto) {
-    const d = await this.resolveDriver(ctx, dto.driver_id, dto.plate_number);
+ // src/application/services/payments.service.ts
 
-    this.assertPlanMatches(d.is_weekly, dto.fee_plan);
+async initOnlineFromPayDto(ctx: UserContext, dto: PayDto) {
+  const d = await this.resolveDriver(ctx, dto.driver_id, dto.plate_number);
 
-    const prepayQty = Math.max(0, dto.prepaid_qty ?? 0);
-    const isOverdue = this.isOverdueEAT(d.active_until_date ?? null);
-    this.parseAndValidateWindow(
-      dto.fee_plan,
-      dto.covered_start_date,
-      dto.covered_end_date,
-      isOverdue,
-      prepayQty,
+  this.assertPlanMatches(d.is_weekly, dto.fee_plan);
+
+  const prepayQty = Math.max(0, dto.prepaid_qty ?? 0);
+  const isOverdue = this.isOverdueEAT(d.active_until_date ?? null);
+  this.parseAndValidateWindow(
+    dto.fee_plan,
+    dto.covered_start_date,
+    dto.covered_end_date,
+    isOverdue,
+    prepayQty,
+  );
+
+  const fees = await this.getFees(d.association_id);
+  const baseFee = dto.fee_plan === 'WEEKLY' ? fees.weekly_fee : fees.monthly_fee;
+  const total = this.computeTotal(
+    dto.fee_plan,
+    isOverdue,
+    prepayQty,
+    baseFee,
+    Number(d.interest_accrued ?? 0),
+  );
+
+  // 🔎 Fetch the association's Chapa subaccount (required for direct settlement)
+  const assocSub = await this.prisma.associationSubaccount.findUnique({
+    where: { association_id: d.association_id },
+    select: {
+      association_id: true,
+      chapa_id: true,      
+      business_name: true,
+      account_name: true,
+      account_number: true,
+    },
+  });
+
+  if (!assocSub?.chapa_id) {
+    // Fail fast so driver cannot proceed without a destination
+    throw new BadRequestException(
+      'This association has no Chapa subaccount configured. Please contact the association admin.'
     );
-
-    const fees = await this.getFees(d.association_id);
-    const baseFee = dto.fee_plan === 'WEEKLY' ? fees.weekly_fee : fees.monthly_fee;
-    const total = this.computeTotal(
-      dto.fee_plan,
-      isOverdue,
-      prepayQty,
-      baseFee,
-      Number(d.interest_accrued ?? 0),
-    );
-
-    const txRef = this.buildTxRefOnline({
-      association_id: d.association_id,
-      driver_id: d.id,
-      fee_plan: dto.fee_plan,
-      prepaid_qty: prepayQty,
-      covered_start_date: dto.covered_start_date,
-      covered_end_date: dto.covered_end_date,
-      payment_method: this.coercePaymentMethodLiteral(dto.payment_method),
-      amount: total,
-    });
-
-    const CHAPA_SECRET = process.env.CHAPA_SECRET!;
-    const BASE_URL = process.env.BASE_URL!;
-
-    const { firstName, lastName } = this.splitName(d.full_name);
-    const phoneLocal = this.toLocalEtMobile(d.phone_number);
-
-    // ⬇️ No email sent to Chapa
-    const payload = {
-      amount: String(total),
-      currency: 'ETB',
-      first_name: firstName,
-      last_name: lastName,
-      phone_number: phoneLocal,
-      tx_ref: txRef,
-      callback_url: `${BASE_URL}/payments/callback`,
-      return_url: `${BASE_URL}/payments/online/return`,
-      customization: {
-        title: 'MembershipFee',
-        description: 'Driver membership payment',
-      },
-    };
-
-    const res = await fetch('https://api.chapa.co/v1/transaction/initialize', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${CHAPA_SECRET}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    const chapa = await res.json();
-    if (!res.ok) throw new BadRequestException(chapa);
-
-    const checkout_url = chapa?.data?.checkout_url ?? null;
-    return { tx_ref: txRef, amount: total, checkout_url, chapa };
   }
+
+  const txRef = this.buildTxRefOnline({
+    association_id: d.association_id,
+    driver_id: d.id,
+    fee_plan: dto.fee_plan,
+    prepaid_qty: prepayQty,
+    covered_start_date: dto.covered_start_date,
+    covered_end_date: dto.covered_end_date,
+    payment_method: this.coercePaymentMethodLiteral(dto.payment_method),
+    amount: total,
+  });
+
+  const CHAPA_SECRET = process.env.CHAPA_SECRET!;
+  const BASE_URL = process.env.BASE_URL!;
+
+  const { firstName, lastName } = this.splitName(d.full_name);
+  const phoneLocal = this.toLocalEtMobile(d.phone_number);
+
+  // 🧾 Initialize Hosted Checkout AT THE ASSOCIATION'S SUBACCOUNT
+  // If Chapa's field is named "chapa_id", swap the key below.
+  const payload: Record<string, any> = {
+    amount: String(total),
+    currency: 'ETB',
+    first_name: firstName,
+    last_name: lastName,
+    phone_number: phoneLocal,
+    tx_ref: txRef,
+    callback_url: `${BASE_URL}/payments/callback`,
+    return_url: `${BASE_URL}/payments/online/return`,
+    customization: {
+      title: 'MembershipFee',
+      description: 'Driver membership payment',
+    },
+    subaccount: assocSub.chapa_id, // << direct settlement to association
+  };
+
+  const res = await fetch('https://api.chapa.co/v1/transaction/initialize', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${CHAPA_SECRET}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const chapa = await res.json();
+  if (!res.ok) throw new BadRequestException(chapa);
+
+  const checkout_url = chapa?.data?.checkout_url ?? null;
+
+  return {
+    tx_ref: txRef,
+    amount: total,
+    checkout_url,
+    chapa_id: assocSub.chapa_id, // helpful for client debug/telemetry
+    chapa,
+  };
+}
+
 
   // === Callback: verify & record as the DRIVER ===
   async recordAfterChapaSuccess(txRef: string) {

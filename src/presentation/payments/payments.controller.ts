@@ -26,7 +26,7 @@ export class PaymentsController {
   constructor(private readonly service: PaymentsService) {}
 
   @Post('apply')
-  @Roles('Association', 'Driver')
+  @Roles('Association')
   apply(@AuthUser() user: UserContext, @Body() dto: PayDto) {
     return this.service.applyPayment(user, dto);
   }
@@ -43,9 +43,8 @@ export class PaymentsController {
     return this.service.totalPayments(user);
   }
 
-  // Not Public: uses PayDto + auth context (Association/Driver)
   @Post('online/init')
-  @Roles('Association', 'Driver')
+  @Roles('Driver')
   onlineInit(@AuthUser() user: UserContext, @Body() dto: PayDto) {
     return this.service.initOnlineFromPayDto(user, dto);
   }

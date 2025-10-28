@@ -125,8 +125,10 @@ model Association {
   route_quotas      RouteQuota[]
   route_assignments RouteAssignment[]
 
-  payment_policy  AssociationPolicy?
-  driver_payments DriverPayment[]
+  payment_policy        AssociationPolicy?
+  driver_payments       DriverPayment[]
+  
+  subaccount AssociationSubaccount?
 
   @@index([name])
   @@index([phone_number])
@@ -341,4 +343,18 @@ model DriverPayment {
   @@index([driver_id, paid_at])
   @@index([association_id, plate_number])
   @@map("driver_payments")
+}
+
+model AssociationSubaccount {
+  id             Int      @id @default(autoincrement())
+  association_id Int      @unique
+  chapa_id       String   @unique
+  business_name  String
+  account_name   String
+  account_number String
+  created_at     DateTime @default(now())
+
+  association Association @relation(fields: [association_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("association_subaccounts")
 }

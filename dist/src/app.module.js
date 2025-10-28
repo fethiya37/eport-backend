@@ -26,6 +26,7 @@ const payments_module_1 = require("./presentation/payments/payments.module");
 const jobs_module_1 = require("./application/jobs/jobs.module");
 const sms_module_1 = require("./presentation/sms/sms.module");
 const health_controller_1 = require("./health.controller");
+const chapa_subaccount_module_1 = require("./presentation/chapa-subaccount/chapa-subaccount.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -45,7 +46,8 @@ exports.AppModule = AppModule = __decorate([
             association_policy_module_1.AssociationPolicyModule,
             payments_module_1.PaymentsModule,
             jobs_module_1.JobsModule,
-            sms_module_1.SmsModule
+            sms_module_1.SmsModule,
+            chapa_subaccount_module_1.ChapaSubaccountModule,
         ],
         controllers: [health_controller_1.HealthController],
         providers: [

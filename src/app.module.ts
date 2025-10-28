@@ -17,6 +17,7 @@ import { PaymentsModule } from './presentation/payments/payments.module';
 import { JobsModule } from './application/jobs/jobs.module';
 import { SmsModule } from './presentation/sms/sms.module';
 import { HealthController } from './health.controller';
+import { ChapaSubaccountModule } from './presentation/chapa-subaccount/chapa-subaccount.module';
 
 @Module({
   imports: [
@@ -33,7 +34,8 @@ import { HealthController } from './health.controller';
     AssociationPolicyModule,
     PaymentsModule,
     JobsModule,
-    SmsModule
+    SmsModule,
+    ChapaSubaccountModule,
   ],
   controllers: [HealthController],
   providers: [

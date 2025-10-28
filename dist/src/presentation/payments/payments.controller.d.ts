@@ -47,6 +47,7 @@ export declare class PaymentsController {
         tx_ref: string;
         amount: number;
         checkout_url: any;
+        chapa_id: string;
         chapa: any;
     }>;
     onlineReturn(): string;

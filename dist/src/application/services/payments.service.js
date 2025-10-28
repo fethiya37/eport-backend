@@ -369,6 +369,19 @@ let PaymentsService = class PaymentsService {
         const fees = await this.getFees(d.association_id);
         const baseFee = dto.fee_plan === 'WEEKLY' ? fees.weekly_fee : fees.monthly_fee;
         const total = this.computeTotal(dto.fee_plan, isOverdue, prepayQty, baseFee, Number(d.interest_accrued ?? 0));
+        const assocSub = await this.prisma.associationSubaccount.findUnique({
+            where: { association_id: d.association_id },
+            select: {
+                association_id: true,
+                chapa_id: true,
+                business_name: true,
+                account_name: true,
+                account_number: true,
+            },
+        });
+        if (!assocSub?.chapa_id) {
+            throw new common_1.BadRequestException('This association has no Chapa subaccount configured. Please contact the association admin.');
+        }
         const txRef = this.buildTxRefOnline({
             association_id: d.association_id,
             driver_id: d.id,
@@ -396,17 +409,27 @@ let PaymentsService = class PaymentsService {
                 title: 'MembershipFee',
                 description: 'Driver membership payment',
             },
+            subaccount: assocSub.chapa_id,
         };
         const res = await fetch('https://api.chapa.co/v1/transaction/initialize', {
             method: 'POST',
-            headers: { Authorization: `Bearer ${CHAPA_SECRET}`, 'Content-Type': 'application/json' },
+            headers: {
+                Authorization: `Bearer ${CHAPA_SECRET}`,
+                'Content-Type': 'application/json',
+            },
             body: JSON.stringify(payload),
         });
         const chapa = await res.json();
         if (!res.ok)
             throw new common_1.BadRequestException(chapa);
         const checkout_url = chapa?.data?.checkout_url ?? null;
-        return { tx_ref: txRef, amount: total, checkout_url, chapa };
+        return {
+            tx_ref: txRef,
+            amount: total,
+            checkout_url,
+            chapa_id: assocSub.chapa_id,
+            chapa,
+        };
     }
     async recordAfterChapaSuccess(txRef) {
         const verify = await this.verify(txRef);

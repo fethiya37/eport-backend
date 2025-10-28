@@ -74,6 +74,7 @@ export declare class PaymentsService {
         tx_ref: string;
         amount: number;
         checkout_url: any;
+        chapa_id: string;
         chapa: any;
     }>;
     recordAfterChapaSuccess(txRef: string): Promise<{
