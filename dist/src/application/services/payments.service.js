@@ -59,23 +59,12 @@ let PaymentsService = class PaymentsService {
         return new Date(d.getFullYear(), d.getMonth(), d.getDate());
     }
     toLocalEtMobile(phone) {
-        const fallback = '0912345678';
         if (!phone)
-            return fallback;
+            return '';
         const digits = phone.replace(/\D/g, '');
-        if (digits.startsWith('251')) {
-            const rest = digits.slice(3);
-            if (rest.startsWith('9') || rest.startsWith('7'))
-                return `0${rest}`;
-            return fallback;
-        }
-        if ((digits.startsWith('09') || digits.startsWith('07')) && digits.length >= 10) {
-            return digits.slice(0, 10);
-        }
-        if ((digits.startsWith('9') || digits.startsWith('7')) && digits.length >= 9) {
-            return `0${digits.slice(0, 9)}`;
-        }
-        return fallback;
+        if (digits.startsWith('251'))
+            return digits.slice(3);
+        return digits;
     }
     async getFees(association_id) {
         const p = await this.policy.get(association_id);
@@ -371,16 +360,10 @@ let PaymentsService = class PaymentsService {
         const total = this.computeTotal(dto.fee_plan, isOverdue, prepayQty, baseFee, Number(d.interest_accrued ?? 0));
         const assocSub = await this.prisma.associationSubaccount.findUnique({
             where: { association_id: d.association_id },
-            select: {
-                association_id: true,
-                chapa_id: true,
-                business_name: true,
-                account_name: true,
-                account_number: true,
-            },
+            select: { chapa_id: true },
         });
         if (!assocSub?.chapa_id) {
-            throw new common_1.BadRequestException('This association has no Chapa subaccount configured. Please contact the association admin.');
+            throw new common_1.BadRequestException('Association has no Chapa subaccount configured');
         }
         const txRef = this.buildTxRefOnline({
             association_id: d.association_id,
@@ -405,11 +388,11 @@ let PaymentsService = class PaymentsService {
             tx_ref: txRef,
             callback_url: `${BASE_URL}/payments/callback`,
             return_url: `${BASE_URL}/payments/online/return`,
-            customization: {
-                title: 'MembershipFee',
-                description: 'Driver membership payment',
+            'customization[title]': 'MembershipFee',
+            'customization[description]': 'Driver membership payment',
+            subaccounts: {
+                id: assocSub.chapa_id,
             },
-            subaccount: assocSub.chapa_id,
         };
         const res = await fetch('https://api.chapa.co/v1/transaction/initialize', {
             method: 'POST',
@@ -422,11 +405,10 @@ let PaymentsService = class PaymentsService {
         const chapa = await res.json();
         if (!res.ok)
             throw new common_1.BadRequestException(chapa);
-        const checkout_url = chapa?.data?.checkout_url ?? null;
         return {
             tx_ref: txRef,
             amount: total,
-            checkout_url,
+            checkout_url: chapa?.data?.checkout_url ?? null,
             chapa_id: assocSub.chapa_id,
             chapa,
         };

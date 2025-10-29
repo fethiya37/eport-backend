@@ -35,7 +35,7 @@ export class PaymentsService {
     private readonly prisma: PrismaService,
     private readonly routeService: RouteAssignmentService,
     private readonly smsGateway: SmsGatewayService,
-  ) {}
+  ) { }
 
   // ===== utils =====
   private pad2(n: number) {
@@ -60,25 +60,13 @@ export class PaymentsService {
     return new Date(d.getFullYear(), d.getMonth(), d.getDate());
   }
 
-  // Phone: normalize to Ethiopian local mobile format 09/07xxxxxxxx
   private toLocalEtMobile(phone?: string): string {
-    const fallback = '0912345678';
-    if (!phone) return fallback;
+    if (!phone) return '';
     const digits = phone.replace(/\D/g, '');
-
-    if (digits.startsWith('251')) {
-      const rest = digits.slice(3);
-      if (rest.startsWith('9') || rest.startsWith('7')) return `0${rest}`;
-      return fallback;
-    }
-    if ((digits.startsWith('09') || digits.startsWith('07')) && digits.length >= 10) {
-      return digits.slice(0, 10);
-    }
-    if ((digits.startsWith('9') || digits.startsWith('7')) && digits.length >= 9) {
-      return `0${digits.slice(0, 9)}`;
-    }
-    return fallback;
+    if (digits.startsWith('251')) return digits.slice(3);
+    return digits;
   }
+
 
   private async getFees(association_id: number) {
     const p = await this.policy.get(association_id);
@@ -174,7 +162,7 @@ export class PaymentsService {
   ) {
     const days =
       Math.floor(this.startOfDay(endGc).getTime() - this.startOfDay(startGc).getTime()) /
-        86_400_000 +
+      86_400_000 +
       1;
     const expectedWeeks = isOverdue ? 1 + prepayQty : Math.max(1, prepayQty);
     if (days % 7 !== 0 || days / 7 !== expectedWeeks) {
@@ -360,10 +348,10 @@ export class PaymentsService {
       paid_at: this.ymdEAT(p.paid_at),
       driver: p.driver
         ? {
-            full_name: p.driver.full_name,
-            phone_number: p.driver.phone_number,
-            username: p.driver.user?.name,
-          }
+          full_name: p.driver.full_name,
+          phone_number: p.driver.phone_number,
+          username: p.driver.user?.name,
+        }
         : null,
     }));
   }
@@ -446,111 +434,93 @@ export class PaymentsService {
     };
   }
 
-  // === Initialize Hosted Checkout using PayDto & driver data ===
- // src/application/services/payments.service.ts
 
-async initOnlineFromPayDto(ctx: UserContext, dto: PayDto) {
-  const d = await this.resolveDriver(ctx, dto.driver_id, dto.plate_number);
+  async initOnlineFromPayDto(ctx: UserContext, dto: PayDto) {
+    const d = await this.resolveDriver(ctx, dto.driver_id, dto.plate_number);
 
-  this.assertPlanMatches(d.is_weekly, dto.fee_plan);
+    this.assertPlanMatches(d.is_weekly, dto.fee_plan);
 
-  const prepayQty = Math.max(0, dto.prepaid_qty ?? 0);
-  const isOverdue = this.isOverdueEAT(d.active_until_date ?? null);
-  this.parseAndValidateWindow(
-    dto.fee_plan,
-    dto.covered_start_date,
-    dto.covered_end_date,
-    isOverdue,
-    prepayQty,
-  );
-
-  const fees = await this.getFees(d.association_id);
-  const baseFee = dto.fee_plan === 'WEEKLY' ? fees.weekly_fee : fees.monthly_fee;
-  const total = this.computeTotal(
-    dto.fee_plan,
-    isOverdue,
-    prepayQty,
-    baseFee,
-    Number(d.interest_accrued ?? 0),
-  );
-
-  // 🔎 Fetch the association's Chapa subaccount (required for direct settlement)
-  const assocSub = await this.prisma.associationSubaccount.findUnique({
-    where: { association_id: d.association_id },
-    select: {
-      association_id: true,
-      chapa_id: true,      
-      business_name: true,
-      account_name: true,
-      account_number: true,
-    },
-  });
-
-  if (!assocSub?.chapa_id) {
-    // Fail fast so driver cannot proceed without a destination
-    throw new BadRequestException(
-      'This association has no Chapa subaccount configured. Please contact the association admin.'
+    const prepayQty = Math.max(0, dto.prepaid_qty ?? 0);
+    const isOverdue = this.isOverdueEAT(d.active_until_date ?? null);
+    this.parseAndValidateWindow(
+      dto.fee_plan,
+      dto.covered_start_date,
+      dto.covered_end_date,
+      isOverdue,
+      prepayQty,
     );
+
+    const fees = await this.getFees(d.association_id);
+    const baseFee = dto.fee_plan === 'WEEKLY' ? fees.weekly_fee : fees.monthly_fee;
+    const total = this.computeTotal(
+      dto.fee_plan,
+      isOverdue,
+      prepayQty,
+      baseFee,
+      Number(d.interest_accrued ?? 0),
+    );
+
+    const assocSub = await this.prisma.associationSubaccount.findUnique({
+      where: { association_id: d.association_id },
+      select: { chapa_id: true },
+    });
+    if (!assocSub?.chapa_id) {
+      throw new BadRequestException('Association has no Chapa subaccount configured');
+    }
+
+    const txRef = this.buildTxRefOnline({
+      association_id: d.association_id,
+      driver_id: d.id,
+      fee_plan: dto.fee_plan,
+      prepaid_qty: prepayQty,
+      covered_start_date: dto.covered_start_date,
+      covered_end_date: dto.covered_end_date,
+      payment_method: this.coercePaymentMethodLiteral(dto.payment_method),
+      amount: total,
+    });
+
+    const CHAPA_SECRET = process.env.CHAPA_SECRET!;
+    const BASE_URL = process.env.BASE_URL!;
+
+    const { firstName, lastName } = this.splitName(d.full_name);
+    const phoneLocal = this.toLocalEtMobile(d.phone_number);
+
+    const payload = {
+      amount: String(total),
+      currency: 'ETB',
+      first_name: firstName,
+      last_name: lastName,
+      phone_number: phoneLocal,
+      tx_ref: txRef,
+      callback_url: `${BASE_URL}/payments/callback`,
+      return_url: `${BASE_URL}/payments/online/return`,
+      'customization[title]': 'MembershipFee',
+      'customization[description]': 'Driver membership payment',
+      subaccounts: {
+        id: assocSub.chapa_id,
+      },
+    };
+
+    const res = await fetch('https://api.chapa.co/v1/transaction/initialize', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${CHAPA_SECRET}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const chapa = await res.json();
+    if (!res.ok) throw new BadRequestException(chapa);
+
+    return {
+      tx_ref: txRef,
+      amount: total,
+      checkout_url: chapa?.data?.checkout_url ?? null,
+      chapa_id: assocSub.chapa_id,
+      chapa,
+    };
   }
-
-  const txRef = this.buildTxRefOnline({
-    association_id: d.association_id,
-    driver_id: d.id,
-    fee_plan: dto.fee_plan,
-    prepaid_qty: prepayQty,
-    covered_start_date: dto.covered_start_date,
-    covered_end_date: dto.covered_end_date,
-    payment_method: this.coercePaymentMethodLiteral(dto.payment_method),
-    amount: total,
-  });
-
-  const CHAPA_SECRET = process.env.CHAPA_SECRET!;
-  const BASE_URL = process.env.BASE_URL!;
-
-  const { firstName, lastName } = this.splitName(d.full_name);
-  const phoneLocal = this.toLocalEtMobile(d.phone_number);
-
-  // 🧾 Initialize Hosted Checkout AT THE ASSOCIATION'S SUBACCOUNT
-  // If Chapa's field is named "chapa_id", swap the key below.
-  const payload: Record<string, any> = {
-    amount: String(total),
-    currency: 'ETB',
-    first_name: firstName,
-    last_name: lastName,
-    phone_number: phoneLocal,
-    tx_ref: txRef,
-    callback_url: `${BASE_URL}/payments/callback`,
-    return_url: `${BASE_URL}/payments/online/return`,
-    customization: {
-      title: 'MembershipFee',
-      description: 'Driver membership payment',
-    },
-    subaccount: assocSub.chapa_id, // << direct settlement to association
-  };
-
-  const res = await fetch('https://api.chapa.co/v1/transaction/initialize', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${CHAPA_SECRET}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
-
-  const chapa = await res.json();
-  if (!res.ok) throw new BadRequestException(chapa);
-
-  const checkout_url = chapa?.data?.checkout_url ?? null;
-
-  return {
-    tx_ref: txRef,
-    amount: total,
-    checkout_url,
-    chapa_id: assocSub.chapa_id, // helpful for client debug/telemetry
-    chapa,
-  };
-}
-
 
   // === Callback: verify & record as the DRIVER ===
   async recordAfterChapaSuccess(txRef: string) {
