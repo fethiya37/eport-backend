@@ -22,29 +22,49 @@ function canManage(acting: UserType, target: UserType): boolean {
   return false;
 }
 
+const SHARABLE_ROLES = new Set<UserType>(['Association', 'Driver']);
+
 @Injectable()
 export class UserService {
   constructor(
     @Inject(USER_REPOSITORY) private readonly users: IUserRepository,
     private readonly prisma: PrismaService,
-  ) { }
+  ) {}
 
-  // CREATE
   async create(ctx: UserContext, dto: CreateUserDto) {
     if (!isAdminLike(ctx.user_type)) throw new ForbiddenException('Only Admin/Superadmin');
     if (!canManage(ctx.user_type as UserType, dto.user_type)) {
       throw new ForbiddenException(`You cannot create user_type ${dto.user_type}`);
     }
 
-    const existing = await this.prisma.user.findUnique({ where: { phone_number: dto.phone_number } });
-    if (existing) throw new BadRequestException('Phone number already exists');
+    const siblings = await this.prisma.user.findMany({
+      where: { phone_number: dto.phone_number },
+      select: { id: true, user_type: true },
+    });
+
+    if (siblings.length > 0) {
+      const rolesOnPhone = new Set<UserType>(siblings.map(s => s.user_type));
+
+      const isAllSharable = Array.from(rolesOnPhone).every(r => SHARABLE_ROLES.has(r));
+      const creatingSharable = SHARABLE_ROLES.has(dto.user_type);
+
+      if (!(isAllSharable && creatingSharable)) {
+        throw new BadRequestException('Phone number is already in use');
+      }
+
+      if (rolesOnPhone.has(dto.user_type)) {
+        throw new BadRequestException('This phone and role already exist');
+      }
+    }
 
     let associationId: number | null = null;
-    if (dto.user_type === 'Association') {
+    if (dto.user_type === 'Association' || dto.user_type === 'Driver') {
       if (dto.association_id == null) throw new BadRequestException('association_id is required');
       const assoc = await this.prisma.association.findUnique({ where: { id: dto.association_id } });
       if (!assoc) throw new BadRequestException('association not found');
       associationId = dto.association_id;
+    } else {
+      associationId = null;
     }
 
     const password_hash = await bcrypt.hash(dto.phone_number, 10);
@@ -58,7 +78,6 @@ export class UserService {
     });
   }
 
-  // LIST
   async findAll(ctx: UserContext, raw: UserFilter) {
     const filter: UserFilter = { ...raw };
     if (ctx.user_type === 'Admin' && filter.user_type && !canManage('Admin', filter.user_type)) {
@@ -81,7 +100,6 @@ export class UserService {
     return user;
   }
 
-  // UPDATE
   async update(ctx: UserContext, id: number, dto: UpdateUserDto) {
     const existing = await this.users.findById(id);
     if (!existing) throw new NotFoundException('User not found');
@@ -89,22 +107,38 @@ export class UserService {
     if (!canManage(ctx.user_type as UserType, existing.user_type)) {
       throw new ForbiddenException('Insufficient privileges');
     }
-
     if (id === ctx.userId && dto.is_locked !== undefined) {
       throw new ForbiddenException('You cannot lock yourself');
     }
 
-    // ✅ Prevent duplicate phone number on update
-    if (dto.phone_number && dto.phone_number !== existing.phone_number) {
-      const dup = await this.prisma.user.findUnique({ where: { phone_number: dto.phone_number } });
-      if (dup) throw new BadRequestException('Phone number already exists');
+    const nextPhone = dto.phone_number ?? existing.phone_number;
+    const nextRole = (dto.user_type as UserType | undefined) ?? existing.user_type;
+
+    if (nextPhone !== existing.phone_number || nextRole !== existing.user_type) {
+      const siblings = await this.prisma.user.findMany({
+        where: { phone_number: nextPhone, NOT: { id } },
+        select: { id: true, user_type: true },
+      });
+
+      if (siblings.length > 0) {
+        const rolesOnPhone = new Set<UserType>(siblings.map(s => s.user_type));
+        const isAllSharable = Array.from(rolesOnPhone).every(r => SHARABLE_ROLES.has(r));
+        const nextIsSharable = SHARABLE_ROLES.has(nextRole);
+
+        if (!(isAllSharable && nextIsSharable)) {
+          throw new BadRequestException('Phone number is already in use');
+        }
+
+        if (rolesOnPhone.has(nextRole)) {
+          throw new BadRequestException('This phone and role already exist');
+        }
+      }
     }
 
-    const finalUserType = dto.user_type ?? existing.user_type;
     let finalAssociationId: number | null;
-    if (finalUserType === 'Association') {
+    if (nextRole === 'Association' || nextRole === 'Driver') {
       const candidate = dto.association_id ?? existing.association_id;
-      if (candidate == null) throw new BadRequestException('association_id is required for Association users');
+      if (candidate == null) throw new BadRequestException('association_id is required');
       const assoc = await this.prisma.association.findUnique({ where: { id: candidate } });
       if (!assoc) throw new BadRequestException('association not found');
       finalAssociationId = candidate;
@@ -113,15 +147,14 @@ export class UserService {
     }
 
     return this.users.update(id, {
-      phone_number: dto.phone_number ?? existing.phone_number,
-      user_type: finalUserType,
+      phone_number: nextPhone,
+      user_type: nextRole,
       name: dto.name !== undefined ? dto.name : existing.name,
       is_locked: dto.is_locked ?? existing.is_locked,
       association_id: finalAssociationId,
     });
   }
 
-  // REMOVE
   async remove(ctx: UserContext, id: number) {
     const user = await this.users.findById(id);
     if (!user) throw new NotFoundException('User not found');
@@ -129,16 +162,10 @@ export class UserService {
     if (!canManage(ctx.user_type as UserType, user.user_type)) {
       throw new ForbiddenException('Insufficient privileges');
     }
-
-    if (id === ctx.userId) {
-      throw new ForbiddenException('You cannot delete yourself');
-    }
-
+    if (id === ctx.userId) throw new ForbiddenException('You cannot delete yourself');
     return this.users.remove(id);
   }
 
-
-  // PROFILE password change
   async changeOwnPassword(ctx: UserContext, dto: ChangePasswordDto) {
     const me = await this.users.findById(ctx.userId);
     if (!me || !me.password_hash) throw new NotFoundException('User not found');

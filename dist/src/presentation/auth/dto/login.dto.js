@@ -12,9 +12,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.LoginDto = void 0;
 const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
+const client_1 = require("@prisma/client");
 class LoginDto {
     phone_number;
     password;
+    as;
 }
 exports.LoginDto = LoginDto;
 __decorate([
@@ -29,6 +31,13 @@ __decorate([
     (0, swagger_1.ApiProperty)({ example: 'StrongP@ssw0rd' }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
+    (0, class_validator_1.MinLength)(4),
     __metadata("design:type", String)
 ], LoginDto.prototype, "password", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ enum: client_1.UserType, description: 'Sent implicitly by client: Driver (mobile) or Association (web)' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsEnum)(client_1.UserType),
+    __metadata("design:type", String)
+], LoginDto.prototype, "as", void 0);
 //# sourceMappingURL=login.dto.js.map

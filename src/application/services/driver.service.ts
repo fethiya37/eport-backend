@@ -1,4 +1,3 @@
-// src/application/services/driver.service.ts
 import {
   Inject,
   Injectable,
@@ -18,7 +17,7 @@ import {
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CreateDriverDto } from '../../presentation/driver/dto/create-driver.dto';
 import { UpdateDriverDto } from '../../presentation/driver/dto/update-driver.dto';
-import { DriverStatus } from '@prisma/client';
+import { DriverStatus, UserType } from '@prisma/client';
 import { isAdminLike } from '../../common/auth/roles.util';
 import * as bcrypt from 'bcrypt';
 import type { UserContext } from 'src/common/context/user-context';
@@ -30,7 +29,7 @@ export class DriverService {
     @Inject(DRIVER_REPOSITORY) private readonly drivers: IDriverRepository,
     @Inject(ASSOCIATION_POLICY_REPOSITORY) private readonly policyRepo: IAssociationPolicyRepository,
     private readonly prisma: PrismaService,
-  ) { }
+  ) {}
 
   async create(ctx: UserContext, dto: CreateDriverDto) {
     if (isAdminLike(ctx.user_type)) {
@@ -40,12 +39,17 @@ export class DriverService {
       throw new BadRequestException('association_id is required');
     }
 
-    // ✅ Pre-check phone number uniqueness in users table
-    const exists = await this.prisma.user.findUnique({
-      where: { phone_number: dto.phone_number },
+    // ✅ Only block if a DRIVER already exists with this phone
+    const driverUserExists = await this.prisma.user.findUnique({
+      where: {
+        phone_number_user_type: {
+          phone_number: dto.phone_number,
+          user_type: UserType.Driver,
+        },
+      },
       select: { id: true },
     });
-    if (exists) {
+    if (driverUserExists) {
       throw new BadRequestException('Driver with this phone number already exists');
     }
 
@@ -55,7 +59,7 @@ export class DriverService {
       const user = await tx.user.create({
         data: {
           phone_number: dto.phone_number,
-          user_type: 'Driver',
+          user_type: UserType.Driver,
           name: dto.full_name,
           password_hash,
           is_locked: false,
@@ -106,6 +110,21 @@ export class DriverService {
     if (!existing) throw new NotFoundException('Driver not found');
 
     try {
+      // ✅ If phone_number is changing, ensure no other DRIVER user has that phone
+      if (dto.phone_number && dto.phone_number !== (existing as any).phone_number) {
+        const dupDriverUser = await this.prisma.user.findFirst({
+          where: {
+            phone_number: dto.phone_number,
+            user_type: UserType.Driver,
+            NOT: { id: (existing as any).user_id },
+          },
+          select: { id: true },
+        });
+        if (dupDriverUser) {
+          throw new BadRequestException('Driver with this phone number already exists');
+        }
+      }
+
       const updated = await this.drivers.update(ctx, id, {
         full_name: dto.full_name,
         phone_number: dto.phone_number,
@@ -114,7 +133,7 @@ export class DriverService {
         license_expiry: dto.license_expiry ? new Date(dto.license_expiry) : undefined,
       });
 
-      // sync with user
+      // keep the linked user row in sync (Driver user row)
       if (dto.full_name !== undefined || dto.phone_number !== undefined) {
         await this.prisma.user.update({
           where: { id: (updated as any).user_id },
@@ -127,7 +146,9 @@ export class DriverService {
 
       return updated;
     } catch (err) {
+      if (err instanceof BadRequestException) throw err;
       if (err instanceof PrismaClientKnownRequestError && err.code === 'P2002') {
+        // Unique constraint violation (likely phone_number_user_type)
         throw new BadRequestException('Driver with this phone number already exists');
       }
       throw err;
@@ -143,22 +164,18 @@ export class DriverService {
     if (!driver) throw new NotFoundException('Driver not found');
 
     return this.prisma.$transaction(async (tx) => {
-      // 1️⃣ delete the Driver first
       await this.drivers.remove(ctx, id, tx);
 
-      // 2️⃣ unlink vehicle if one exists (set driver_id = null)
       await tx.vehicle.updateMany({
         where: { driver_id: id },
         data: { driver_id: null },
       });
 
-      // 3️⃣ then delete the linked User
       await tx.user.delete({ where: { id: (driver as any).user_id } });
 
       return driver;
     });
   }
-
 
   async findDriversWithoutVehicle(ctx: UserContext) {
     return this.drivers.findWithoutVehicle(ctx);

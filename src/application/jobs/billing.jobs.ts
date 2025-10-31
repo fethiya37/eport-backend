@@ -1,4 +1,3 @@
-// src/application/jobs/billing-jobs.ts
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -60,7 +59,10 @@ export class BillingJobs {
 
     // Fetch all ACTIVE vehicles with linked drivers
     const vehicles = await this.prisma.vehicle.findMany({
-      where: { status: VehicleStatus.ACTIVE, driver_id: { not: null } },
+      where: {
+        status: { in: [VehicleStatus.ACTIVE, VehicleStatus.INACTIVE] },
+        driver_id: { not: null },
+      },
       select: {
         id: true,
         association_id: true,

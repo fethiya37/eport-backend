@@ -50,6 +50,7 @@ const common_1 = require("@nestjs/common");
 const driver_repository_1 = require("../../domain/repositories/driver.repository");
 const association_policy_repository_1 = require("../../domain/repositories/association-policy.repository");
 const prisma_service_1 = require("../../../prisma/prisma.service");
+const client_1 = require("@prisma/client");
 const roles_util_1 = require("../../common/auth/roles.util");
 const bcrypt = __importStar(require("bcrypt"));
 const library_1 = require("@prisma/client/runtime/library");
@@ -69,11 +70,16 @@ let DriverService = class DriverService {
         if (!ctx.association_id) {
             throw new common_1.BadRequestException('association_id is required');
         }
-        const exists = await this.prisma.user.findUnique({
-            where: { phone_number: dto.phone_number },
+        const driverUserExists = await this.prisma.user.findUnique({
+            where: {
+                phone_number_user_type: {
+                    phone_number: dto.phone_number,
+                    user_type: client_1.UserType.Driver,
+                },
+            },
             select: { id: true },
         });
-        if (exists) {
+        if (driverUserExists) {
             throw new common_1.BadRequestException('Driver with this phone number already exists');
         }
         return this.prisma.$transaction(async (tx) => {
@@ -81,7 +87,7 @@ let DriverService = class DriverService {
             const user = await tx.user.create({
                 data: {
                     phone_number: dto.phone_number,
-                    user_type: 'Driver',
+                    user_type: client_1.UserType.Driver,
                     name: dto.full_name,
                     password_hash,
                     is_locked: false,
@@ -120,6 +126,19 @@ let DriverService = class DriverService {
         if (!existing)
             throw new common_1.NotFoundException('Driver not found');
         try {
+            if (dto.phone_number && dto.phone_number !== existing.phone_number) {
+                const dupDriverUser = await this.prisma.user.findFirst({
+                    where: {
+                        phone_number: dto.phone_number,
+                        user_type: client_1.UserType.Driver,
+                        NOT: { id: existing.user_id },
+                    },
+                    select: { id: true },
+                });
+                if (dupDriverUser) {
+                    throw new common_1.BadRequestException('Driver with this phone number already exists');
+                }
+            }
             const updated = await this.drivers.update(ctx, id, {
                 full_name: dto.full_name,
                 phone_number: dto.phone_number,
@@ -139,6 +158,8 @@ let DriverService = class DriverService {
             return updated;
         }
         catch (err) {
+            if (err instanceof common_1.BadRequestException)
+                throw err;
             if (err instanceof library_1.PrismaClientKnownRequestError && err.code === 'P2002') {
                 throw new common_1.BadRequestException('Driver with this phone number already exists');
             }

@@ -8,7 +8,7 @@ export class CreateUserDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(20)
-  phone_number!: string; // password = phone_number (hashed)
+  phone_number!: string; 
 
   @ApiProperty({ enum: UserType, example: UserType.Admin })
   @IsEnum(UserType)

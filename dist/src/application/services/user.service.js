@@ -58,6 +58,7 @@ function canManage(acting, target) {
         return ['Controller', 'Association'].includes(target);
     return false;
 }
+const SHARABLE_ROLES = new Set(['Association', 'Driver']);
 let UserService = class UserService {
     users;
     prisma;
@@ -71,17 +72,32 @@ let UserService = class UserService {
         if (!canManage(ctx.user_type, dto.user_type)) {
             throw new common_1.ForbiddenException(`You cannot create user_type ${dto.user_type}`);
         }
-        const existing = await this.prisma.user.findUnique({ where: { phone_number: dto.phone_number } });
-        if (existing)
-            throw new common_1.BadRequestException('Phone number already exists');
+        const siblings = await this.prisma.user.findMany({
+            where: { phone_number: dto.phone_number },
+            select: { id: true, user_type: true },
+        });
+        if (siblings.length > 0) {
+            const rolesOnPhone = new Set(siblings.map(s => s.user_type));
+            const isAllSharable = Array.from(rolesOnPhone).every(r => SHARABLE_ROLES.has(r));
+            const creatingSharable = SHARABLE_ROLES.has(dto.user_type);
+            if (!(isAllSharable && creatingSharable)) {
+                throw new common_1.BadRequestException('Phone number is already in use');
+            }
+            if (rolesOnPhone.has(dto.user_type)) {
+                throw new common_1.BadRequestException('This phone and role already exist');
+            }
+        }
         let associationId = null;
-        if (dto.user_type === 'Association') {
+        if (dto.user_type === 'Association' || dto.user_type === 'Driver') {
             if (dto.association_id == null)
                 throw new common_1.BadRequestException('association_id is required');
             const assoc = await this.prisma.association.findUnique({ where: { id: dto.association_id } });
             if (!assoc)
                 throw new common_1.BadRequestException('association not found');
             associationId = dto.association_id;
+        }
+        else {
+            associationId = null;
         }
         const password_hash = await bcrypt.hash(dto.phone_number, 10);
         return this.users.create({
@@ -125,17 +141,30 @@ let UserService = class UserService {
         if (id === ctx.userId && dto.is_locked !== undefined) {
             throw new common_1.ForbiddenException('You cannot lock yourself');
         }
-        if (dto.phone_number && dto.phone_number !== existing.phone_number) {
-            const dup = await this.prisma.user.findUnique({ where: { phone_number: dto.phone_number } });
-            if (dup)
-                throw new common_1.BadRequestException('Phone number already exists');
+        const nextPhone = dto.phone_number ?? existing.phone_number;
+        const nextRole = dto.user_type ?? existing.user_type;
+        if (nextPhone !== existing.phone_number || nextRole !== existing.user_type) {
+            const siblings = await this.prisma.user.findMany({
+                where: { phone_number: nextPhone, NOT: { id } },
+                select: { id: true, user_type: true },
+            });
+            if (siblings.length > 0) {
+                const rolesOnPhone = new Set(siblings.map(s => s.user_type));
+                const isAllSharable = Array.from(rolesOnPhone).every(r => SHARABLE_ROLES.has(r));
+                const nextIsSharable = SHARABLE_ROLES.has(nextRole);
+                if (!(isAllSharable && nextIsSharable)) {
+                    throw new common_1.BadRequestException('Phone number is already in use');
+                }
+                if (rolesOnPhone.has(nextRole)) {
+                    throw new common_1.BadRequestException('This phone and role already exist');
+                }
+            }
         }
-        const finalUserType = dto.user_type ?? existing.user_type;
         let finalAssociationId;
-        if (finalUserType === 'Association') {
+        if (nextRole === 'Association' || nextRole === 'Driver') {
             const candidate = dto.association_id ?? existing.association_id;
             if (candidate == null)
-                throw new common_1.BadRequestException('association_id is required for Association users');
+                throw new common_1.BadRequestException('association_id is required');
             const assoc = await this.prisma.association.findUnique({ where: { id: candidate } });
             if (!assoc)
                 throw new common_1.BadRequestException('association not found');
@@ -145,8 +174,8 @@ let UserService = class UserService {
             finalAssociationId = null;
         }
         return this.users.update(id, {
-            phone_number: dto.phone_number ?? existing.phone_number,
-            user_type: finalUserType,
+            phone_number: nextPhone,
+            user_type: nextRole,
             name: dto.name !== undefined ? dto.name : existing.name,
             is_locked: dto.is_locked ?? existing.is_locked,
             association_id: finalAssociationId,
@@ -161,9 +190,8 @@ let UserService = class UserService {
         if (!canManage(ctx.user_type, user.user_type)) {
             throw new common_1.ForbiddenException('Insufficient privileges');
         }
-        if (id === ctx.userId) {
+        if (id === ctx.userId)
             throw new common_1.ForbiddenException('You cannot delete yourself');
-        }
         return this.users.remove(id);
     }
     async changeOwnPassword(ctx, dto) {

@@ -60,10 +60,9 @@ enum DriverStatus {
   INACTIVE
 }
 
-// ---------- Core Models ----------
 model User {
   id             Int      @id @default(autoincrement())
-  phone_number   String   @unique @db.VarChar(20)
+  phone_number   String   @db.VarChar(20)
   user_type      UserType
   name           String?  @db.VarChar(100)
   password_hash  String?  @db.VarChar(255)
@@ -72,15 +71,14 @@ model User {
   created_at     DateTime @default(now())
   updated_at     DateTime @updatedAt
 
-  association Association? @relation(fields: [association_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
-
-  tokens UserToken[]
-  Driver Driver?
-
+  association                Association?      @relation(fields: [association_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  tokens                     UserToken[]
+  Driver                     Driver?
   assigned_route_assignments RouteAssignment[] @relation("assigner")
   approved_route_assignments RouteAssignment[] @relation("approver")
   driver_payments_created    DriverPayment[]   @relation("payment_creator")
 
+  @@unique([phone_number, user_type])
   @@index([association_id])
   @@index([user_type, association_id])
   @@map("users")
@@ -125,9 +123,9 @@ model Association {
   route_quotas      RouteQuota[]
   route_assignments RouteAssignment[]
 
-  payment_policy        AssociationPolicy?
-  driver_payments       DriverPayment[]
-  
+  payment_policy  AssociationPolicy?
+  driver_payments DriverPayment[]
+
   subaccount AssociationSubaccount?
 
   @@index([name])

@@ -30,8 +30,11 @@ let PrismaUserRepository = class PrismaUserRepository {
             });
         }
         catch (e) {
-            if (e.code === 'P2002' && e.meta?.target?.includes('phone_number')) {
-                throw new common_1.BadRequestException('Phone number already exists');
+            if (e.code === 'P2002') {
+                const target = Array.isArray(e.meta?.target) ? e.meta.target.join(',') : String(e.meta?.target || '');
+                if (target.includes('phone_number_user_type') || target.includes('phone_number,user_type') || target.includes('phone_number')) {
+                    throw new common_1.BadRequestException('This phone and role already exist');
+                }
             }
             throw e;
         }
@@ -56,14 +59,14 @@ let PrismaUserRepository = class PrismaUserRepository {
     }
     async update(id, data) {
         try {
-            return await this.prisma.user.update({
-                where: { id },
-                data,
-            });
+            return await this.prisma.user.update({ where: { id }, data });
         }
         catch (e) {
-            if (e.code === 'P2002' && e.meta?.target?.includes('phone_number')) {
-                throw new common_1.BadRequestException('Phone number already exists');
+            if (e.code === 'P2002') {
+                const target = Array.isArray(e.meta?.target) ? e.meta.target.join(',') : String(e.meta?.target || '');
+                if (target.includes('phone_number_user_type') || target.includes('phone_number,user_type') || target.includes('phone_number')) {
+                    throw new common_1.BadRequestException('This phone and role already exist');
+                }
             }
             if (e.code === 'P2025')
                 throw new common_1.NotFoundException('User not found');
@@ -72,9 +75,7 @@ let PrismaUserRepository = class PrismaUserRepository {
     }
     async remove(id) {
         try {
-            return await this.prisma.user.delete({
-                where: { id },
-            });
+            return await this.prisma.user.delete({ where: { id } });
         }
         catch (e) {
             if (e.code === 'P2025')

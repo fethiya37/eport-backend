@@ -49,6 +49,8 @@ const bcrypt = __importStar(require("bcrypt"));
 const crypto = __importStar(require("crypto"));
 const prisma_service_1 = require("../../../prisma/prisma.service");
 const client_1 = require("@prisma/client");
+const SHARABLE_ROLES = new Set(['Association', 'Driver']);
+const NON_SHARABLE_ROLES = new Set(['Superadmin', 'Admin', 'Controller']);
 let AuthService = class AuthService {
     prisma;
     jwt;
@@ -56,21 +58,47 @@ let AuthService = class AuthService {
         this.prisma = prisma;
         this.jwt = jwt;
     }
-    async login(input) {
-        const user = await this.prisma.user.findUnique({
-            where: { phone_number: input.phone_number },
+    pickUserByIntent(candidates, as) {
+        if (candidates.length === 1)
+            return candidates[0];
+        if (as && SHARABLE_ROLES.has(as)) {
+            const m = candidates.find(u => u.user_type === as);
+            if (m)
+                return m;
+            const nonSharable = candidates.find(u => NON_SHARABLE_ROLES.has(u.user_type));
+            if (nonSharable)
+                return nonSharable;
+        }
+        const nonSharable = candidates.find(u => NON_SHARABLE_ROLES.has(u.user_type));
+        if (nonSharable)
+            return nonSharable;
+        if (as && SHARABLE_ROLES.has(as)) {
+            const m = candidates.find(u => u.user_type === as);
+            if (m)
+                return m;
+        }
+        throw new common_1.ConflictException({
+            message: 'Multiple roles exist for this phone; client must specify "as"',
+            available_roles: candidates.map(u => u.user_type),
         });
-        if (!user || !user.password_hash) {
+    }
+    async login(input) {
+        const candidates = await this.prisma.user.findMany({
+            where: { phone_number: input.phone_number },
+            select: { id: true, user_type: true, association_id: true, is_locked: true, password_hash: true, phone_number: true, name: true },
+            orderBy: { id: 'asc' },
+        });
+        if (candidates.length === 0)
             throw new common_1.UnauthorizedException('invalid credentials');
-        }
-        if (user.is_locked) {
+        const user = this.pickUserByIntent(candidates, input.as);
+        if (!user.password_hash)
+            throw new common_1.UnauthorizedException('invalid credentials');
+        if (user.is_locked)
             throw new common_1.ForbiddenException('user is locked');
-        }
         const ok = await bcrypt.compare(input.password, user.password_hash);
         if (!ok)
             throw new common_1.UnauthorizedException('invalid credentials');
-        if ((user.user_type === client_1.UserType.Association || user.user_type === client_1.UserType.Driver) &&
-            !user.association_id) {
+        if ((user.user_type === client_1.UserType.Association || user.user_type === client_1.UserType.Driver) && !user.association_id) {
             throw new common_1.ForbiddenException(`User type ${user.user_type} must belong to an association`);
         }
         let driver_id = null;
@@ -79,33 +107,25 @@ let AuthService = class AuthService {
                 where: { user_id: user.id },
                 select: { id: true },
             });
-            driver_id = driver?.id ?? null;
-            if (!driver_id) {
+            if (!driver)
                 throw new common_1.ForbiddenException('Driver account is not linked to driver record');
-            }
+            driver_id = driver.id;
         }
         const jti = crypto.randomUUID();
         const payload = {
             sub: user.id,
             user_type: user.user_type,
             association_id: user.association_id ?? null,
-            driver_id: driver_id ?? null,
+            driver_id,
             jti,
         };
         const expiresIn = process.env.JWT_EXPIRES_IN || '1d';
         const access_token = await this.jwt.signAsync(payload, { expiresIn });
         const decoded = this.jwt.decode(access_token);
-        const exp = decoded?.exp
-            ? new Date(decoded.exp * 1000)
-            : new Date(Date.now() + 24 * 3600 * 1000);
+        const expDate = decoded?.exp ? new Date(decoded.exp * 1000) : new Date(Date.now() + 24 * 3600 * 1000);
         const token_hash = crypto.createHash('sha256').update(access_token).digest('hex');
         await this.prisma.userToken.create({
-            data: {
-                user_id: user.id,
-                token_hash,
-                expires_at: exp,
-                revoked: false,
-            },
+            data: { user_id: user.id, token_hash, expires_at: expDate, revoked: false },
         });
         let association_name = null;
         if (user.association_id) {
@@ -126,7 +146,7 @@ let AuthService = class AuthService {
                 driver_id,
                 name: user.name ?? null,
             },
-            exp: Math.floor(exp.getTime() / 1000),
+            exp: Math.floor(expDate.getTime() / 1000),
             jti,
         };
     }
@@ -134,19 +154,11 @@ let AuthService = class AuthService {
         await this.prisma.$transaction([
             this.prisma.revokedToken.upsert({
                 where: { jti: input.jti },
-                create: {
-                    jti: input.jti,
-                    user_id: input.user_id,
-                    expires_at: new Date(input.exp * 1000),
-                },
+                create: { jti: input.jti, user_id: input.user_id, expires_at: new Date(input.exp * 1000) },
                 update: { expires_at: new Date(input.exp * 1000) },
             }),
             this.prisma.userToken.updateMany({
-                where: {
-                    user_id: input.user_id,
-                    token_hash: input.token_hash,
-                    revoked: false,
-                },
+                where: { user_id: input.user_id, token_hash: input.token_hash, revoked: false },
                 data: { revoked: true },
             }),
         ]);

@@ -57,10 +57,12 @@ let PrismaRoutesRepository = class PrismaRoutesRepository {
                 where: { route_group_id: groupId },
                 select: { id: true },
             });
-            const existingIds = existingRoutes.map(r => r.id);
-            const incomingIds = args.routes.filter(r => r.id).map(r => r.id);
-            const toDelete = existingIds.filter(id => !incomingIds.includes(id));
+            const existingIds = existingRoutes.map((r) => r.id);
+            const incomingIds = args.routes.filter((r) => r.id).map((r) => r.id);
+            const toDelete = existingIds.filter((id) => !incomingIds.includes(id));
             if (toDelete.length) {
+                await tx.routeAssignment.deleteMany({ where: { route_id: { in: toDelete } } });
+                await tx.routeQuota.deleteMany({ where: { route_id: { in: toDelete } } });
                 await tx.route.deleteMany({ where: { id: { in: toDelete } } });
             }
             for (const r of args.routes) {
@@ -139,10 +141,19 @@ let PrismaRoutesRepository = class PrismaRoutesRepository {
         const group = await this.prisma.routeGroup.findUnique({ where: { id } });
         if (!group)
             throw new common_1.NotFoundException('Route group not found');
-        await this.prisma.$transaction([
-            this.prisma.route.deleteMany({ where: { route_group_id: id } }),
-            this.prisma.routeGroup.delete({ where: { id } }),
-        ]);
+        await this.prisma.$transaction(async (tx) => {
+            const routes = await tx.route.findMany({
+                where: { route_group_id: id },
+                select: { id: true },
+            });
+            const routeIds = routes.map((r) => r.id);
+            if (routeIds.length) {
+                await tx.routeAssignment.deleteMany({ where: { route_id: { in: routeIds } } });
+                await tx.routeQuota.deleteMany({ where: { route_id: { in: routeIds } } });
+                await tx.route.deleteMany({ where: { id: { in: routeIds } } });
+            }
+            await tx.routeGroup.delete({ where: { id } });
+        });
     }
 };
 exports.PrismaRoutesRepository = PrismaRoutesRepository;

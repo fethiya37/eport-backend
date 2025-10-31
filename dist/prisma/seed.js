@@ -39,21 +39,25 @@ const prisma = new client_1.PrismaClient();
 async function main() {
     const phone_number = '+251900000000';
     const password = 'supersecret';
-    const existing = await prisma.user.findUnique({ where: { phone_number } });
+    const user_type = client_1.UserType.Superadmin;
+    const existing = await prisma.user.findFirst({
+        where: { phone_number, user_type },
+    });
     if (!existing) {
         const hash = await bcrypt.hash(password, 10);
         await prisma.user.upsert({
-            where: { phone_number },
+            where: {
+                phone_number_user_type: { phone_number, user_type },
+            },
             update: {
                 password_hash: hash,
-                user_type: 'Superadmin',
                 name: 'Super Admin',
                 is_locked: false,
             },
             create: {
                 phone_number,
                 password_hash: hash,
-                user_type: 'Superadmin',
+                user_type,
                 name: 'Super Admin',
                 is_locked: false,
             },

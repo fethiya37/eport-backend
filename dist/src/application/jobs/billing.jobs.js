@@ -48,7 +48,10 @@ let BillingJobs = BillingJobs_1 = class BillingJobs {
         const todayEat = eatYmdNow();
         const todayEatDateUtc = ymdToUtcDate(todayEat);
         const vehicles = await this.prisma.vehicle.findMany({
-            where: { status: client_1.VehicleStatus.ACTIVE, driver_id: { not: null } },
+            where: {
+                status: { in: [client_1.VehicleStatus.ACTIVE, client_1.VehicleStatus.INACTIVE] },
+                driver_id: { not: null },
+            },
             select: {
                 id: true,
                 association_id: true,

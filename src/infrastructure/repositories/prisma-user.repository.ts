@@ -5,7 +5,7 @@ import { Prisma, User } from '@prisma/client';
 
 @Injectable()
 export class PrismaUserRepository implements IUserRepository {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   async create(data: {
     phone_number: string;
@@ -25,8 +25,11 @@ export class PrismaUserRepository implements IUserRepository {
         },
       });
     } catch (e: any) {
-      if (e.code === 'P2002' && e.meta?.target?.includes('phone_number')) {
-        throw new BadRequestException('Phone number already exists');
+      if (e.code === 'P2002') {
+        const target = Array.isArray(e.meta?.target) ? e.meta.target.join(',') : String(e.meta?.target || '');
+        if (target.includes('phone_number_user_type') || target.includes('phone_number,user_type') || target.includes('phone_number')) {
+          throw new BadRequestException('This phone and role already exist');
+        }
       }
       throw e;
     }
@@ -55,23 +58,22 @@ export class PrismaUserRepository implements IUserRepository {
 
   async update(id: number, data: Partial<User>): Promise<User> {
     try {
-      return await this.prisma.user.update({
-        where: { id },
-        data,
-      });
+      return await this.prisma.user.update({ where: { id }, data });
     } catch (e: any) {
-      if (e.code === 'P2002' && e.meta?.target?.includes('phone_number')) {
-        throw new BadRequestException('Phone number already exists');
+      if (e.code === 'P2002') {
+        const target = Array.isArray(e.meta?.target) ? e.meta.target.join(',') : String(e.meta?.target || '');
+        if (target.includes('phone_number_user_type') || target.includes('phone_number,user_type') || target.includes('phone_number')) {
+          throw new BadRequestException('This phone and role already exist');
+        }
       }
       if (e.code === 'P2025') throw new NotFoundException('User not found');
       throw e;
     }
   }
+
   async remove(id: number): Promise<User> {
     try {
-      return await this.prisma.user.delete({
-        where: { id },
-      });
+      return await this.prisma.user.delete({ where: { id } });
     } catch (e: any) {
       if (e.code === 'P2025') throw new NotFoundException('User not found');
       throw e;
