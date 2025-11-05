@@ -108,7 +108,7 @@ export class PrismaDriverRepository implements IDriverRepository {
       ...(data.status !== undefined ? { status: data.status } : {}),
       ...(data.license_no !== undefined ? { license_no: data.license_no } : {}),
       ...(data.license_expiry !== undefined ? { license_expiry: data.license_expiry } : {}),
-      ...(data.has_smartphone !== undefined ? { has_smartphone: data.has_smartphone } : {}), // ✅ update
+      ...(data.has_smartphone !== undefined ? { has_smartphone: data.has_smartphone } : {}), 
 
       ...(data.active_until_date !== undefined ? { active_until_date: data.active_until_date } : {}),
       ...(data.payment_status !== undefined ? { payment_status: data.payment_status as any } : {}),

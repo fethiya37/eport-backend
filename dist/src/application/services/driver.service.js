@@ -119,25 +119,17 @@ let DriverService = class DriverService {
         return { ...driver, active_plate_number: vehicle?.plate_number ?? null };
     }
     async update(ctx, id, dto) {
-        if ((0, roles_util_1.isAdminLike)(ctx.user_type)) {
-            throw new common_1.ForbiddenException('Admin/Superadmin cannot update drivers');
-        }
         const existing = await this.drivers.findById(ctx, id);
         if (!existing)
             throw new common_1.NotFoundException('Driver not found');
         try {
             if (dto.phone_number && dto.phone_number !== existing.phone_number) {
-                const dupDriverUser = await this.prisma.user.findFirst({
-                    where: {
-                        phone_number: dto.phone_number,
-                        user_type: client_1.UserType.Driver,
-                        NOT: { id: existing.user_id },
-                    },
+                const dup = await this.prisma.user.findFirst({
+                    where: { phone_number: dto.phone_number, user_type: client_1.UserType.Driver, NOT: { id: existing.user_id } },
                     select: { id: true },
                 });
-                if (dupDriverUser) {
+                if (dup)
                     throw new common_1.BadRequestException('Driver with this phone number already exists');
-                }
             }
             const updated = await this.drivers.update(ctx, id, {
                 full_name: dto.full_name,
@@ -145,6 +137,9 @@ let DriverService = class DriverService {
                 status: dto.status,
                 license_no: dto.license_no ?? undefined,
                 license_expiry: dto.license_expiry ? new Date(dto.license_expiry) : undefined,
+                has_smartphone: dto.has_smartphone,
+                active_until_date: dto.active_until_date === undefined ? undefined : (dto.active_until_date ? new Date(dto.active_until_date) : null),
+                interest_accrued: dto.interest_accrued,
             });
             if (dto.full_name !== undefined || dto.phone_number !== undefined) {
                 await this.prisma.user.update({

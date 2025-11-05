@@ -13,6 +13,7 @@ exports.UpdateDriverDto = void 0;
 const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
 const client_1 = require("@prisma/client");
+const class_transformer_1 = require("class-transformer");
 class UpdateDriverDto {
     full_name;
     phone_number;
@@ -20,6 +21,8 @@ class UpdateDriverDto {
     license_expiry;
     status;
     has_smartphone;
+    active_until_date;
+    interest_accrued;
 }
 exports.UpdateDriverDto = UpdateDriverDto;
 __decorate([
@@ -60,4 +63,17 @@ __decorate([
     (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)
 ], UpdateDriverDto.prototype, "has_smartphone", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: '2032-06-30', description: 'Active/paid through (YYYY-MM-DD)' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsDateString)(),
+    __metadata("design:type", Object)
+], UpdateDriverDto.prototype, "active_until_date", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 125.50, description: 'Total interest accrued (Decimal(10,2))' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], UpdateDriverDto.prototype, "interest_accrued", void 0);
 //# sourceMappingURL=update-driver.dto.js.map

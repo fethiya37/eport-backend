@@ -171,7 +171,7 @@ export class VehicleService {
       model: dto.model ?? null,
       color: dto.color ?? null,
       capacity: dto.capacity ?? null,
-      is_weekly: dto.is_weekly ?? false, // ✅ now stored on Vehicle
+      is_weekly: dto.is_weekly ?? false,
     });
   }
 
@@ -190,14 +190,10 @@ export class VehicleService {
   }
 
   async update(ctx: UserContext, id: number, dto: UpdateVehicleDto) {
-    if (isAdminLike(ctx.user_type)) {
-      throw new ForbiddenException('Admin/Superadmin cannot update vehicles');
-    }
-
+   
     const existing = await this.vehicles.findById(ctx, id);
     if (!existing) throw new NotFoundException('Vehicle not found');
 
-    // 1) Update vehicle
     const updated = await this.vehicles.update(ctx, id, {
       plate_number: dto.plate_number,
       libre_no: dto.libre_no,
@@ -208,10 +204,9 @@ export class VehicleService {
       color: dto.color,
       capacity: dto.capacity,
       status: dto.vehicle_status,
-      is_weekly: dto.is_weekly ?? existing.is_weekly, // ✅ moved to Vehicle
+      is_weekly: dto.is_weekly ?? existing.is_weekly, 
     });
 
-    // 2) Interest adjustments based on status transition
     if (dto.vehicle_status && existing.status !== dto.vehicle_status) {
       const driverId = updated.driver_id ?? null;
 
@@ -261,7 +256,6 @@ export class VehicleService {
     } | null = null;
 
     if (q.plate) {
-      // 🔎 Lookup by plate
       vehicle = await this.prisma.vehicle.findUnique({
         where: { plate_number: q.plate },
         select: {
@@ -291,7 +285,6 @@ export class VehicleService {
         interest_accrued: d.interest_accrued ? Number(d.interest_accrued) : 0,
       };
     } else if (q.driver_id) {
-      // 🔎 Lookup by driver_id
       const d = await this.prisma.driver.findUnique({
         where: { id: q.driver_id },
         select: {

@@ -29,7 +29,7 @@ export class DriverService {
     @Inject(DRIVER_REPOSITORY) private readonly drivers: IDriverRepository,
     @Inject(ASSOCIATION_POLICY_REPOSITORY) private readonly policyRepo: IAssociationPolicyRepository,
     private readonly prisma: PrismaService,
-  ) {}
+  ) { }
 
   async create(ctx: UserContext, dto: CreateDriverDto) {
     if (isAdminLike(ctx.user_type)) {
@@ -102,27 +102,16 @@ export class DriverService {
   }
 
   async update(ctx: UserContext, id: number, dto: UpdateDriverDto) {
-    if (isAdminLike(ctx.user_type)) {
-      throw new ForbiddenException('Admin/Superadmin cannot update drivers');
-    }
-
     const existing = await this.drivers.findById(ctx, id);
     if (!existing) throw new NotFoundException('Driver not found');
 
     try {
-      // ✅ If phone_number is changing, ensure no other DRIVER user has that phone
       if (dto.phone_number && dto.phone_number !== (existing as any).phone_number) {
-        const dupDriverUser = await this.prisma.user.findFirst({
-          where: {
-            phone_number: dto.phone_number,
-            user_type: UserType.Driver,
-            NOT: { id: (existing as any).user_id },
-          },
+        const dup = await this.prisma.user.findFirst({
+          where: { phone_number: dto.phone_number, user_type: UserType.Driver, NOT: { id: (existing as any).user_id } },
           select: { id: true },
         });
-        if (dupDriverUser) {
-          throw new BadRequestException('Driver with this phone number already exists');
-        }
+        if (dup) throw new BadRequestException('Driver with this phone number already exists');
       }
 
       const updated = await this.drivers.update(ctx, id, {
@@ -131,9 +120,12 @@ export class DriverService {
         status: dto.status as DriverStatus | undefined,
         license_no: dto.license_no ?? undefined,
         license_expiry: dto.license_expiry ? new Date(dto.license_expiry) : undefined,
+        has_smartphone: dto.has_smartphone,
+        active_until_date:
+          dto.active_until_date === undefined ? undefined : (dto.active_until_date ? new Date(dto.active_until_date) : null),
+        interest_accrued: dto.interest_accrued,
       });
 
-      // keep the linked user row in sync (Driver user row)
       if (dto.full_name !== undefined || dto.phone_number !== undefined) {
         await this.prisma.user.update({
           where: { id: (updated as any).user_id },
@@ -148,12 +140,12 @@ export class DriverService {
     } catch (err) {
       if (err instanceof BadRequestException) throw err;
       if (err instanceof PrismaClientKnownRequestError && err.code === 'P2002') {
-        // Unique constraint violation (likely phone_number_user_type)
         throw new BadRequestException('Driver with this phone number already exists');
       }
       throw err;
     }
   }
+
 
   async remove(ctx: UserContext, id: number) {
     if (isAdminLike(ctx.user_type)) {

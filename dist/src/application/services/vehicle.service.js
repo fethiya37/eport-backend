@@ -169,9 +169,6 @@ let VehicleService = class VehicleService {
         return this.vehicles.findActiveWithoutDriver(ctx);
     }
     async update(ctx, id, dto) {
-        if ((0, roles_util_1.isAdminLike)(ctx.user_type)) {
-            throw new common_1.ForbiddenException('Admin/Superadmin cannot update vehicles');
-        }
         const existing = await this.vehicles.findById(ctx, id);
         if (!existing)
             throw new common_1.NotFoundException('Vehicle not found');

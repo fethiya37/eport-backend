@@ -6,4 +6,6 @@ export declare class UpdateDriverDto {
     license_expiry?: string | null;
     status?: DriverStatus;
     has_smartphone?: boolean;
+    active_until_date?: string | null;
+    interest_accrued?: number;
 }
