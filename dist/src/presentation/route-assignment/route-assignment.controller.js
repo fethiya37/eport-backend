@@ -102,7 +102,7 @@ __decorate([
 ], RouteAssignmentController.prototype, "remove", null);
 __decorate([
     (0, common_1.Get)('visible-coverage'),
-    (0, roles_decorator_1.Roles)('Driver', 'Controller'),
+    (0, roles_decorator_1.Roles)('Driver', 'Controller', 'Admin', 'Superadmin'),
     (0, swagger_1.ApiOperation)({
         summary: 'View route assignments from current period start → active_until_date (Approved only), GC in/out, by plate_number or driver_id',
     }),

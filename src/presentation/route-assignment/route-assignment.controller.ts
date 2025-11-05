@@ -70,7 +70,7 @@ export class RouteAssignmentController {
   }
 
   @Get('visible-coverage')
-  @Roles('Driver', 'Controller')
+  @Roles('Driver', 'Controller', 'Admin', 'Superadmin')
   @ApiOperation({
     summary:
       'View route assignments from current period start → active_until_date (Approved only), GC in/out, by plate_number or driver_id',
