@@ -23,7 +23,7 @@ import { Public } from 'src/common/decorators/public.decorator';
 @UseGuards(JwtAuthGuard)
 @Controller('payments')
 export class PaymentsController {
-  constructor(private readonly service: PaymentsService) {}
+  constructor(private readonly service: PaymentsService) { }
 
   @Post('apply')
   @Roles('Association')
@@ -49,20 +49,56 @@ export class PaymentsController {
     return this.service.initOnlineFromPayDto(user, dto);
   }
 
-  // UX-only return page (public)
   @Get('online/return')
   @Public()
   @HttpCode(200)
   onlineReturn() {
     return `
-      <div style="font-family:sans-serif;max-width:560px;margin:40px auto;text-align:center">
-        <h2>Thanks! If your payment succeeded, we’ll confirm shortly.</h2>
-        <p>You can close this tab now.</p>
+    <div style="
+      font-family: 'Segoe UI', Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background-color: #f1f5f9;
+    ">
+      <div style="
+        background-color: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        padding: 32px 40px;
+        text-align: center;
+        max-width: 420px;
+      ">
+        <div style="
+          font-size: 52px;
+          color: #16a34a;
+          margin-bottom: 12px;
+        ">
+          ✓
+        </div>
+        <h2 style="
+          color: #16a34a;
+          font-size: 24px;
+          margin-bottom: 8px;
+        ">
+          Payment Successful
+        </h2>
+        <p style="
+          color: #475569;
+          font-size: 16px;
+          line-height: 1.5;
+          margin-top: 0;
+        ">
+          Your payment has been processed successfully.<br/>
+          You can safely close this page now.
+        </p>
       </div>
-    `;
+    </div>
+  `;
   }
 
-  // Public callback: verify then record
+
   @Get('callback')
   @Public()
   async callback(@Query('trx_ref') txRef: string) {
