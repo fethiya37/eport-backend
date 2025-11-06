@@ -69,7 +69,7 @@ export class PrismaDriverRepository implements IDriverRepository {
     const d = await this.prisma.driver.findUnique({ where: { id } });
     if (!d) return null;
 
-    if (!isAdminLike(ctx.user_type)) {
+    if (!isAdminLike(ctx.user_type) && ctx.user_type !== 'Driver') {
       if (!ctx.association_id || d.association_id !== ctx.association_id) {
         throw new ForbiddenException('Not in your association');
       }
@@ -108,7 +108,7 @@ export class PrismaDriverRepository implements IDriverRepository {
       ...(data.status !== undefined ? { status: data.status } : {}),
       ...(data.license_no !== undefined ? { license_no: data.license_no } : {}),
       ...(data.license_expiry !== undefined ? { license_expiry: data.license_expiry } : {}),
-      ...(data.has_smartphone !== undefined ? { has_smartphone: data.has_smartphone } : {}), 
+      ...(data.has_smartphone !== undefined ? { has_smartphone: data.has_smartphone } : {}),
 
       ...(data.active_until_date !== undefined ? { active_until_date: data.active_until_date } : {}),
       ...(data.payment_status !== undefined ? { payment_status: data.payment_status as any } : {}),
