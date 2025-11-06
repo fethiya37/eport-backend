@@ -119,7 +119,7 @@ let PaymentsService = class PaymentsService {
             if (!d)
                 throw new common_1.NotFoundException('Driver not found');
         }
-        if (!(0, roles_util_1.isAdminLike)(ctx.user_type)) {
+        if (!(0, roles_util_1.isAdminLike)(ctx.user_type) && ctx.user_type !== 'Driver') {
             if (!ctx.association_id || d.association_id !== ctx.association_id) {
                 throw new common_1.ForbiddenException('Target driver not in your association');
             }

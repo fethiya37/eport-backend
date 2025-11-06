@@ -126,7 +126,7 @@ export class PaymentsService {
       if (!d) throw new NotFoundException('Driver not found');
     }
 
-    if (!isAdminLike(ctx.user_type)) {
+    if (!isAdminLike(ctx.user_type) && ctx.user_type !== 'Driver') {
       if (!ctx.association_id || d.association_id !== ctx.association_id) {
         throw new ForbiddenException('Target driver not in your association');
       }
@@ -144,7 +144,6 @@ export class PaymentsService {
     return d;
   }
 
-  // ===== shared validators / calculators =====
   private assertPlanMatches(driverIsWeekly: boolean, feePlan: 'WEEKLY' | 'MONTHLY') {
     const driverPlan = driverIsWeekly ? 'WEEKLY' : 'MONTHLY';
     if (feePlan !== driverPlan) {

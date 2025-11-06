@@ -7,7 +7,7 @@ export type DriverPaymentCreate = {
   driver_id: number;
   fee_plan: FeePlan | 'WEEKLY' | 'MONTHLY';
   prepaid_qty: number;
-  amount: number;                // stored as Decimal
+  amount: number;                
   covered_start_date: Date;
   covered_end_date: Date;
   paid_at: Date;
@@ -24,7 +24,6 @@ export interface IDriverPaymentRepository {
 
   findMany(filters: any): Promise<any[]>;
 
-  // ✅ NEW METHOD
   getTotalByAssociation(
     association_id: number
   ): Promise<{
