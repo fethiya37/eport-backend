@@ -20,16 +20,19 @@ const route_repository_1 = require("../../domain/repositories/route.repository")
 const roles_util_1 = require("../../common/auth/roles.util");
 const prisma_service_1 = require("../../../prisma/prisma.service");
 const client_1 = require("@prisma/client");
+const activity_log_service_1 = require("../services/activity-log.service");
 let RouteQuotaService = class RouteQuotaService {
     quotas;
     associations;
     routesRepo;
     prisma;
-    constructor(quotas, associations, routesRepo, prisma) {
+    activityLog;
+    constructor(quotas, associations, routesRepo, prisma, activityLog) {
         this.quotas = quotas;
         this.associations = associations;
         this.routesRepo = routesRepo;
         this.prisma = prisma;
+        this.activityLog = activityLog;
     }
     async create(ctx, dto) {
         if (!(0, roles_util_1.isAdminLike)(ctx.user_type))
@@ -48,7 +51,7 @@ let RouteQuotaService = class RouteQuotaService {
             throw new common_1.BadRequestException('start_date must be <= end_date');
         await this.ensureCapacity(dto.association_id, dto.no_vehicles);
         await this.ensureNoOverlap(dto.association_id, dto.route_id, start_date, end_date);
-        return this.quotas.create({
+        const created = await this.quotas.create({
             association_id: dto.association_id,
             route_id: dto.route_id,
             start_date,
@@ -57,6 +60,13 @@ let RouteQuotaService = class RouteQuotaService {
             remaining_vehicles: dto.no_vehicles,
             status: client_1.RouteQuotaStatus.Pending,
         });
+        await this.activityLog.log(ctx, {
+            module: 'RouteQuota',
+            action: 'CREATE',
+            entity: 'RouteQuota',
+            entity_id: created.id,
+        });
+        return created;
     }
     async createMany(ctx, dto) {
         if (!(0, roles_util_1.isAdminLike)(ctx.user_type))
@@ -88,7 +98,16 @@ let RouteQuotaService = class RouteQuotaService {
                 status: client_1.RouteQuotaStatus.Pending,
             });
         }
-        return this.quotas.createMany(rows);
+        const created = await this.quotas.createMany(rows);
+        for (const q of created) {
+            await this.activityLog.log(ctx, {
+                module: 'RouteQuota',
+                action: 'CREATE_MANY',
+                entity: 'RouteQuota',
+                entity_id: q.id,
+            });
+        }
+        return created;
     }
     find(ctx, filter) {
         if (!(0, roles_util_1.isAdminLike)(ctx.user_type) && ctx.association_id) {
@@ -128,7 +147,8 @@ let RouteQuotaService = class RouteQuotaService {
                 patch.no_vehicles = dto.no_vehicles;
             }
             if (dto.remaining_vehicles !== undefined) {
-                if (dto.remaining_vehicles < 0 || dto.remaining_vehicles > (dto.no_vehicles ?? existing.no_vehicles)) {
+                if (dto.remaining_vehicles < 0 ||
+                    dto.remaining_vehicles > (dto.no_vehicles ?? existing.no_vehicles)) {
                     throw new common_1.BadRequestException('remaining_vehicles must be between 0 and no_vehicles');
                 }
                 patch.remaining_vehicles = dto.remaining_vehicles;
@@ -154,7 +174,14 @@ let RouteQuotaService = class RouteQuotaService {
         if (isAdmin) {
             await this.ensureNoOverlap(existing.association_id, existing.route_id, patch.start_date ?? existing.start_date, patch.end_date ?? existing.end_date, id);
         }
-        return this.quotas.update(id, patch);
+        const updated = await this.quotas.update(id, patch);
+        await this.activityLog.log(ctx, {
+            module: 'RouteQuota',
+            action: 'UPDATE',
+            entity: 'RouteQuota',
+            entity_id: updated.id,
+        });
+        return updated;
     }
     parseGc(input, field) {
         const d = input instanceof Date ? input : new Date(input);
@@ -202,7 +229,14 @@ let RouteQuotaService = class RouteQuotaService {
         if (approvedCount > 0) {
             throw new common_1.ForbiddenException('Cannot delete quota with approved assignments');
         }
-        return this.quotas.remove(id);
+        const removed = await this.quotas.remove(id);
+        await this.activityLog.log(ctx, {
+            module: 'RouteQuota',
+            action: 'DELETE',
+            entity: 'RouteQuota',
+            entity_id: id,
+        });
+        return removed;
     }
 };
 exports.RouteQuotaService = RouteQuotaService;
@@ -211,6 +245,7 @@ exports.RouteQuotaService = RouteQuotaService = __decorate([
     __param(0, (0, common_1.Inject)(route_quota_repository_1.ROUTE_QUOTA_REPOSITORY)),
     __param(1, (0, common_1.Inject)(association_repository_1.ASSOCIATION_REPOSITORY)),
     __param(2, (0, common_1.Inject)(route_repository_1.ROUTES_REPOSITORY)),
-    __metadata("design:paramtypes", [Object, Object, Object, prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [Object, Object, Object, prisma_service_1.PrismaService,
+        activity_log_service_1.ActivityLogService])
 ], RouteQuotaService);
 //# sourceMappingURL=route-quota.service.js.map

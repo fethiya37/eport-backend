@@ -17,12 +17,15 @@ const common_1 = require("@nestjs/common");
 const association_repository_1 = require("../../domain/repositories/association.repository");
 const prisma_service_1 = require("../../../prisma/prisma.service");
 const roles_util_1 = require("../../common/auth/roles.util");
+const activity_log_service_1 = require("../services/activity-log.service");
 let AssociationService = class AssociationService {
     associations;
     prisma;
-    constructor(associations, prisma) {
+    activityLog;
+    constructor(associations, prisma, activityLog) {
         this.associations = associations;
         this.prisma = prisma;
+        this.activityLog = activityLog;
     }
     publicList(filter) {
         return this.associations.findAll(filter);
@@ -36,11 +39,18 @@ let AssociationService = class AssociationService {
     async create(ctx, dto) {
         if (!(0, roles_util_1.isAdminLike)(ctx.user_type))
             throw new common_1.ForbiddenException('Only Admin/Superadmin');
-        return this.associations.create({
+        const assoc = await this.associations.create({
             name: dto.name,
             phone_number: dto.phone_number ?? null,
             logo: dto.logo ?? null,
         });
+        await this.activityLog.log(ctx, {
+            module: 'Association',
+            action: 'CREATE',
+            entity: 'Association',
+            entity_id: assoc.id,
+        });
+        return assoc;
     }
     async update(ctx, id, dto) {
         if (!(0, roles_util_1.isAdminLike)(ctx.user_type))
@@ -48,11 +58,18 @@ let AssociationService = class AssociationService {
         const existing = await this.associations.findById(id);
         if (!existing)
             throw new common_1.NotFoundException('Association not found');
-        return this.associations.update(id, {
+        const updated = await this.associations.update(id, {
             name: dto.name ?? existing.name,
             phone_number: dto.phone_number !== undefined ? dto.phone_number : existing.phone_number,
             logo: dto.logo !== undefined ? dto.logo : existing.logo,
         });
+        await this.activityLog.log(ctx, {
+            module: 'Association',
+            action: 'UPDATE',
+            entity: 'Association',
+            entity_id: updated.id,
+        });
+        return updated;
     }
     async delete(ctx, id) {
         if (!(0, roles_util_1.isAdminLike)(ctx.user_type))
@@ -71,6 +88,12 @@ let AssociationService = class AssociationService {
             await tx.user.deleteMany({ where: { association_id: id } });
             await tx.association.delete({ where: { id } });
         });
+        await this.activityLog.log(ctx, {
+            module: 'Association',
+            action: 'DELETE',
+            entity: 'Association',
+            entity_id: id,
+        });
         return { message: 'Association and all related records deleted successfully' };
     }
 };
@@ -78,6 +101,7 @@ exports.AssociationService = AssociationService;
 exports.AssociationService = AssociationService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, common_1.Inject)(association_repository_1.ASSOCIATION_REPOSITORY)),
-    __metadata("design:paramtypes", [Object, prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [Object, prisma_service_1.PrismaService,
+        activity_log_service_1.ActivityLogService])
 ], AssociationService);
 //# sourceMappingURL=association.service.js.map

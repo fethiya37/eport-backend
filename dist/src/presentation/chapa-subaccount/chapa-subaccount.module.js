@@ -14,12 +14,13 @@ const association_subaccount_service_1 = require("../../application/services/ass
 const chapa_api_service_1 = require("../../infrastructure/payments/chapa-api.service");
 const association_subaccount_repository_1 = require("../../domain/repositories/association-subaccount.repository");
 const prisma_association_subaccount_repository_1 = require("../../infrastructure/repositories/prisma-association-subaccount.repository");
+const activity_log_module_1 = require("../activity-log/activity-log.module");
 let ChapaSubaccountModule = class ChapaSubaccountModule {
 };
 exports.ChapaSubaccountModule = ChapaSubaccountModule;
 exports.ChapaSubaccountModule = ChapaSubaccountModule = __decorate([
     (0, common_1.Module)({
-        imports: [prisma_module_1.PrismaModule],
+        imports: [prisma_module_1.PrismaModule, activity_log_module_1.ActivityLogModule],
         controllers: [chapa_subaccount_controller_1.ChapaSubaccountController],
         providers: [
             association_subaccount_service_1.AssociationSubaccountService,

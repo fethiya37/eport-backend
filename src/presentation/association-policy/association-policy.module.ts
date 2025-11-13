@@ -4,9 +4,10 @@ import { AssociationPolicyService } from '../../application/services/association
 import { PrismaModule } from '../../../prisma/prisma.module';
 import { ASSOCIATION_POLICY_REPOSITORY } from '../../domain/repositories/association-policy.repository';
 import { PrismaAssociationPolicyRepository } from '../../infrastructure/repositories/prisma-association-policy.repository';
+import { ActivityLogModule } from '../activity-log/activity-log.module';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, ActivityLogModule],
   controllers: [AssociationPolicyController],
   providers: [
     AssociationPolicyService,

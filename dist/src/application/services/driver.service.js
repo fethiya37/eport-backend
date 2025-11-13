@@ -54,14 +54,17 @@ const client_1 = require("@prisma/client");
 const roles_util_1 = require("../../common/auth/roles.util");
 const bcrypt = __importStar(require("bcrypt"));
 const library_1 = require("@prisma/client/runtime/library");
+const activity_log_service_1 = require("../services/activity-log.service");
 let DriverService = class DriverService {
     drivers;
     policyRepo;
     prisma;
-    constructor(drivers, policyRepo, prisma) {
+    activityLog;
+    constructor(drivers, policyRepo, prisma, activityLog) {
         this.drivers = drivers;
         this.policyRepo = policyRepo;
         this.prisma = prisma;
+        this.activityLog = activityLog;
     }
     async create(ctx, dto) {
         if ((0, roles_util_1.isAdminLike)(ctx.user_type)) {
@@ -82,7 +85,7 @@ let DriverService = class DriverService {
         if (driverUserExists) {
             throw new common_1.BadRequestException('Driver with this phone number already exists');
         }
-        return this.prisma.$transaction(async (tx) => {
+        const driver = await this.prisma.$transaction(async (tx) => {
             const password_hash = await bcrypt.hash(dto.phone_number, 10);
             const user = await tx.user.create({
                 data: {
@@ -94,7 +97,7 @@ let DriverService = class DriverService {
                     association_id: ctx.association_id,
                 },
             });
-            const driver = await this.drivers.create(ctx, {
+            const createdDriver = await this.drivers.create(ctx, {
                 user_id: user.id,
                 association_id: ctx.association_id,
                 full_name: dto.full_name,
@@ -102,8 +105,15 @@ let DriverService = class DriverService {
                 license_no: dto.license_no ?? null,
                 license_expiry: dto.license_expiry ? new Date(dto.license_expiry) : null,
             }, tx);
-            return driver;
+            return createdDriver;
         });
+        await this.activityLog.log(ctx, {
+            module: 'Driver',
+            action: 'CREATE',
+            entity: 'Driver',
+            entity_id: driver.id,
+        });
+        return driver;
     }
     async findAll(ctx, filter) {
         return this.drivers.findAll(ctx, filter);
@@ -125,7 +135,11 @@ let DriverService = class DriverService {
         try {
             if (dto.phone_number && dto.phone_number !== existing.phone_number) {
                 const dup = await this.prisma.user.findFirst({
-                    where: { phone_number: dto.phone_number, user_type: client_1.UserType.Driver, NOT: { id: existing.user_id } },
+                    where: {
+                        phone_number: dto.phone_number,
+                        user_type: client_1.UserType.Driver,
+                        NOT: { id: existing.user_id },
+                    },
                     select: { id: true },
                 });
                 if (dup)
@@ -138,7 +152,11 @@ let DriverService = class DriverService {
                 license_no: dto.license_no ?? undefined,
                 license_expiry: dto.license_expiry ? new Date(dto.license_expiry) : undefined,
                 has_smartphone: dto.has_smartphone,
-                active_until_date: dto.active_until_date === undefined ? undefined : (dto.active_until_date ? new Date(dto.active_until_date) : null),
+                active_until_date: dto.active_until_date === undefined
+                    ? undefined
+                    : dto.active_until_date
+                        ? new Date(dto.active_until_date)
+                        : null,
                 interest_accrued: dto.interest_accrued,
             });
             if (dto.full_name !== undefined || dto.phone_number !== undefined) {
@@ -150,6 +168,12 @@ let DriverService = class DriverService {
                     },
                 });
             }
+            await this.activityLog.log(ctx, {
+                module: 'Driver',
+                action: 'UPDATE',
+                entity: 'Driver',
+                entity_id: updated.id,
+            });
             return updated;
         }
         catch (err) {
@@ -168,7 +192,7 @@ let DriverService = class DriverService {
         const driver = await this.drivers.findById(ctx, id);
         if (!driver)
             throw new common_1.NotFoundException('Driver not found');
-        return this.prisma.$transaction(async (tx) => {
+        const removed = await this.prisma.$transaction(async (tx) => {
             await this.drivers.remove(ctx, id, tx);
             await tx.vehicle.updateMany({
                 where: { driver_id: id },
@@ -177,6 +201,13 @@ let DriverService = class DriverService {
             await tx.user.delete({ where: { id: driver.user_id } });
             return driver;
         });
+        await this.activityLog.log(ctx, {
+            module: 'Driver',
+            action: 'DELETE',
+            entity: 'Driver',
+            entity_id: removed.id,
+        });
+        return removed;
     }
     async findDriversWithoutVehicle(ctx) {
         return this.drivers.findWithoutVehicle(ctx);
@@ -187,6 +218,7 @@ exports.DriverService = DriverService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, common_1.Inject)(driver_repository_1.DRIVER_REPOSITORY)),
     __param(1, (0, common_1.Inject)(association_policy_repository_1.ASSOCIATION_POLICY_REPOSITORY)),
-    __metadata("design:paramtypes", [Object, Object, prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [Object, Object, prisma_service_1.PrismaService,
+        activity_log_service_1.ActivityLogService])
 ], DriverService);
 //# sourceMappingURL=driver.service.js.map

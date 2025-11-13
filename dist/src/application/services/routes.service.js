@@ -16,10 +16,13 @@ exports.RoutesService = void 0;
 const common_1 = require("@nestjs/common");
 const roles_util_1 = require("../../common/auth/roles.util");
 const route_repository_1 = require("../../domain/repositories/route.repository");
+const activity_log_service_1 = require("../services/activity-log.service");
 let RoutesService = class RoutesService {
     repo;
-    constructor(repo) {
+    activityLog;
+    constructor(repo, activityLog) {
         this.repo = repo;
+        this.activityLog = activityLog;
     }
     listRouteGroups(includeRoutes = false) {
         return this.repo.listRouteGroups(includeRoutes);
@@ -39,7 +42,7 @@ let RoutesService = class RoutesService {
             throw new common_1.NotFoundException('Route group not found');
         return g;
     }
-    upsertGroupWithRoutes(ctx, dto) {
+    async upsertGroupWithRoutes(ctx, dto) {
         if (!(0, roles_util_1.isAdminLike)(ctx.user_type))
             throw new common_1.ForbiddenException('Only Admin/Superadmin can modify routes');
         const args = {
@@ -47,24 +50,45 @@ let RoutesService = class RoutesService {
             route_group: dto.route_group,
             routes: dto.routes,
         };
-        return this.repo.upsertGroupWithRoutes(args);
+        const result = await this.repo.upsertGroupWithRoutes(args);
+        await this.activityLog.log(ctx, {
+            module: 'Routes',
+            action: 'UPSERT_GROUP_WITH_ROUTES',
+            entity: 'RouteGroup',
+            entity_id: result.id ?? dto.route_group_id ?? null,
+        });
+        return result;
     }
-    updateSingleRoute(ctx, id, r) {
+    async updateSingleRoute(ctx, id, r) {
         if (!(0, roles_util_1.isAdminLike)(ctx.user_type))
             throw new common_1.ForbiddenException('Only Admin/Superadmin can modify routes');
-        return this.repo.updateSingleRoute(id, r);
+        const updated = await this.repo.updateSingleRoute(id, r);
+        await this.activityLog.log(ctx, {
+            module: 'Routes',
+            action: 'UPDATE_ROUTE',
+            entity: 'Route',
+            entity_id: id,
+        });
+        return updated;
     }
     async deleteGroup(ctx, id) {
         if (!(0, roles_util_1.isAdminLike)(ctx.user_type)) {
             throw new common_1.ForbiddenException('Only Admin/Superadmin can delete route groups');
         }
-        return this.repo.deleteGroup(id);
+        const deleted = await this.repo.deleteGroup(id);
+        await this.activityLog.log(ctx, {
+            module: 'Routes',
+            action: 'DELETE_GROUP',
+            entity: 'RouteGroup',
+            entity_id: id,
+        });
+        return deleted;
     }
 };
 exports.RoutesService = RoutesService;
 exports.RoutesService = RoutesService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, common_1.Inject)(route_repository_1.ROUTES_REPOSITORY)),
-    __metadata("design:paramtypes", [Object])
+    __metadata("design:paramtypes", [Object, activity_log_service_1.ActivityLogService])
 ], RoutesService);
 //# sourceMappingURL=routes.service.js.map

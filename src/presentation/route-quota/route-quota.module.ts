@@ -11,9 +11,10 @@ import { PrismaAssociationRepository } from '../../infrastructure/repositories/p
 
 import { ROUTES_REPOSITORY } from '../../domain/repositories/route.repository';
 import { PrismaRoutesRepository } from 'src/infrastructure/repositories/prisma-route.repository';
+import { ActivityLogModule } from '../activity-log/activity-log.module';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, ActivityLogModule],
   controllers: [RouteQuotaController],
   providers: [
     RouteQuotaService,

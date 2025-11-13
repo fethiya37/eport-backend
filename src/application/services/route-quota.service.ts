@@ -27,7 +27,8 @@ import { CreateManyRouteQuotasDto } from '../../presentation/route-quota/dto/cre
 import { isAdminLike } from '../../common/auth/roles.util';
 import { PrismaService } from '../../../prisma/prisma.service';
 import type { UserContext } from 'src/common/context/user-context';
-import { VehicleStatus, RouteQuotaStatus } from '@prisma/client'; // ✅ import enum
+import { VehicleStatus, RouteQuotaStatus } from '@prisma/client';
+import { ActivityLogService } from '../services/activity-log.service';
 
 @Injectable()
 export class RouteQuotaService {
@@ -36,9 +37,9 @@ export class RouteQuotaService {
     @Inject(ASSOCIATION_REPOSITORY) private readonly associations: IAssociationRepository,
     @Inject(ROUTES_REPOSITORY) private readonly routesRepo: IRoutesRepository,
     private readonly prisma: PrismaService,
-  ) { }
+    private readonly activityLog: ActivityLogService,
+  ) {}
 
-  // ========== CREATE ==========
   async create(ctx: UserContext, dto: CreateRouteQuotaDto) {
     if (!isAdminLike(ctx.user_type)) throw new ForbiddenException('Only Admin/Superadmin');
 
@@ -56,18 +57,26 @@ export class RouteQuotaService {
     await this.ensureCapacity(dto.association_id, dto.no_vehicles);
     await this.ensureNoOverlap(dto.association_id, dto.route_id, start_date, end_date);
 
-    return this.quotas.create({
+    const created = await this.quotas.create({
       association_id: dto.association_id,
       route_id: dto.route_id,
       start_date,
       end_date,
       no_vehicles: dto.no_vehicles,
       remaining_vehicles: dto.no_vehicles,
-      status: RouteQuotaStatus.Pending, // ✅ use enum
+      status: RouteQuotaStatus.Pending,
     });
+
+    await this.activityLog.log(ctx, {
+      module: 'RouteQuota',
+      action: 'CREATE',
+      entity: 'RouteQuota',
+      entity_id: created.id,
+    });
+
+    return created;
   }
 
-  // ========== CREATE MANY ==========
   async createMany(ctx: UserContext, dto: CreateManyRouteQuotasDto) {
     if (!isAdminLike(ctx.user_type)) throw new ForbiddenException('Only Admin/Superadmin');
 
@@ -98,14 +107,24 @@ export class RouteQuotaService {
         end_date,
         no_vehicles: item.no_vehicles,
         remaining_vehicles: item.no_vehicles,
-        status: RouteQuotaStatus.Pending, // ✅ enum
+        status: RouteQuotaStatus.Pending,
       });
     }
 
-    return this.quotas.createMany(rows);
+    const created = await this.quotas.createMany(rows);
+
+    for (const q of created) {
+      await this.activityLog.log(ctx, {
+        module: 'RouteQuota',
+        action: 'CREATE_MANY',
+        entity: 'RouteQuota',
+        entity_id: q.id,
+      });
+    }
+
+    return created;
   }
 
-  // ========== FIND ==========
   find(ctx: UserContext, filter: RouteQuotaFilterDto) {
     if (!isAdminLike(ctx.user_type) && ctx.association_id) {
       filter.association_id = ctx.association_id;
@@ -113,14 +132,10 @@ export class RouteQuotaService {
     return this.quotas.find(filter);
   }
 
-  // ========== UPDATE ==========
   async update(ctx: UserContext, id: number, dto: UpdateRouteQuotaDto) {
     const existing = await this.quotas.findById(id);
     if (!existing) throw new NotFoundException('Route quota not found');
 
-    // ------------------------------
-    // 1️⃣ Role validation
-    // ------------------------------
     const isAssociation = ctx.user_type === 'Association';
     const isAdmin = isAdminLike(ctx.user_type);
 
@@ -128,23 +143,17 @@ export class RouteQuotaService {
       throw new ForbiddenException('Only Admin, Superadmin or Association can update quota');
     }
 
-    // Association-scoped restriction
     if (isAssociation && ctx.association_id !== existing.association_id) {
       throw new ForbiddenException('Cannot modify quota outside your association');
     }
 
-    // Prevent updates on approved quotas
     const approvedCount = await this.prisma.routeAssignment.count({
       where: { route_quota_id: id, status: 'Approved' },
     });
     if (approvedCount > 0 && !isAdmin) {
-      // only admin can edit after approval
       throw new ForbiddenException('Cannot update quota with approved assignments');
     }
 
-    // ------------------------------
-    // 2️⃣ Build the patch payload
-    // ------------------------------
     const patch: Partial<{
       start_date: Date;
       end_date: Date;
@@ -153,7 +162,6 @@ export class RouteQuotaService {
       status: RouteQuotaStatus;
     }> = {};
 
-    // ✅ Admin/Superadmin can edit all fields
     if (isAdmin) {
       if (dto.start_date) patch.start_date = this.parseGc(dto.start_date, 'start_date');
       if (dto.end_date) patch.end_date = this.parseGc(dto.end_date, 'end_date');
@@ -167,7 +175,10 @@ export class RouteQuotaService {
       }
 
       if (dto.remaining_vehicles !== undefined) {
-        if (dto.remaining_vehicles < 0 || dto.remaining_vehicles > (dto.no_vehicles ?? existing.no_vehicles)) {
+        if (
+          dto.remaining_vehicles < 0 ||
+          dto.remaining_vehicles > (dto.no_vehicles ?? existing.no_vehicles)
+        ) {
           throw new BadRequestException('remaining_vehicles must be between 0 and no_vehicles');
         }
         patch.remaining_vehicles = dto.remaining_vehicles;
@@ -178,7 +189,6 @@ export class RouteQuotaService {
       }
     }
 
-    // ✅ Association users can only update remaining_vehicles or mark as Fulfilled
     if (isAssociation) {
       if (dto.remaining_vehicles !== undefined) {
         if (dto.remaining_vehicles < 0 || dto.remaining_vehicles > existing.no_vehicles) {
@@ -195,7 +205,6 @@ export class RouteQuotaService {
       }
     }
 
-    // ✅ Overlap check for Admin only (since association cannot change dates)
     if (isAdmin) {
       await this.ensureNoOverlap(
         existing.association_id,
@@ -206,15 +215,18 @@ export class RouteQuotaService {
       );
     }
 
-    // ------------------------------
-    // 3️⃣ Save
-    // ------------------------------
-    return this.quotas.update(id, patch);
+    const updated = await this.quotas.update(id, patch);
+
+    await this.activityLog.log(ctx, {
+      module: 'RouteQuota',
+      action: 'UPDATE',
+      entity: 'RouteQuota',
+      entity_id: updated.id,
+    });
+
+    return updated;
   }
 
-
-
-  // ========== helpers ==========
   private parseGc(input: string | Date, field: string): Date {
     const d = input instanceof Date ? input : new Date(input as any);
     if (isNaN(d.getTime())) throw new BadRequestException(`${field} must be a valid GC date`);
@@ -273,6 +285,15 @@ export class RouteQuotaService {
       throw new ForbiddenException('Cannot delete quota with approved assignments');
     }
 
-    return this.quotas.remove(id);
+    const removed = await this.quotas.remove(id);
+
+    await this.activityLog.log(ctx, {
+      module: 'RouteQuota',
+      action: 'DELETE',
+      entity: 'RouteQuota',
+      entity_id: id,
+    });
+
+    return removed;
   }
 }

@@ -33,7 +33,6 @@ let SmsGatewayService = class SmsGatewayService {
             const res = await (0, rxjs_1.firstValueFrom)(this.http.post(this.apiUrl, payload, {
                 headers: { Authorization: `Bearer ${this.apiKey}` },
             }));
-            console.log('✅ SMS API response:', res.data);
             return res.data;
         }
         catch (err) {

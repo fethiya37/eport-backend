@@ -10,7 +10,7 @@ export class SmsGatewayService {
   private readonly accountId = process.env.AFROMSG_ACCOUNT_ID;
   private readonly senderName = process.env.AFROMSG_SENDER_NAME;
 
-  constructor(private readonly http: HttpService) {}
+  constructor(private readonly http: HttpService) { }
 
   async sendSms(to: string, message: string) {
     const payload = {
@@ -26,7 +26,6 @@ export class SmsGatewayService {
           headers: { Authorization: `Bearer ${this.apiKey}` },
         }),
       );
-      console.log('✅ SMS API response:', res.data);
       return res.data;
     } catch (err: any) {
       console.error('❌ SMS send failed:', err.response?.data || err.message);

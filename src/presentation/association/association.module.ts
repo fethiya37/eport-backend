@@ -4,8 +4,11 @@ import { AssociationService } from '../../application/services/association.servi
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ASSOCIATION_REPOSITORY } from '../../domain/repositories/association.repository';
 import { PrismaAssociationRepository } from '../../infrastructure/repositories/prisma-association.repository';
+import { PrismaModule } from 'prisma/prisma.module';
+import { ActivityLogModule } from '../activity-log/activity-log.module';
 
 @Module({
+  imports: [PrismaModule, ActivityLogModule],
   controllers: [AssociationController],
   providers: [
     AssociationService,
@@ -14,4 +17,4 @@ import { PrismaAssociationRepository } from '../../infrastructure/repositories/p
   ],
   exports: [AssociationService],
 })
-export class AssociationModule {}
+export class AssociationModule { }

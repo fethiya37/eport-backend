@@ -13,11 +13,14 @@ const routes_service_1 = require("../../application/services/routes.service");
 const prisma_service_1 = require("../../../prisma/prisma.service");
 const prisma_route_repository_1 = require("../../infrastructure/repositories/prisma-route.repository");
 const route_repository_1 = require("../../domain/repositories/route.repository");
+const prisma_module_1 = require("../../../prisma/prisma.module");
+const activity_log_module_1 = require("../activity-log/activity-log.module");
 let RoutesModule = class RoutesModule {
 };
 exports.RoutesModule = RoutesModule;
 exports.RoutesModule = RoutesModule = __decorate([
     (0, common_1.Module)({
+        imports: [prisma_module_1.PrismaModule, activity_log_module_1.ActivityLogModule],
         controllers: [routes_controller_1.RoutesController],
         providers: [
             routes_service_1.RoutesService,

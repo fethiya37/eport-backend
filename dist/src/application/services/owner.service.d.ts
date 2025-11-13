@@ -3,10 +3,12 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { CreateOwnerDto } from '../../presentation/owner/dto/create-owner.dto';
 import { UpdateOwnerDto } from '../../presentation/owner/dto/update-owner.dto';
 import { UserContext } from 'src/common/context/user-context';
+import { ActivityLogService } from './activity-log.service';
 export declare class OwnerService {
     private readonly owners;
     private readonly prisma;
-    constructor(owners: IOwnerRepository, prisma: PrismaService);
+    private readonly activityLog;
+    constructor(owners: IOwnerRepository, prisma: PrismaService, activityLog: ActivityLogService);
     create(ctx: UserContext, dto: CreateOwnerDto): Promise<{
         id: number;
         phone_number: string;

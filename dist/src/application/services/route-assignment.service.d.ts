@@ -5,10 +5,12 @@ import { BulkUpsertAssignmentsDto } from '../../presentation/route-assignment/dt
 import { ApproveAssignmentsDto } from '../../presentation/route-assignment/dto/approve.dto';
 import { UpdateAssignmentDto } from '../../presentation/route-assignment/dto/update-assignment.dto';
 import { RouteAssignmentFilterDto } from '../../presentation/route-assignment/dto/find-filter.dto';
+import { ActivityLogService } from '../services/activity-log.service';
 export declare class RouteAssignmentService {
     private readonly repo;
     private readonly prisma;
-    constructor(repo: IRouteAssignmentRepository, prisma: PrismaService);
+    private readonly activityLog;
+    constructor(repo: IRouteAssignmentRepository, prisma: PrismaService, activityLog: ActivityLogService);
     private parseGcDate;
     private existsRoute;
     private existsVehicleInAssociation;

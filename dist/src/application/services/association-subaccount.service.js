@@ -17,16 +17,18 @@ const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../../../prisma/prisma.service");
 const chapa_api_service_1 = require("../../infrastructure/payments/chapa-api.service");
 const association_subaccount_repository_1 = require("../../domain/repositories/association-subaccount.repository");
-const common_2 = require("@nestjs/common");
 const roles_util_1 = require("../../common/auth/roles.util");
+const activity_log_service_1 = require("../services/activity-log.service");
 let AssociationSubaccountService = class AssociationSubaccountService {
     prisma;
     chapa;
     repo;
-    constructor(prisma, chapa, repo) {
+    activityLog;
+    constructor(prisma, chapa, repo, activityLog) {
         this.prisma = prisma;
         this.chapa = chapa;
         this.repo = repo;
+        this.activityLog = activityLog;
     }
     resolveAssociationId(ctx, association_id) {
         if ((0, roles_util_1.isAdminLike)(ctx.user_type)) {
@@ -54,18 +56,23 @@ let AssociationSubaccountService = class AssociationSubaccountService {
             split_type: dto.split_type ?? 'percentage',
             split_value: dto.split_value ?? 1,
         });
-        const chapaId = chapaResp?.data?.id ||
-            chapaResp?.data?.subaccount_id ||
-            chapaResp?.subaccount_id;
+        const chapaId = chapaResp?.data?.id || chapaResp?.data?.subaccount_id || chapaResp?.subaccount_id;
         if (!chapaId)
             throw new common_1.BadRequestException('invalid chapa response (no subaccount id)');
-        return this.repo.create(ctx, {
+        const sub = await this.repo.create(ctx, {
             association_id: assocId,
             chapa_id: String(chapaId),
             business_name: dto.business_name,
             account_name: dto.account_name,
             account_number: dto.account_number,
         });
+        await this.activityLog.log(ctx, {
+            module: 'AssociationSubaccount',
+            action: 'CREATE',
+            entity: 'AssociationSubaccount',
+            entity_id: sub.id,
+        });
+        return sub;
     }
     async getMine(ctx, association_id) {
         const assocId = this.resolveAssociationId(ctx, association_id);
@@ -76,14 +83,20 @@ let AssociationSubaccountService = class AssociationSubaccountService {
     }
     async hardDelete(ctx, id) {
         await this.repo.hardDelete(ctx, id);
+        await this.activityLog.log(ctx, {
+            module: 'AssociationSubaccount',
+            action: 'DELETE',
+            entity: 'AssociationSubaccount',
+            entity_id: id,
+        });
         return { status: 'ok' };
     }
 };
 exports.AssociationSubaccountService = AssociationSubaccountService;
 exports.AssociationSubaccountService = AssociationSubaccountService = __decorate([
     (0, common_1.Injectable)(),
-    __param(2, (0, common_2.Inject)(association_subaccount_repository_1.ASSOCIATION_SUBACCOUNT_REPOSITORY)),
+    __param(2, (0, common_1.Inject)(association_subaccount_repository_1.ASSOCIATION_SUBACCOUNT_REPOSITORY)),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        chapa_api_service_1.ChapaApiService, Object])
+        chapa_api_service_1.ChapaApiService, Object, activity_log_service_1.ActivityLogService])
 ], AssociationSubaccountService);
 //# sourceMappingURL=association-subaccount.service.js.map

@@ -19,6 +19,7 @@ const prisma_association_policy_repository_1 = require("../../infrastructure/rep
 const payments_service_1 = require("../../application/services/payments.service");
 const route_assignment_module_1 = require("../route-assignment/route-assignment.module");
 const sms_module_1 = require("../sms/sms.module");
+const activity_log_module_1 = require("../activity-log/activity-log.module");
 let PaymentsModule = class PaymentsModule {
 };
 exports.PaymentsModule = PaymentsModule;
@@ -28,6 +29,7 @@ exports.PaymentsModule = PaymentsModule = __decorate([
         imports: [
             route_assignment_module_1.RouteAssignmentModule,
             sms_module_1.SmsModule,
+            activity_log_module_1.ActivityLogModule,
         ],
         providers: [
             payments_service_1.PaymentsService,

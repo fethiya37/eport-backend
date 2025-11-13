@@ -7,12 +7,14 @@ import { RouteQuotaFilterDto } from '../../presentation/route-quota/dto/route-qu
 import { CreateManyRouteQuotasDto } from '../../presentation/route-quota/dto/create-many-route-quotas.dto';
 import { PrismaService } from '../../../prisma/prisma.service';
 import type { UserContext } from 'src/common/context/user-context';
+import { ActivityLogService } from '../services/activity-log.service';
 export declare class RouteQuotaService {
     private readonly quotas;
     private readonly associations;
     private readonly routesRepo;
     private readonly prisma;
-    constructor(quotas: IRouteQuotaRepository, associations: IAssociationRepository, routesRepo: IRoutesRepository, prisma: PrismaService);
+    private readonly activityLog;
+    constructor(quotas: IRouteQuotaRepository, associations: IAssociationRepository, routesRepo: IRoutesRepository, prisma: PrismaService, activityLog: ActivityLogService);
     create(ctx: UserContext, dto: CreateRouteQuotaDto): Promise<{
         id: number;
         association_id: number;

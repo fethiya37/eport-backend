@@ -16,10 +16,13 @@ exports.AssociationPolicyService = void 0;
 const common_1 = require("@nestjs/common");
 const association_policy_repository_1 = require("../../domain/repositories/association-policy.repository");
 const roles_util_1 = require("../../common/auth/roles.util");
+const activity_log_service_1 = require("./activity-log.service");
 let AssociationPolicyService = class AssociationPolicyService {
     repo;
-    constructor(repo) {
+    activityLog;
+    constructor(repo, activityLog) {
         this.repo = repo;
+        this.activityLog = activityLog;
     }
     async upsert(ctx, dto) {
         if (!ctx.association_id)
@@ -27,7 +30,17 @@ let AssociationPolicyService = class AssociationPolicyService {
         if (!(0, roles_util_1.isAdminLike)(ctx.user_type) && ctx.user_type !== 'Association') {
             throw new common_1.BadRequestException('Only Association/Admin can set policy');
         }
-        return this.repo.upsert({ association_id: ctx.association_id, ...dto });
+        const policy = await this.repo.upsert({
+            association_id: ctx.association_id,
+            ...dto,
+        });
+        await this.activityLog.log(ctx, {
+            module: 'AssociationPolicy',
+            action: 'UPSERT',
+            entity: 'AssociationPolicy',
+            entity_id: policy.association_id,
+        });
+        return policy;
     }
     get(ctx) {
         if (!ctx.association_id)
@@ -39,6 +52,6 @@ exports.AssociationPolicyService = AssociationPolicyService;
 exports.AssociationPolicyService = AssociationPolicyService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, common_1.Inject)(association_policy_repository_1.ASSOCIATION_POLICY_REPOSITORY)),
-    __metadata("design:paramtypes", [Object])
+    __metadata("design:paramtypes", [Object, activity_log_service_1.ActivityLogService])
 ], AssociationPolicyService);
 //# sourceMappingURL=association-policy.service.js.map

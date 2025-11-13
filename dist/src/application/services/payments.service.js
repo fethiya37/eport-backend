@@ -21,6 +21,7 @@ const prisma_service_1 = require("../../../prisma/prisma.service");
 const roles_util_1 = require("../../common/auth/roles.util");
 const route_assignment_service_1 = require("./route-assignment.service");
 const sms_gateway_service_1 = require("./sms-gateway.service");
+const activity_log_service_1 = require("./activity-log.service");
 let PaymentsService = class PaymentsService {
     drivers;
     payments;
@@ -28,13 +29,15 @@ let PaymentsService = class PaymentsService {
     prisma;
     routeService;
     smsGateway;
-    constructor(drivers, payments, policy, prisma, routeService, smsGateway) {
+    activityLog;
+    constructor(drivers, payments, policy, prisma, routeService, smsGateway, activityLog) {
         this.drivers = drivers;
         this.payments = payments;
         this.policy = policy;
         this.prisma = prisma;
         this.routeService = routeService;
         this.smsGateway = smsGateway;
+        this.activityLog = activityLog;
     }
     pad2(n) {
         return n < 10 ? `0${n}` : `${n}`;
@@ -156,8 +159,9 @@ let PaymentsService = class PaymentsService {
         if (isNaN(startGc.getTime()) || isNaN(endGc.getTime())) {
             throw new common_1.BadRequestException('covered_start_date/covered_end_date must be valid ISO 8601');
         }
-        if (startGc > endGc)
+        if (startGc > endGc) {
             throw new common_1.BadRequestException('covered_start_date must be <= covered_end_date');
+        }
         if (feePlan === 'WEEKLY') {
             this.assertWeeklyWindow(startGc, endGc, isOverdue, prepayQty);
         }
@@ -186,11 +190,12 @@ let PaymentsService = class PaymentsService {
         const total = this.computeTotal(dto.fee_plan, isOverdue, prepayQty, baseFee, Number(d.interest_accrued ?? 0));
         if (dto.amount !== undefined) {
             const provided = Math.round((dto.amount + Number.EPSILON) * 100) / 100;
-            if (provided !== total)
+            if (provided !== total) {
                 throw new common_1.BadRequestException(`Total mismatch. Expected ${total}, got ${provided}`);
+            }
         }
-        await this.prisma.$transaction(async (tx) => {
-            await this.payments.create({
+        const createdPayment = await this.prisma.$transaction(async (tx) => {
+            const payment = await this.payments.create({
                 association_id: d.association_id,
                 driver_id: d.id,
                 fee_plan: dto.fee_plan,
@@ -225,6 +230,13 @@ let PaymentsService = class PaymentsService {
                 last_accrual_amount: 0,
                 last_accrual_date: null,
             });
+            return payment;
+        });
+        await this.activityLog.log(ctx, {
+            module: 'Payments',
+            action: 'APPLY',
+            entity: 'DriverPayment',
+            entity_id: createdPayment.id,
         });
         const coverage = await this.routeService.visibleCoverage(ctx, {
             plate_number: dto.plate_number ?? d.vehicle_plate,
@@ -405,6 +417,12 @@ let PaymentsService = class PaymentsService {
         const chapa = await res.json();
         if (!res.ok)
             throw new common_1.BadRequestException(chapa);
+        await this.activityLog.log(ctx, {
+            module: 'Payments',
+            action: 'INIT_ONLINE',
+            entity: 'Driver',
+            entity_id: d.id,
+        });
         return {
             tx_ref: txRef,
             amount: total,
@@ -416,8 +434,9 @@ let PaymentsService = class PaymentsService {
     async recordAfterChapaSuccess(txRef) {
         const verify = await this.verify(txRef);
         const ok = verify?.status === 'success' && verify?.data?.status === 'success';
-        if (!ok)
+        if (!ok) {
             return { recorded: false, status: verify?.data?.status ?? 'pending' };
+        }
         const parsed = this.parseTxRefOnline(txRef);
         const driver = await this.prisma.driver.findUnique({
             where: { id: parsed.driver_id },
@@ -438,6 +457,16 @@ let PaymentsService = class PaymentsService {
         const expected = this.computeTotal(parsed.fee_plan, isOverdue, prepayQty, baseFee, Number(driver.interest_accrued ?? 0));
         const paid = Number(verify.data.amount);
         if (paid !== expected) {
+            await this.activityLog.log({
+                userId: driver.user_id,
+                user_type: 'Driver',
+                association_id: driver.association_id,
+            }, {
+                module: 'Payments',
+                action: 'ONLINE_MISMATCH',
+                entity: 'Driver',
+                entity_id: driver.id,
+            });
             return { recorded: false, status: 'mismatch', expected, paid, tx_ref: txRef };
         }
         const ctx = {
@@ -452,6 +481,12 @@ let PaymentsService = class PaymentsService {
             covered_start_date: parsed.covered_start_date,
             covered_end_date: parsed.covered_end_date,
             payment_method: parsed.payment_method,
+        });
+        await this.activityLog.log(ctx, {
+            module: 'Payments',
+            action: 'ONLINE_SUCCESS',
+            entity: 'Driver',
+            entity_id: driver.id,
         });
         const ref_id = verify?.data?.reference || verify?.data?.ref_id || null;
         return { recorded: true, status: 'success', ref_id, tx_ref: txRef };
@@ -475,6 +510,7 @@ exports.PaymentsService = PaymentsService = __decorate([
     __param(2, (0, common_1.Inject)(association_policy_repository_1.ASSOCIATION_POLICY_REPOSITORY)),
     __metadata("design:paramtypes", [Object, Object, Object, prisma_service_1.PrismaService,
         route_assignment_service_1.RouteAssignmentService,
-        sms_gateway_service_1.SmsGatewayService])
+        sms_gateway_service_1.SmsGatewayService,
+        activity_log_service_1.ActivityLogService])
 ], PaymentsService);
 //# sourceMappingURL=payments.service.js.map

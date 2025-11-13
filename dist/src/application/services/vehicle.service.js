@@ -19,14 +19,17 @@ const prisma_service_1 = require("../../../prisma/prisma.service");
 const client_1 = require("@prisma/client");
 const roles_util_1 = require("../../common/auth/roles.util");
 const association_policy_repository_1 = require("../../domain/repositories/association-policy.repository");
+const activity_log_service_1 = require("../services/activity-log.service");
 let VehicleService = class VehicleService {
     vehicles;
     policyRepo;
     prisma;
-    constructor(vehicles, policyRepo, prisma) {
+    activityLog;
+    constructor(vehicles, policyRepo, prisma, activityLog) {
         this.vehicles = vehicles;
         this.policyRepo = policyRepo;
         this.prisma = prisma;
+        this.activityLog = activityLog;
     }
     pad2(n) {
         return n < 10 ? `0${n}` : `${n}`;
@@ -143,7 +146,7 @@ let VehicleService = class VehicleService {
         if (!ctx.association_id) {
             throw new common_1.BadRequestException('association_id is required');
         }
-        return this.vehicles.create(ctx, {
+        const created = await this.vehicles.create(ctx, {
             plate_number: dto.plate_number,
             libre_no: dto.libre_no ?? null,
             owner_id: dto.owner_id,
@@ -155,6 +158,13 @@ let VehicleService = class VehicleService {
             capacity: dto.capacity ?? null,
             is_weekly: dto.is_weekly ?? false,
         });
+        await this.activityLog.log(ctx, {
+            module: 'Vehicle',
+            action: 'CREATE',
+            entity: 'Vehicle',
+            entity_id: created.id,
+        });
+        return created;
     }
     findAll(ctx, filter) {
         return this.vehicles.findAll(ctx, filter);
@@ -194,6 +204,12 @@ let VehicleService = class VehicleService {
                 await this.reAddTodaysInterestForOverdueDriver(driverId);
             }
         }
+        await this.activityLog.log(ctx, {
+            module: 'Vehicle',
+            action: 'UPDATE',
+            entity: 'Vehicle',
+            entity_id: id,
+        });
         return updated;
     }
     async remove(ctx, id) {
@@ -203,7 +219,14 @@ let VehicleService = class VehicleService {
         const existing = await this.vehicles.findById(ctx, id);
         if (!existing)
             throw new common_1.NotFoundException('Vehicle not found');
-        return this.vehicles.remove(ctx, id);
+        const deleted = await this.vehicles.remove(ctx, id);
+        await this.activityLog.log(ctx, {
+            module: 'Vehicle',
+            action: 'DELETE',
+            entity: 'Vehicle',
+            entity_id: id,
+        });
+        return deleted;
     }
     async resolveForPayment(ctx, q) {
         let vehicle = null;
@@ -289,7 +312,9 @@ let VehicleService = class VehicleService {
                 : null,
             interest_accrued: driver.interest_accrued ?? 0,
             policy: {
-                plan_fee: Boolean(vehicle?.is_weekly) ? policy.weekly_fee : policy.monthly_fee,
+                plan_fee: Boolean(vehicle?.is_weekly)
+                    ? policy.weekly_fee
+                    : policy.monthly_fee,
                 daily_fine_percent: policy.daily_fine_percent,
             },
         };
@@ -303,6 +328,7 @@ exports.VehicleService = VehicleService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, common_1.Inject)(vehicle_repository_1.VEHICLE_REPOSITORY)),
     __param(1, (0, common_1.Inject)(association_policy_repository_1.ASSOCIATION_POLICY_REPOSITORY)),
-    __metadata("design:paramtypes", [Object, Object, prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [Object, Object, prisma_service_1.PrismaService,
+        activity_log_service_1.ActivityLogService])
 ], VehicleService);
 //# sourceMappingURL=vehicle.service.js.map

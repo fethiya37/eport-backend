@@ -12,6 +12,7 @@ import { PrismaAssociationPolicyRepository } from '../../infrastructure/reposito
 import { PaymentsService } from 'src/application/services/payments.service';
 import { RouteAssignmentModule } from '../route-assignment/route-assignment.module';
 import { SmsModule } from '../sms/sms.module';
+import { ActivityLogModule } from '../activity-log/activity-log.module';
 
 
 @Module({
@@ -19,6 +20,7 @@ import { SmsModule } from '../sms/sms.module';
   imports: [
     RouteAssignmentModule,
     SmsModule,
+    ActivityLogModule,
   ],
   providers: [
     PaymentsService,

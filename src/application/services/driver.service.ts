@@ -22,14 +22,17 @@ import { isAdminLike } from '../../common/auth/roles.util';
 import * as bcrypt from 'bcrypt';
 import type { UserContext } from 'src/common/context/user-context';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
+import { ActivityLogService } from '../services/activity-log.service';
 
 @Injectable()
 export class DriverService {
   constructor(
     @Inject(DRIVER_REPOSITORY) private readonly drivers: IDriverRepository,
-    @Inject(ASSOCIATION_POLICY_REPOSITORY) private readonly policyRepo: IAssociationPolicyRepository,
+    @Inject(ASSOCIATION_POLICY_REPOSITORY)
+    private readonly policyRepo: IAssociationPolicyRepository,
     private readonly prisma: PrismaService,
-  ) { }
+    private readonly activityLog: ActivityLogService,
+  ) {}
 
   async create(ctx: UserContext, dto: CreateDriverDto) {
     if (isAdminLike(ctx.user_type)) {
@@ -39,7 +42,6 @@ export class DriverService {
       throw new BadRequestException('association_id is required');
     }
 
-    // ✅ Only block if a DRIVER already exists with this phone
     const driverUserExists = await this.prisma.user.findUnique({
       where: {
         phone_number_user_type: {
@@ -53,7 +55,7 @@ export class DriverService {
       throw new BadRequestException('Driver with this phone number already exists');
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const driver = await this.prisma.$transaction(async (tx) => {
       const password_hash = await bcrypt.hash(dto.phone_number, 10);
 
       const user = await tx.user.create({
@@ -67,7 +69,7 @@ export class DriverService {
         },
       });
 
-      const driver = await this.drivers.create(
+      const createdDriver = await this.drivers.create(
         ctx,
         {
           user_id: user.id,
@@ -80,11 +82,19 @@ export class DriverService {
         tx,
       );
 
-      return driver;
+      return createdDriver;
     });
+
+    await this.activityLog.log(ctx, {
+      module: 'Driver',
+      action: 'CREATE',
+      entity: 'Driver',
+      entity_id: driver.id,
+    });
+
+    return driver;
   }
 
-  // ===== List Drivers =====
   async findAll(ctx: UserContext, filter: DriverFilter) {
     return this.drivers.findAll(ctx, filter);
   }
@@ -108,7 +118,11 @@ export class DriverService {
     try {
       if (dto.phone_number && dto.phone_number !== (existing as any).phone_number) {
         const dup = await this.prisma.user.findFirst({
-          where: { phone_number: dto.phone_number, user_type: UserType.Driver, NOT: { id: (existing as any).user_id } },
+          where: {
+            phone_number: dto.phone_number,
+            user_type: UserType.Driver,
+            NOT: { id: (existing as any).user_id },
+          },
           select: { id: true },
         });
         if (dup) throw new BadRequestException('Driver with this phone number already exists');
@@ -122,7 +136,11 @@ export class DriverService {
         license_expiry: dto.license_expiry ? new Date(dto.license_expiry) : undefined,
         has_smartphone: dto.has_smartphone,
         active_until_date:
-          dto.active_until_date === undefined ? undefined : (dto.active_until_date ? new Date(dto.active_until_date) : null),
+          dto.active_until_date === undefined
+            ? undefined
+            : dto.active_until_date
+            ? new Date(dto.active_until_date)
+            : null,
         interest_accrued: dto.interest_accrued,
       });
 
@@ -136,6 +154,13 @@ export class DriverService {
         });
       }
 
+      await this.activityLog.log(ctx, {
+        module: 'Driver',
+        action: 'UPDATE',
+        entity: 'Driver',
+        entity_id: updated.id,
+      });
+
       return updated;
     } catch (err) {
       if (err instanceof BadRequestException) throw err;
@@ -146,7 +171,6 @@ export class DriverService {
     }
   }
 
-
   async remove(ctx: UserContext, id: number) {
     if (isAdminLike(ctx.user_type)) {
       throw new ForbiddenException('Admin/Superadmin cannot delete drivers');
@@ -155,7 +179,7 @@ export class DriverService {
     const driver = await this.drivers.findById(ctx, id);
     if (!driver) throw new NotFoundException('Driver not found');
 
-    return this.prisma.$transaction(async (tx) => {
+    const removed = await this.prisma.$transaction(async (tx) => {
       await this.drivers.remove(ctx, id, tx);
 
       await tx.vehicle.updateMany({
@@ -167,6 +191,15 @@ export class DriverService {
 
       return driver;
     });
+
+    await this.activityLog.log(ctx, {
+      module: 'Driver',
+      action: 'DELETE',
+      entity: 'Driver',
+      entity_id: removed.id,
+    });
+
+    return removed;
   }
 
   async findDriversWithoutVehicle(ctx: UserContext) {

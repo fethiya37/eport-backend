@@ -17,12 +17,13 @@ const association_repository_1 = require("../../domain/repositories/association.
 const prisma_association_repository_1 = require("../../infrastructure/repositories/prisma-association.repository");
 const route_repository_1 = require("../../domain/repositories/route.repository");
 const prisma_route_repository_1 = require("../../infrastructure/repositories/prisma-route.repository");
+const activity_log_module_1 = require("../activity-log/activity-log.module");
 let RouteQuotaModule = class RouteQuotaModule {
 };
 exports.RouteQuotaModule = RouteQuotaModule;
 exports.RouteQuotaModule = RouteQuotaModule = __decorate([
     (0, common_1.Module)({
-        imports: [prisma_module_1.PrismaModule],
+        imports: [prisma_module_1.PrismaModule, activity_log_module_1.ActivityLogModule],
         controllers: [route_quota_controller_1.RouteQuotaController],
         providers: [
             route_quota_service_1.RouteQuotaService,

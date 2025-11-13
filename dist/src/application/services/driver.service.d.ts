@@ -4,11 +4,13 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { CreateDriverDto } from '../../presentation/driver/dto/create-driver.dto';
 import { UpdateDriverDto } from '../../presentation/driver/dto/update-driver.dto';
 import type { UserContext } from 'src/common/context/user-context';
+import { ActivityLogService } from '../services/activity-log.service';
 export declare class DriverService {
     private readonly drivers;
     private readonly policyRepo;
     private readonly prisma;
-    constructor(drivers: IDriverRepository, policyRepo: IAssociationPolicyRepository, prisma: PrismaService);
+    private readonly activityLog;
+    constructor(drivers: IDriverRepository, policyRepo: IAssociationPolicyRepository, prisma: PrismaService, activityLog: ActivityLogService);
     create(ctx: UserContext, dto: CreateDriverDto): Promise<{
         id: number;
         phone_number: string;

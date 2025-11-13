@@ -3,10 +3,12 @@ import { CreateAssociationDto } from '../../presentation/association/dto/create-
 import { UpdateAssociationDto } from '../../presentation/association/dto/update-association.dto';
 import { PrismaService } from '../../../prisma/prisma.service';
 import type { UserContext } from 'src/common/context/user-context';
+import { ActivityLogService } from '../services/activity-log.service';
 export declare class AssociationService {
     private readonly associations;
     private readonly prisma;
-    constructor(associations: IAssociationRepository, prisma: PrismaService);
+    private readonly activityLog;
+    constructor(associations: IAssociationRepository, prisma: PrismaService, activityLog: ActivityLogService);
     publicList(filter?: AssociationFilter): Promise<{
         id: number;
         phone_number: string | null;

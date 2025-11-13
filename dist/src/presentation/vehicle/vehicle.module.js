@@ -14,6 +14,7 @@ const vehicle_service_1 = require("../../application/services/vehicle.service");
 const vehicle_repository_1 = require("../../domain/repositories/vehicle.repository");
 const prisma_vehicle_repository_1 = require("../../infrastructure/repositories/prisma-vehicle.repository");
 const association_policy_module_1 = require("../association-policy/association-policy.module");
+const activity_log_module_1 = require("../activity-log/activity-log.module");
 let VehicleModule = class VehicleModule {
 };
 exports.VehicleModule = VehicleModule;
@@ -22,6 +23,7 @@ exports.VehicleModule = VehicleModule = __decorate([
         imports: [
             prisma_module_1.PrismaModule,
             association_policy_module_1.AssociationPolicyModule,
+            activity_log_module_1.ActivityLogModule,
         ],
         controllers: [vehicle_controller_1.VehicleController],
         providers: [

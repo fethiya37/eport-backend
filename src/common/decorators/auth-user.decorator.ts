@@ -5,14 +5,10 @@ export type AuthUserPayload = {
   user_type: 'Superadmin' | 'Admin' | 'Association' | 'Driver' | 'Controller';
   association_id: number | null;
   jti: string;
-  exp: number; // seconds since epoch
+  exp: number; 
 };
 
-/**
- * Usage:
- *  - @AuthUser() user: AuthUserPayload            -> full object
- *  - @AuthUser('association_id') associationId: number | null
- */
+
 export const AuthUser = createParamDecorator(
   (data: keyof AuthUserPayload | undefined, ctx: ExecutionContext) => {
     const req = ctx.switchToHttp().getRequest();

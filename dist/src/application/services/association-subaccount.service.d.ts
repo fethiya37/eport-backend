@@ -2,11 +2,13 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { ChapaApiService } from '../../infrastructure/payments/chapa-api.service';
 import { type IAssociationSubaccountRepository } from '../../domain/repositories/association-subaccount.repository';
 import type { UserContext } from '../../common/context/user-context';
+import { ActivityLogService } from '../services/activity-log.service';
 export declare class AssociationSubaccountService {
     private readonly prisma;
     private readonly chapa;
     private readonly repo;
-    constructor(prisma: PrismaService, chapa: ChapaApiService, repo: IAssociationSubaccountRepository);
+    private readonly activityLog;
+    constructor(prisma: PrismaService, chapa: ChapaApiService, repo: IAssociationSubaccountRepository, activityLog: ActivityLogService);
     private resolveAssociationId;
     createForAssociation(ctx: UserContext, dto: {
         bank_code: number;

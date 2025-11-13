@@ -3,9 +3,11 @@ import { UpsertGroupWithRoutesDto } from '../../presentation/routes/dto/upsert-g
 import type { UserContext } from 'src/common/context/user-context';
 import { RouteFilter } from 'src/domain/repositories/route.repository';
 import type { IRoutesRepository } from 'src/domain/repositories/route.repository';
+import { ActivityLogService } from '../services/activity-log.service';
 export declare class RoutesService {
     private readonly repo;
-    constructor(repo: IRoutesRepository);
+    private readonly activityLog;
+    constructor(repo: IRoutesRepository, activityLog: ActivityLogService);
     listRouteGroups(includeRoutes?: boolean): Promise<({
         id: number;
         created_at: Date;

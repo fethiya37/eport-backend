@@ -7,9 +7,11 @@ import { PrismaModule } from '../../../prisma/prisma.module';
 import { DRIVER_REPOSITORY } from '../../domain/repositories/driver.repository';
 import { PrismaDriverRepository } from '../../infrastructure/repositories/prisma-driver.repository';
 import { AssociationPolicyModule } from 'src/presentation/association-policy/association-policy.module';
+import { ActivityLogModule } from '../activity-log/activity-log.module';
 
 @Module({
   imports: [
+    ActivityLogModule,
     PrismaModule,
     AssociationPolicyModule, 
   ],

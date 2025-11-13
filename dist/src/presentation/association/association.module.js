@@ -13,11 +13,14 @@ const association_service_1 = require("../../application/services/association.se
 const prisma_service_1 = require("../../../prisma/prisma.service");
 const association_repository_1 = require("../../domain/repositories/association.repository");
 const prisma_association_repository_1 = require("../../infrastructure/repositories/prisma-association.repository");
+const prisma_module_1 = require("../../../prisma/prisma.module");
+const activity_log_module_1 = require("../activity-log/activity-log.module");
 let AssociationModule = class AssociationModule {
 };
 exports.AssociationModule = AssociationModule;
 exports.AssociationModule = AssociationModule = __decorate([
     (0, common_1.Module)({
+        imports: [prisma_module_1.PrismaModule, activity_log_module_1.ActivityLogModule],
         controllers: [association_controller_1.AssociationController],
         providers: [
             association_service_1.AssociationService,

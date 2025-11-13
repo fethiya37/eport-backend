@@ -1,11 +1,17 @@
-import { Injectable, ForbiddenException, UnauthorizedException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  ForbiddenException,
+  UnauthorizedException,
+  ConflictException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { UserType } from '@prisma/client';
+import { ActivityLogService } from './activity-log.service';
 
-type LoginInput  = { phone_number: string; password: string; as?: UserType };
+type LoginInput = { phone_number: string; password: string; as?: UserType };
 type LogoutInput = { user_id: number; jti: string; exp: number; token_hash: string };
 
 const SHARABLE_ROLES = new Set<UserType>(['Association', 'Driver']);
@@ -16,36 +22,56 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
+    private readonly activityLog: ActivityLogService,
   ) {}
 
-  private pickUserByIntent(candidates: { id: number; user_type: UserType; association_id: number | null; is_locked: boolean; password_hash: string | null; phone_number: string; name: string | null }[], as?: UserType) {
+  private pickUserByIntent(
+    candidates: {
+      id: number;
+      user_type: UserType;
+      association_id: number | null;
+      is_locked: boolean;
+      password_hash: string | null;
+      phone_number: string;
+      name: string | null;
+    }[],
+    as?: UserType,
+  ) {
     if (candidates.length === 1) return candidates[0];
 
     if (as && SHARABLE_ROLES.has(as)) {
-      const m = candidates.find(u => u.user_type === as);
+      const m = candidates.find((u) => u.user_type === as);
       if (m) return m;
-      const nonSharable = candidates.find(u => NON_SHARABLE_ROLES.has(u.user_type));
+      const nonSharable = candidates.find((u) => NON_SHARABLE_ROLES.has(u.user_type));
       if (nonSharable) return nonSharable;
     }
 
-    const nonSharable = candidates.find(u => NON_SHARABLE_ROLES.has(u.user_type));
+    const nonSharable = candidates.find((u) => NON_SHARABLE_ROLES.has(u.user_type));
     if (nonSharable) return nonSharable;
 
     if (as && SHARABLE_ROLES.has(as)) {
-      const m = candidates.find(u => u.user_type === as);
+      const m = candidates.find((u) => u.user_type === as);
       if (m) return m;
     }
 
     throw new ConflictException({
       message: 'Multiple roles exist for this phone; client must specify "as"',
-      available_roles: candidates.map(u => u.user_type),
+      available_roles: candidates.map((u) => u.user_type),
     });
   }
 
   async login(input: LoginInput) {
     const candidates = await this.prisma.user.findMany({
       where: { phone_number: input.phone_number },
-      select: { id: true, user_type: true, association_id: true, is_locked: true, password_hash: true, phone_number: true, name: true },
+      select: {
+        id: true,
+        user_type: true,
+        association_id: true,
+        is_locked: true,
+        password_hash: true,
+        phone_number: true,
+        name: true,
+      },
       orderBy: { id: 'asc' },
     });
 
@@ -59,7 +85,10 @@ export class AuthService {
     const ok = await bcrypt.compare(input.password, user.password_hash);
     if (!ok) throw new UnauthorizedException('invalid credentials');
 
-    if ((user.user_type === UserType.Association || user.user_type === UserType.Driver) && !user.association_id) {
+    if (
+      (user.user_type === UserType.Association || user.user_type === UserType.Driver) &&
+      !user.association_id
+    ) {
       throw new ForbiddenException(`User type ${user.user_type} must belong to an association`);
     }
 
@@ -86,7 +115,9 @@ export class AuthService {
     const access_token = await this.jwt.signAsync(payload, { expiresIn });
 
     const decoded = this.jwt.decode(access_token) as { exp?: number } | null;
-    const expDate = decoded?.exp ? new Date(decoded.exp * 1000) : new Date(Date.now() + 24 * 3600 * 1000);
+    const expDate = decoded?.exp
+      ? new Date(decoded.exp * 1000)
+      : new Date(Date.now() + 24 * 3600 * 1000);
 
     const token_hash = crypto.createHash('sha256').update(access_token).digest('hex');
     await this.prisma.userToken.create({
@@ -101,6 +132,20 @@ export class AuthService {
       });
       association_name = assoc?.name ?? null;
     }
+
+    await this.activityLog.log(
+      {
+        userId: user.id,
+        user_type: user.user_type,
+        association_id: user.association_id ?? null,
+      } as any,
+      {
+        module: 'Auth',
+        action: 'LOGIN_SUCCESS',
+        entity: 'User',
+        entity_id: user.id,
+      },
+    );
 
     return {
       access_token,
@@ -122,7 +167,11 @@ export class AuthService {
     await this.prisma.$transaction([
       this.prisma.revokedToken.upsert({
         where: { jti: input.jti },
-        create: { jti: input.jti, user_id: input.user_id, expires_at: new Date(input.exp * 1000) },
+        create: {
+          jti: input.jti,
+          user_id: input.user_id,
+          expires_at: new Date(input.exp * 1000),
+        },
         update: { expires_at: new Date(input.exp * 1000) },
       }),
       this.prisma.userToken.updateMany({
@@ -130,6 +179,14 @@ export class AuthService {
         data: { revoked: true },
       }),
     ]);
+
+    await this.activityLog.log(null, {
+      module: 'Auth',
+      action: 'LOGOUT',
+      entity: 'User',
+      entity_id: input.user_id,
+    });
+
     return { status: 'ok' };
   }
 }

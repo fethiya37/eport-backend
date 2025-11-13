@@ -19,12 +19,15 @@ const roles_util_1 = require("../../common/auth/roles.util");
 const client_1 = require("@prisma/client");
 const prisma_service_1 = require("../../../prisma/prisma.service");
 const ethio_period_util_1 = require("../../common/utils/ethio-period.util");
+const activity_log_service_1 = require("../services/activity-log.service");
 let RouteAssignmentService = class RouteAssignmentService {
     repo;
     prisma;
-    constructor(repo, prisma) {
+    activityLog;
+    constructor(repo, prisma, activityLog) {
         this.repo = repo;
         this.prisma = prisma;
+        this.activityLog = activityLog;
     }
     parseGcDate(d) {
         if (d instanceof Date)
@@ -67,10 +70,12 @@ let RouteAssignmentService = class RouteAssignmentService {
             const end_date = this.parseGcDate(it.end_date);
             if (start_date > end_date)
                 throw new common_1.BadRequestException('start_date must be <= end_date');
-            if (!(await this.existsRoute(it.route_id)))
+            if (!(await this.existsRoute(it.route_id))) {
                 throw new common_1.BadRequestException(`Route ${it.route_id} not found`);
-            if (!(await this.existsVehicleInAssociation(it.vehicle_id, association_id)))
+            }
+            if (!(await this.existsVehicleInAssociation(it.vehicle_id, association_id))) {
                 throw new common_1.BadRequestException(`Vehicle ${it.vehicle_id} not in association`);
+            }
             const overlaps = await this.existsVehicleOverlap(association_id, it.vehicle_id, start_date, end_date, it.id);
             if (overlaps) {
                 throw new common_1.BadRequestException(`Vehicle ${it.vehicle_id} has overlapping assignment`);
@@ -104,12 +109,29 @@ let RouteAssignmentService = class RouteAssignmentService {
                 payment_status,
             });
         }
-        return this.repo.upsertMany(rows);
+        const saved = await this.repo.upsertMany(rows);
+        for (const a of saved) {
+            await this.activityLog.log(ctx, {
+                module: 'RouteAssignment',
+                action: 'UPSERT',
+                entity: 'RouteAssignment',
+                entity_id: a.id,
+            });
+        }
+        return saved;
     }
     async approve(ctx, dto) {
         if (!(0, roles_util_1.isAdminLike)(ctx.user_type))
             throw new common_1.ForbiddenException('Only Admin/Superadmin');
         const updated = await this.repo.approveMany(dto.ids, ctx.userId);
+        for (const id of dto.ids) {
+            await this.activityLog.log(ctx, {
+                module: 'RouteAssignment',
+                action: 'APPROVE',
+                entity: 'RouteAssignment',
+                entity_id: id,
+            });
+        }
         return { approved: updated };
     }
     async find(ctx, filter) {
@@ -129,7 +151,7 @@ let RouteAssignmentService = class RouteAssignmentService {
             payment_status: f.payment_status,
             route_quota_id: f.route_quota_id,
         });
-        return results.map(r => ({
+        return results.map((r) => ({
             id: r.id,
             start_date: r.start_date,
             end_date: r.end_date,
@@ -155,7 +177,7 @@ let RouteAssignmentService = class RouteAssignmentService {
         const existing = (await this.repo.findByIds([id]))[0];
         if (!existing)
             throw new common_1.NotFoundException('Assignment not found');
-        if (!(0, roles_util_1.isAdminLike)(ctx.user_type) && existing.status === 'Approved') {
+        if (!(0, roles_util_1.isAdminLike)(ctx.user_type) && existing.status === client_1.RouteAssignmentStatus.Approved) {
             throw new common_1.ForbiddenException('Association users cannot update approved assignments');
         }
         const start_date = dto.start_date ? this.parseGcDate(dto.start_date) : existing.start_date;
@@ -193,6 +215,12 @@ let RouteAssignmentService = class RouteAssignmentService {
                 payment_status,
             },
         ]);
+        await this.activityLog.log(ctx, {
+            module: 'RouteAssignment',
+            action: 'UPDATE',
+            entity: 'RouteAssignment',
+            entity_id: saved.id,
+        });
         return saved;
     }
     async remove(ctx, id) {
@@ -202,7 +230,14 @@ let RouteAssignmentService = class RouteAssignmentService {
         if (!(0, roles_util_1.isAdminLike)(ctx.user_type) && existing.status === client_1.RouteAssignmentStatus.Approved) {
             throw new common_1.ForbiddenException('Association users cannot delete approved assignments');
         }
-        return this.repo.remove(id);
+        const removed = await this.repo.remove(id);
+        await this.activityLog.log(ctx, {
+            module: 'RouteAssignment',
+            action: 'DELETE',
+            entity: 'RouteAssignment',
+            entity_id: id,
+        });
+        return removed;
     }
     async visibleCoverage(ctx, q) {
         let vehicle = null;
@@ -273,7 +308,9 @@ let RouteAssignmentService = class RouteAssignmentService {
         if (!driver)
             throw new common_1.NotFoundException('Driver not found');
         const today = (0, ethio_period_util_1.startOfDay)(new Date());
-        if (!driver.active_until_date || (0, ethio_period_util_1.startOfDay)(driver.active_until_date) < today || vehicle.status === client_1.VehicleStatus.INACTIVE) {
+        if (!driver.active_until_date ||
+            (0, ethio_period_util_1.startOfDay)(driver.active_until_date) < today ||
+            vehicle.status === client_1.VehicleStatus.INACTIVE) {
             return { not_full_filled: true };
         }
         const windowStart = vehicle.is_weekly ? (0, ethio_period_util_1.startOfWeekMonday)(today) : (0, ethio_period_util_1.etMonthStart)(today);
@@ -292,7 +329,9 @@ let RouteAssignmentService = class RouteAssignmentService {
         });
         if (assignments.length === 0) {
             return {
-                message: `Route assignment doesn't exist for ${windowStart.toISOString().slice(0, 10)} - ${windowEnd.toISOString().slice(0, 10)}`,
+                message: `Route assignment doesn't exist for ${windowStart
+                    .toISOString()
+                    .slice(0, 10)} - ${windowEnd.toISOString().slice(0, 10)}`,
                 driver_active_until: driver.active_until_date.toISOString().slice(0, 10),
             };
         }
@@ -322,6 +361,7 @@ exports.RouteAssignmentService = RouteAssignmentService;
 exports.RouteAssignmentService = RouteAssignmentService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, common_1.Inject)(route_assignment_repository_1.ROUTE_ASSIGNMENT_REPOSITORY)),
-    __metadata("design:paramtypes", [Object, prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [Object, prisma_service_1.PrismaService,
+        activity_log_service_1.ActivityLogService])
 ], RouteAssignmentService);
 //# sourceMappingURL=route-assignment.service.js.map

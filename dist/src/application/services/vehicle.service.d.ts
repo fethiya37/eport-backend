@@ -5,11 +5,13 @@ import { UpdateVehicleDto } from '../../presentation/vehicle/dto/update-vehicle.
 import { PrismaService } from '../../../prisma/prisma.service';
 import { UserContext } from 'src/common/context/user-context';
 import { type IAssociationPolicyRepository } from '../../domain/repositories/association-policy.repository';
+import { ActivityLogService } from '../services/activity-log.service';
 export declare class VehicleService {
     private readonly vehicles;
     private readonly policyRepo;
     private readonly prisma;
-    constructor(vehicles: IVehicleRepository, policyRepo: IAssociationPolicyRepository, prisma: PrismaService);
+    private readonly activityLog;
+    constructor(vehicles: IVehicleRepository, policyRepo: IAssociationPolicyRepository, prisma: PrismaService, activityLog: ActivityLogService);
     private pad2;
     private ymdUTC;
     private todayEatYmd;

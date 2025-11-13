@@ -5,10 +5,12 @@ import { UpdateUserDto } from '../../presentation/user/dto/update-user.dto';
 import { ChangePasswordDto } from '../../presentation/user/dto/change-password.dto';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { UserContext } from 'src/common/context/user-context';
+import { ActivityLogService } from '../services/activity-log.service';
 export declare class UserService {
     private readonly users;
     private readonly prisma;
-    constructor(users: IUserRepository, prisma: PrismaService);
+    private readonly activityLog;
+    constructor(users: IUserRepository, prisma: PrismaService, activityLog: ActivityLogService);
     create(ctx: UserContext, dto: CreateUserDto): Promise<{
         id: number;
         phone_number: string;

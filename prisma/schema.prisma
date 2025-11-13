@@ -77,6 +77,7 @@ model User {
   assigned_route_assignments RouteAssignment[] @relation("assigner")
   approved_route_assignments RouteAssignment[] @relation("approver")
   driver_payments_created    DriverPayment[]   @relation("payment_creator")
+  activity_logs              ActivityLog[]
 
   @@unique([phone_number, user_type])
   @@index([association_id])
@@ -122,6 +123,7 @@ model Association {
   vehicles          Vehicle[]
   route_quotas      RouteQuota[]
   route_assignments RouteAssignment[]
+  activity_logs     ActivityLog[]
 
   payment_policy  AssociationPolicy?
   driver_payments DriverPayment[]
@@ -355,4 +357,24 @@ model AssociationSubaccount {
   association Association @relation(fields: [association_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   @@map("association_subaccounts")
+}
+
+model ActivityLog {
+  id             Int      @id @default(autoincrement())
+  user_id        Int?
+  association_id Int?
+  action         String   @db.VarChar(100)
+  entity_type    String?  @db.VarChar(100)
+  entity_id      Int?
+  description    String?
+  ip_address     String?  @db.VarChar(45)
+  created_at     DateTime @default(now())
+
+  user        User?        @relation(fields: [user_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  association Association? @relation(fields: [association_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([user_id, created_at])
+  @@index([association_id, created_at])
+  @@index([action])
+  @@map("activity_logs")
 }

@@ -15,6 +15,7 @@ import { UserType } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { isAdminLike } from '../../common/auth/roles.util';
 import { UserContext } from 'src/common/context/user-context';
+import { ActivityLogService } from '../services/activity-log.service';
 
 function canManage(acting: UserType, target: UserType): boolean {
   if (acting === 'Superadmin') return ['Superadmin', 'Admin', 'Controller', 'Association'].includes(target);
@@ -29,6 +30,7 @@ export class UserService {
   constructor(
     @Inject(USER_REPOSITORY) private readonly users: IUserRepository,
     private readonly prisma: PrismaService,
+    private readonly activityLog: ActivityLogService,
   ) {}
 
   async create(ctx: UserContext, dto: CreateUserDto) {
@@ -69,13 +71,22 @@ export class UserService {
 
     const password_hash = await bcrypt.hash(dto.phone_number, 10);
 
-    return this.users.create({
+    const created = await this.users.create({
       phone_number: dto.phone_number,
       user_type: dto.user_type,
       name: dto.name ?? null,
       association_id: associationId,
       password_hash,
     });
+
+    await this.activityLog.log(ctx, {
+      module: 'User',
+      action: 'CREATE',
+      entity: 'User',
+      entity_id: created.id,
+    });
+
+    return created;
   }
 
   async findAll(ctx: UserContext, raw: UserFilter) {
@@ -146,13 +157,22 @@ export class UserService {
       finalAssociationId = null;
     }
 
-    return this.users.update(id, {
+    const updated = await this.users.update(id, {
       phone_number: nextPhone,
       user_type: nextRole,
       name: dto.name !== undefined ? dto.name : existing.name,
       is_locked: dto.is_locked ?? existing.is_locked,
       association_id: finalAssociationId,
     });
+
+    await this.activityLog.log(ctx, {
+      module: 'User',
+      action: 'UPDATE',
+      entity: 'User',
+      entity_id: id,
+    });
+
+    return updated;
   }
 
   async remove(ctx: UserContext, id: number) {
@@ -163,7 +183,17 @@ export class UserService {
       throw new ForbiddenException('Insufficient privileges');
     }
     if (id === ctx.userId) throw new ForbiddenException('You cannot delete yourself');
-    return this.users.remove(id);
+
+    const deleted = await this.users.remove(id);
+
+    await this.activityLog.log(ctx, {
+      module: 'User',
+      action: 'DELETE',
+      entity: 'User',
+      entity_id: id,
+    });
+
+    return deleted;
   }
 
   async changeOwnPassword(ctx: UserContext, dto: ChangePasswordDto) {
@@ -175,6 +205,14 @@ export class UserService {
 
     const new_hash = await bcrypt.hash(dto.new_password, 10);
     await this.users.update(ctx.userId, { password_hash: new_hash });
+
+    await this.activityLog.log(ctx, {
+      module: 'User',
+      action: 'CHANGE_PASSWORD',
+      entity: 'User',
+      entity_id: ctx.userId,
+    });
+
     return { success: true };
   }
 }

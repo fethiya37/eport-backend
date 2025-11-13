@@ -4,9 +4,10 @@ import { OwnerController } from './owner.controller';
 import { OwnerService } from '../../application/services/owner.service';
 import { OWNER_REPOSITORY } from '../../domain/repositories/owner.repository';
 import { PrismaOwnerRepository } from '../../infrastructure/repositories/prisma-owner.repository';
+import { ActivityLogModule } from '../activity-log/activity-log.module'; // ✅
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, ActivityLogModule],
   controllers: [OwnerController],
   providers: [
     OwnerService,

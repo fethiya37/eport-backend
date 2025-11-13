@@ -18,6 +18,7 @@ import { JobsModule } from './application/jobs/jobs.module';
 import { SmsModule } from './presentation/sms/sms.module';
 import { HealthController } from './health.controller';
 import { ChapaSubaccountModule } from './presentation/chapa-subaccount/chapa-subaccount.module';
+import { ActivityLogModule } from './presentation/activity-log/activity-log.module';
 
 @Module({
   imports: [
@@ -36,11 +37,12 @@ import { ChapaSubaccountModule } from './presentation/chapa-subaccount/chapa-sub
     JobsModule,
     SmsModule,
     ChapaSubaccountModule,
+     ActivityLogModule,
   ],
   controllers: [HealthController],
   providers: [
-    { provide: APP_GUARD, useClass: JwtAuthGuard }, // every route needs a valid JWT
-    { provide: APP_GUARD, useClass: RolesGuard },   // @Roles() works anywhere
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: RolesGuard },
   ],
 })
 export class AppModule { }

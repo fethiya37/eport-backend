@@ -25,6 +25,7 @@ import { isAdminLike } from '../../common/auth/roles.util';
 import { PaymentMethod } from '@prisma/client';
 import { RouteAssignmentService } from './route-assignment.service';
 import { SmsGatewayService } from './sms-gateway.service';
+import { ActivityLogService } from './activity-log.service';
 
 @Injectable()
 export class PaymentsService {
@@ -35,12 +36,13 @@ export class PaymentsService {
     private readonly prisma: PrismaService,
     private readonly routeService: RouteAssignmentService,
     private readonly smsGateway: SmsGatewayService,
-  ) { }
+    private readonly activityLog: ActivityLogService,
+  ) {}
 
-  // ===== utils =====
   private pad2(n: number) {
     return n < 10 ? `0${n}` : `${n}`;
   }
+
   private ymdEAT(d: Date): string {
     const eatMs = d.getTime() + 3 * 3600_000;
     const eat = new Date(eatMs);
@@ -49,13 +51,16 @@ export class PaymentsService {
     const day = this.pad2(eat.getUTCDate());
     return `${y}-${m}-${day}`;
   }
+
   private todayEatYmd(): string {
     return this.ymdEAT(new Date());
   }
+
   private isOverdueEAT(activeUntil?: Date | null): boolean {
     if (!activeUntil) return true;
     return this.ymdEAT(activeUntil) < this.todayEatYmd();
   }
+
   private startOfDay(d: Date): Date {
     return new Date(d.getFullYear(), d.getMonth(), d.getDate());
   }
@@ -67,7 +72,6 @@ export class PaymentsService {
     return digits;
   }
 
-
   private async getFees(association_id: number) {
     const p = await this.policy.get(association_id);
     if (!p) throw new BadRequestException('Association policy not configured');
@@ -78,7 +82,6 @@ export class PaymentsService {
     };
   }
 
-  // For saving into DB (Prisma enum)
   private parsePaymentMethod(value?: string): PaymentMethod | null {
     if (!value) return null;
     const v = value.trim().toUpperCase();
@@ -95,7 +98,6 @@ export class PaymentsService {
     }
   }
 
-  // For tx_ref builder (string-literal union)
   private coercePaymentMethodLiteral(
     value?: string,
   ): 'CASH' | 'BANK' | 'MOBILE' | 'OTHER' {
@@ -161,7 +163,7 @@ export class PaymentsService {
   ) {
     const days =
       Math.floor(this.startOfDay(endGc).getTime() - this.startOfDay(startGc).getTime()) /
-      86_400_000 +
+        86_400_000 +
       1;
     const expectedWeeks = isOverdue ? 1 + prepayQty : Math.max(1, prepayQty);
     if (days % 7 !== 0 || days / 7 !== expectedWeeks) {
@@ -185,10 +187,11 @@ export class PaymentsService {
         'covered_start_date/covered_end_date must be valid ISO 8601',
       );
     }
-    if (startGc > endGc)
+    if (startGc > endGc) {
       throw new BadRequestException(
         'covered_start_date must be <= covered_end_date',
       );
+    }
     if (feePlan === 'WEEKLY') {
       this.assertWeeklyWindow(startGc, endGc, isOverdue, prepayQty);
     }
@@ -215,7 +218,6 @@ export class PaymentsService {
     return { firstName, lastName };
   }
 
-  // ===== main =====
   async applyPayment(ctx: UserContext, dto: PayDto) {
     const d = await this.resolveDriver(ctx, dto.driver_id, dto.plate_number);
 
@@ -243,12 +245,13 @@ export class PaymentsService {
 
     if (dto.amount !== undefined) {
       const provided = Math.round((dto.amount + Number.EPSILON) * 100) / 100;
-      if (provided !== total)
+      if (provided !== total) {
         throw new BadRequestException(`Total mismatch. Expected ${total}, got ${provided}`);
+      }
     }
 
-    await this.prisma.$transaction(async (tx) => {
-      await this.payments.create(
+    const createdPayment = await this.prisma.$transaction(async (tx) => {
+      const payment = await this.payments.create(
         {
           association_id: d.association_id,
           driver_id: d.id,
@@ -289,6 +292,15 @@ export class PaymentsService {
         last_accrual_amount: 0,
         last_accrual_date: null,
       });
+
+      return payment;
+    });
+
+    await this.activityLog.log(ctx, {
+      module: 'Payments',
+      action: 'APPLY',
+      entity: 'DriverPayment',
+      entity_id: createdPayment.id,
     });
 
     const coverage = await this.routeService.visibleCoverage(ctx, {
@@ -347,10 +359,10 @@ export class PaymentsService {
       paid_at: this.ymdEAT(p.paid_at),
       driver: p.driver
         ? {
-          full_name: p.driver.full_name,
-          phone_number: p.driver.phone_number,
-          username: p.driver.user?.name,
-        }
+            full_name: p.driver.full_name,
+            phone_number: p.driver.phone_number,
+            username: p.driver.user?.name,
+          }
         : null,
     }));
   }
@@ -433,7 +445,6 @@ export class PaymentsService {
     };
   }
 
-
   async initOnlineFromPayDto(ctx: UserContext, dto: PayDto) {
     const d = await this.resolveDriver(ctx, dto.driver_id, dto.plate_number);
 
@@ -512,6 +523,13 @@ export class PaymentsService {
     const chapa = await res.json();
     if (!res.ok) throw new BadRequestException(chapa);
 
+    await this.activityLog.log(ctx, {
+      module: 'Payments',
+      action: 'INIT_ONLINE',
+      entity: 'Driver',
+      entity_id: d.id,
+    });
+
     return {
       tx_ref: txRef,
       amount: total,
@@ -521,11 +539,12 @@ export class PaymentsService {
     };
   }
 
-  // === Callback: verify & record as the DRIVER ===
   async recordAfterChapaSuccess(txRef: string) {
     const verify = await this.verify(txRef);
     const ok = verify?.status === 'success' && verify?.data?.status === 'success';
-    if (!ok) return { recorded: false, status: verify?.data?.status ?? 'pending' };
+    if (!ok) {
+      return { recorded: false, status: verify?.data?.status ?? 'pending' };
+    }
 
     const parsed = this.parseTxRefOnline(txRef);
 
@@ -556,6 +575,20 @@ export class PaymentsService {
 
     const paid = Number(verify.data.amount);
     if (paid !== expected) {
+      await this.activityLog.log(
+        {
+          userId: driver.user_id,
+          user_type: 'Driver',
+          association_id: driver.association_id,
+        },
+        {
+          module: 'Payments',
+          action: 'ONLINE_MISMATCH',
+          entity: 'Driver',
+          entity_id: driver.id,
+        },
+      );
+
       return { recorded: false, status: 'mismatch', expected, paid, tx_ref: txRef };
     }
 
@@ -573,6 +606,13 @@ export class PaymentsService {
       covered_end_date: parsed.covered_end_date,
       payment_method: parsed.payment_method,
     } as PayDto);
+
+    await this.activityLog.log(ctx, {
+      module: 'Payments',
+      action: 'ONLINE_SUCCESS',
+      entity: 'Driver',
+      entity_id: driver.id,
+    });
 
     const ref_id = verify?.data?.reference || verify?.data?.ref_id || null;
     return { recorded: true, status: 'success', ref_id, tx_ref: txRef };

@@ -1,6 +1,7 @@
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { UserType } from '@prisma/client';
+import { ActivityLogService } from './activity-log.service';
 type LoginInput = {
     phone_number: string;
     password: string;
@@ -15,7 +16,8 @@ type LogoutInput = {
 export declare class AuthService {
     private readonly prisma;
     private readonly jwt;
-    constructor(prisma: PrismaService, jwt: JwtService);
+    private readonly activityLog;
+    constructor(prisma: PrismaService, jwt: JwtService, activityLog: ActivityLogService);
     private pickUserByIntent;
     login(input: LoginInput): Promise<{
         access_token: string;

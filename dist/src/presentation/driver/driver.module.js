@@ -14,12 +14,14 @@ const prisma_module_1 = require("../../../prisma/prisma.module");
 const driver_repository_1 = require("../../domain/repositories/driver.repository");
 const prisma_driver_repository_1 = require("../../infrastructure/repositories/prisma-driver.repository");
 const association_policy_module_1 = require("../association-policy/association-policy.module");
+const activity_log_module_1 = require("../activity-log/activity-log.module");
 let DriverModule = class DriverModule {
 };
 exports.DriverModule = DriverModule;
 exports.DriverModule = DriverModule = __decorate([
     (0, common_1.Module)({
         imports: [
+            activity_log_module_1.ActivityLogModule,
             prisma_module_1.PrismaModule,
             association_policy_module_1.AssociationPolicyModule,
         ],

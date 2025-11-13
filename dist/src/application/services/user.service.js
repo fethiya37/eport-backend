@@ -51,6 +51,7 @@ const user_repository_1 = require("../../domain/repositories/user.repository");
 const prisma_service_1 = require("../../../prisma/prisma.service");
 const bcrypt = __importStar(require("bcrypt"));
 const roles_util_1 = require("../../common/auth/roles.util");
+const activity_log_service_1 = require("../services/activity-log.service");
 function canManage(acting, target) {
     if (acting === 'Superadmin')
         return ['Superadmin', 'Admin', 'Controller', 'Association'].includes(target);
@@ -62,9 +63,11 @@ const SHARABLE_ROLES = new Set(['Association', 'Driver']);
 let UserService = class UserService {
     users;
     prisma;
-    constructor(users, prisma) {
+    activityLog;
+    constructor(users, prisma, activityLog) {
         this.users = users;
         this.prisma = prisma;
+        this.activityLog = activityLog;
     }
     async create(ctx, dto) {
         if (!(0, roles_util_1.isAdminLike)(ctx.user_type))
@@ -100,13 +103,20 @@ let UserService = class UserService {
             associationId = null;
         }
         const password_hash = await bcrypt.hash(dto.phone_number, 10);
-        return this.users.create({
+        const created = await this.users.create({
             phone_number: dto.phone_number,
             user_type: dto.user_type,
             name: dto.name ?? null,
             association_id: associationId,
             password_hash,
         });
+        await this.activityLog.log(ctx, {
+            module: 'User',
+            action: 'CREATE',
+            entity: 'User',
+            entity_id: created.id,
+        });
+        return created;
     }
     async findAll(ctx, raw) {
         const filter = { ...raw };
@@ -173,13 +183,20 @@ let UserService = class UserService {
         else {
             finalAssociationId = null;
         }
-        return this.users.update(id, {
+        const updated = await this.users.update(id, {
             phone_number: nextPhone,
             user_type: nextRole,
             name: dto.name !== undefined ? dto.name : existing.name,
             is_locked: dto.is_locked ?? existing.is_locked,
             association_id: finalAssociationId,
         });
+        await this.activityLog.log(ctx, {
+            module: 'User',
+            action: 'UPDATE',
+            entity: 'User',
+            entity_id: id,
+        });
+        return updated;
     }
     async remove(ctx, id) {
         const user = await this.users.findById(id);
@@ -192,7 +209,14 @@ let UserService = class UserService {
         }
         if (id === ctx.userId)
             throw new common_1.ForbiddenException('You cannot delete yourself');
-        return this.users.remove(id);
+        const deleted = await this.users.remove(id);
+        await this.activityLog.log(ctx, {
+            module: 'User',
+            action: 'DELETE',
+            entity: 'User',
+            entity_id: id,
+        });
+        return deleted;
     }
     async changeOwnPassword(ctx, dto) {
         const me = await this.users.findById(ctx.userId);
@@ -203,6 +227,12 @@ let UserService = class UserService {
             throw new common_1.BadRequestException('old password is incorrect');
         const new_hash = await bcrypt.hash(dto.new_password, 10);
         await this.users.update(ctx.userId, { password_hash: new_hash });
+        await this.activityLog.log(ctx, {
+            module: 'User',
+            action: 'CHANGE_PASSWORD',
+            entity: 'User',
+            entity_id: ctx.userId,
+        });
         return { success: true };
     }
 };
@@ -210,6 +240,7 @@ exports.UserService = UserService;
 exports.UserService = UserService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, common_1.Inject)(user_repository_1.USER_REPOSITORY)),
-    __metadata("design:paramtypes", [Object, prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [Object, prisma_service_1.PrismaService,
+        activity_log_service_1.ActivityLogService])
 ], UserService);
 //# sourceMappingURL=user.service.js.map

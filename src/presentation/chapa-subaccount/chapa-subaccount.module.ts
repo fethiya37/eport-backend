@@ -5,9 +5,10 @@ import { AssociationSubaccountService } from '../../application/services/associa
 import { ChapaApiService } from '../../infrastructure/payments/chapa-api.service';
 import { ASSOCIATION_SUBACCOUNT_REPOSITORY } from '../../domain/repositories/association-subaccount.repository';
 import { PrismaAssociationSubaccountRepository } from '../../infrastructure/repositories/prisma-association-subaccount.repository';
+import { ActivityLogModule } from '../activity-log/activity-log.module';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, ActivityLogModule],
   controllers: [ChapaSubaccountController],
   providers: [
     AssociationSubaccountService,

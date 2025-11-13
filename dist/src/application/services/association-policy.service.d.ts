@@ -1,8 +1,10 @@
 import { type IAssociationPolicyRepository } from '../../domain/repositories/association-policy.repository';
 import type { UserContext } from 'src/common/context/user-context';
+import { ActivityLogService } from './activity-log.service';
 export declare class AssociationPolicyService {
     private readonly repo;
-    constructor(repo: IAssociationPolicyRepository);
+    private readonly activityLog;
+    constructor(repo: IAssociationPolicyRepository, activityLog: ActivityLogService);
     upsert(ctx: UserContext, dto: {
         weekly_fee: number;
         monthly_fee: number;

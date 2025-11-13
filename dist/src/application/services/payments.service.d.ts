@@ -6,6 +6,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { PayDto } from '../../presentation/payments/dto/pay.dto';
 import { RouteAssignmentService } from './route-assignment.service';
 import { SmsGatewayService } from './sms-gateway.service';
+import { ActivityLogService } from './activity-log.service';
 export declare class PaymentsService {
     private readonly drivers;
     private readonly payments;
@@ -13,7 +14,8 @@ export declare class PaymentsService {
     private readonly prisma;
     private readonly routeService;
     private readonly smsGateway;
-    constructor(drivers: IDriverRepository, payments: IDriverPaymentRepository, policy: IAssociationPolicyRepository, prisma: PrismaService, routeService: RouteAssignmentService, smsGateway: SmsGatewayService);
+    private readonly activityLog;
+    constructor(drivers: IDriverRepository, payments: IDriverPaymentRepository, policy: IAssociationPolicyRepository, prisma: PrismaService, routeService: RouteAssignmentService, smsGateway: SmsGatewayService, activityLog: ActivityLogService);
     private pad2;
     private ymdEAT;
     private todayEatYmd;

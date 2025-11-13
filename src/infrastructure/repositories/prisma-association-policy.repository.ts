@@ -1,8 +1,6 @@
-// src/infrastructure/repositories/prisma-association-policy.repository.ts
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
-  ASSOCIATION_POLICY_REPOSITORY,
   IAssociationPolicyRepository,
   AssociationPolicyDTO,
 } from '../../domain/repositories/association-policy.repository';
