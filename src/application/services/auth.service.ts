@@ -17,6 +17,9 @@ type LogoutInput = { user_id: number; jti: string; exp: number; token_hash: stri
 const SHARABLE_ROLES = new Set<UserType>(['Association', 'Driver']);
 const NON_SHARABLE_ROLES = new Set<UserType>(['Superadmin', 'Admin', 'Controller']);
 
+const MAX_FAILED_ATTEMPTS = 5;
+const LOCK_MINUTES = 15;
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -34,6 +37,8 @@ export class AuthService {
       password_hash: string | null;
       phone_number: string;
       name: string | null;
+      failed_login_attempts: number;
+      locked_until: Date | null;
     }[],
     as?: UserType,
   ) {
@@ -71,6 +76,8 @@ export class AuthService {
         password_hash: true,
         phone_number: true,
         name: true,
+        failed_login_attempts: true,
+        locked_until: true,
       },
       orderBy: { id: 'asc' },
     });
@@ -78,12 +85,50 @@ export class AuthService {
     if (candidates.length === 0) throw new UnauthorizedException('invalid credentials');
 
     const user = this.pickUserByIntent(candidates, input.as);
+    const now = new Date();
 
-    if (!user.password_hash) throw new UnauthorizedException('invalid credentials');
     if (user.is_locked) throw new ForbiddenException('user is locked');
 
+    if (user.locked_until && user.locked_until > now) {
+      throw new ForbiddenException('Too many failed login attempts. Please try again later.');
+    }
+
+    if (!user.password_hash) throw new UnauthorizedException('invalid credentials');
+
     const ok = await bcrypt.compare(input.password, user.password_hash);
-    if (!ok) throw new UnauthorizedException('invalid credentials');
+
+    if (!ok) {
+      const newAttempts = (user.failed_login_attempts ?? 0) + 1;
+      let locked_until: Date | null = null;
+
+      if (newAttempts >= MAX_FAILED_ATTEMPTS) {
+        locked_until = new Date(Date.now() + LOCK_MINUTES * 60 * 1000);
+      }
+
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          failed_login_attempts: newAttempts,
+          locked_until,
+        },
+      });
+
+      if (locked_until) {
+        throw new ForbiddenException(
+          'Too many failed login attempts. Your account is temporarily locked.',
+        );
+      }
+
+      throw new UnauthorizedException('invalid credentials');
+    }
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        failed_login_attempts: 0,
+        locked_until: null,
+      },
+    });
 
     if (
       (user.user_type === UserType.Association || user.user_type === UserType.Driver) &&

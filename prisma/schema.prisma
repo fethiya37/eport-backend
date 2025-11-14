@@ -61,15 +61,17 @@ enum DriverStatus {
 }
 
 model User {
-  id             Int      @id @default(autoincrement())
-  phone_number   String   @db.VarChar(20)
-  user_type      UserType
-  name           String?  @db.VarChar(100)
-  password_hash  String?  @db.VarChar(255)
-  is_locked      Boolean  @default(false)
-  association_id Int?
-  created_at     DateTime @default(now())
-  updated_at     DateTime @updatedAt
+  id                    Int       @id @default(autoincrement())
+  phone_number          String    @db.VarChar(20)
+  user_type             UserType
+  name                  String?   @db.VarChar(100)
+  password_hash         String?   @db.VarChar(255)
+  is_locked             Boolean   @default(false)
+  failed_login_attempts Int       @default(0)
+  locked_until          DateTime?
+  association_id        Int?
+  created_at            DateTime  @default(now())
+  updated_at            DateTime  @updatedAt
 
   association                Association?      @relation(fields: [association_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
   tokens                     UserToken[]

@@ -18,6 +18,8 @@ export declare class UserService {
         name: string | null;
         password_hash: string | null;
         is_locked: boolean;
+        failed_login_attempts: number;
+        locked_until: Date | null;
         association_id: number | null;
         created_at: Date;
         updated_at: Date;
@@ -29,6 +31,8 @@ export declare class UserService {
         name: string | null;
         password_hash: string | null;
         is_locked: boolean;
+        failed_login_attempts: number;
+        locked_until: Date | null;
         association_id: number | null;
         created_at: Date;
         updated_at: Date;
@@ -40,6 +44,8 @@ export declare class UserService {
         name: string | null;
         password_hash: string | null;
         is_locked: boolean;
+        failed_login_attempts: number;
+        locked_until: Date | null;
         association_id: number | null;
         created_at: Date;
         updated_at: Date;
@@ -51,6 +57,8 @@ export declare class UserService {
         name: string | null;
         password_hash: string | null;
         is_locked: boolean;
+        failed_login_attempts: number;
+        locked_until: Date | null;
         association_id: number | null;
         created_at: Date;
         updated_at: Date;
@@ -62,6 +70,8 @@ export declare class UserService {
         name: string | null;
         password_hash: string | null;
         is_locked: boolean;
+        failed_login_attempts: number;
+        locked_until: Date | null;
         association_id: number | null;
         created_at: Date;
         updated_at: Date;
