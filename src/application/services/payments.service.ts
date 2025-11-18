@@ -536,6 +536,7 @@ export class PaymentsService {
       checkout_url: chapa?.data?.checkout_url ?? null,
       chapa_id: assocSub.chapa_id,
       chapa,
+      payload, 
     };
   }
 

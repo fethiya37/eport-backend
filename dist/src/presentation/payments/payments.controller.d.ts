@@ -49,6 +49,21 @@ export declare class PaymentsController {
         checkout_url: any;
         chapa_id: string;
         chapa: any;
+        payload: {
+            amount: string;
+            currency: string;
+            first_name: string;
+            last_name: string;
+            phone_number: string;
+            tx_ref: string;
+            callback_url: string;
+            return_url: string;
+            'customization[title]': string;
+            'customization[description]': string;
+            subaccounts: {
+                id: string;
+            };
+        };
     }>;
     onlineReturn(): string;
     callback(txRef: string): Promise<{
