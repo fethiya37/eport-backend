@@ -11,41 +11,41 @@ export declare class OwnerService {
     constructor(owners: IOwnerRepository, prisma: PrismaService, activityLog: ActivityLogService);
     create(ctx: UserContext, dto: CreateOwnerDto): Promise<{
         id: number;
+        phone_number: string;
         association_id: number;
         created_at: Date;
-        phone_number: string;
         updated_at: Date;
         full_name: string;
     }>;
     findAll(ctx: UserContext, association_id?: number): Promise<{
         id: number;
+        phone_number: string;
         association_id: number;
         created_at: Date;
-        phone_number: string;
         updated_at: Date;
         full_name: string;
     }[]>;
     findOne(ctx: UserContext, id: number): Promise<{
         id: number;
+        phone_number: string;
         association_id: number;
         created_at: Date;
-        phone_number: string;
         updated_at: Date;
         full_name: string;
     }>;
     update(ctx: UserContext, id: number, dto: UpdateOwnerDto): Promise<{
         id: number;
+        phone_number: string;
         association_id: number;
         created_at: Date;
-        phone_number: string;
         updated_at: Date;
         full_name: string;
     }>;
     remove(ctx: UserContext, id: number): Promise<{
         id: number;
+        phone_number: string;
         association_id: number;
         created_at: Date;
-        phone_number: string;
         updated_at: Date;
         full_name: string;
     }>;

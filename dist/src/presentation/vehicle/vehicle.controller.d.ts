@@ -7,10 +7,11 @@ export declare class VehicleController {
     private readonly service;
     constructor(service: VehicleService);
     findAll(user: UserContext, filter: VehicleFilterDto): Promise<{
-        association_id: number;
         id: number;
+        association_id: number;
         created_at: Date;
         updated_at: Date;
+        status: import("@prisma/client").$Enums.VehicleStatus;
         plate_number: string;
         libre_no: string | null;
         owner_id: number;
@@ -19,7 +20,6 @@ export declare class VehicleController {
         model: string | null;
         color: string | null;
         capacity: number | null;
-        status: import("@prisma/client").$Enums.VehicleStatus;
         is_weekly: boolean;
         deleted_at: Date | null;
     }[]>;
@@ -36,10 +36,11 @@ export declare class VehicleController {
         };
     }>;
     findOne(user: UserContext, id: number): Promise<{
-        association_id: number;
         id: number;
+        association_id: number;
         created_at: Date;
         updated_at: Date;
+        status: import("@prisma/client").$Enums.VehicleStatus;
         plate_number: string;
         libre_no: string | null;
         owner_id: number;
@@ -48,15 +49,15 @@ export declare class VehicleController {
         model: string | null;
         color: string | null;
         capacity: number | null;
-        status: import("@prisma/client").$Enums.VehicleStatus;
         is_weekly: boolean;
         deleted_at: Date | null;
     }>;
     create(user: UserContext, dto: CreateVehicleDto): Promise<{
-        association_id: number;
         id: number;
+        association_id: number;
         created_at: Date;
         updated_at: Date;
+        status: import("@prisma/client").$Enums.VehicleStatus;
         plate_number: string;
         libre_no: string | null;
         owner_id: number;
@@ -65,15 +66,15 @@ export declare class VehicleController {
         model: string | null;
         color: string | null;
         capacity: number | null;
-        status: import("@prisma/client").$Enums.VehicleStatus;
         is_weekly: boolean;
         deleted_at: Date | null;
     }>;
     update(user: UserContext, id: number, dto: UpdateVehicleDto): Promise<{
-        association_id: number;
         id: number;
+        association_id: number;
         created_at: Date;
         updated_at: Date;
+        status: import("@prisma/client").$Enums.VehicleStatus;
         plate_number: string;
         libre_no: string | null;
         owner_id: number;
@@ -82,15 +83,15 @@ export declare class VehicleController {
         model: string | null;
         color: string | null;
         capacity: number | null;
-        status: import("@prisma/client").$Enums.VehicleStatus;
         is_weekly: boolean;
         deleted_at: Date | null;
     }>;
     remove(user: UserContext, id: number): Promise<{
-        association_id: number;
         id: number;
+        association_id: number;
         created_at: Date;
         updated_at: Date;
+        status: import("@prisma/client").$Enums.VehicleStatus;
         plate_number: string;
         libre_no: string | null;
         owner_id: number;
@@ -99,7 +100,6 @@ export declare class VehicleController {
         model: string | null;
         color: string | null;
         capacity: number | null;
-        status: import("@prisma/client").$Enums.VehicleStatus;
         is_weekly: boolean;
         deleted_at: Date | null;
     }>;

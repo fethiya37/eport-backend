@@ -7,16 +7,16 @@ export declare class DriverController {
     private readonly service;
     constructor(service: DriverService);
     findAll(user: UserContext, filter: DriverFilterDto): Promise<{
-        association_id: number;
-        user_id: number;
         id: number;
-        created_at: Date;
         phone_number: string;
+        association_id: number;
+        created_at: Date;
         updated_at: Date;
+        user_id: number;
         full_name: string;
-        status: import("@prisma/client").$Enums.DriverStatus;
         license_no: string | null;
         license_expiry: Date | null;
+        status: import("@prisma/client").$Enums.DriverStatus;
         has_smartphone: boolean;
         active_until_date: Date | null;
         interest_accrued: import("@prisma/client/runtime/library").Decimal;
@@ -24,16 +24,16 @@ export declare class DriverController {
         last_accrual_amount: import("@prisma/client/runtime/library").Decimal | null;
     }[]>;
     findWithoutVehicle(user: UserContext): Promise<{
-        association_id: number;
-        user_id: number;
         id: number;
-        created_at: Date;
         phone_number: string;
+        association_id: number;
+        created_at: Date;
         updated_at: Date;
+        user_id: number;
         full_name: string;
-        status: import("@prisma/client").$Enums.DriverStatus;
         license_no: string | null;
         license_expiry: Date | null;
+        status: import("@prisma/client").$Enums.DriverStatus;
         has_smartphone: boolean;
         active_until_date: Date | null;
         interest_accrued: import("@prisma/client/runtime/library").Decimal;
@@ -42,16 +42,16 @@ export declare class DriverController {
     }[]>;
     findOne(user: UserContext, id: number): Promise<{
         active_plate_number: string | null;
-        association_id: number;
-        user_id: number;
         id: number;
-        created_at: Date;
         phone_number: string;
+        association_id: number;
+        created_at: Date;
         updated_at: Date;
+        user_id: number;
         full_name: string;
-        status: import("@prisma/client").$Enums.DriverStatus;
         license_no: string | null;
         license_expiry: Date | null;
+        status: import("@prisma/client").$Enums.DriverStatus;
         has_smartphone: boolean;
         active_until_date: Date | null;
         interest_accrued: import("@prisma/client/runtime/library").Decimal;
@@ -59,16 +59,16 @@ export declare class DriverController {
         last_accrual_amount: import("@prisma/client/runtime/library").Decimal | null;
     }>;
     create(user: UserContext, dto: CreateDriverDto): Promise<{
-        association_id: number;
-        user_id: number;
         id: number;
-        created_at: Date;
         phone_number: string;
+        association_id: number;
+        created_at: Date;
         updated_at: Date;
+        user_id: number;
         full_name: string;
-        status: import("@prisma/client").$Enums.DriverStatus;
         license_no: string | null;
         license_expiry: Date | null;
+        status: import("@prisma/client").$Enums.DriverStatus;
         has_smartphone: boolean;
         active_until_date: Date | null;
         interest_accrued: import("@prisma/client/runtime/library").Decimal;
@@ -76,16 +76,16 @@ export declare class DriverController {
         last_accrual_amount: import("@prisma/client/runtime/library").Decimal | null;
     }>;
     update(user: UserContext, id: number, dto: UpdateDriverDto): Promise<{
-        association_id: number;
-        user_id: number;
         id: number;
-        created_at: Date;
         phone_number: string;
+        association_id: number;
+        created_at: Date;
         updated_at: Date;
+        user_id: number;
         full_name: string;
-        status: import("@prisma/client").$Enums.DriverStatus;
         license_no: string | null;
         license_expiry: Date | null;
+        status: import("@prisma/client").$Enums.DriverStatus;
         has_smartphone: boolean;
         active_until_date: Date | null;
         interest_accrued: import("@prisma/client/runtime/library").Decimal;
@@ -93,16 +93,16 @@ export declare class DriverController {
         last_accrual_amount: import("@prisma/client/runtime/library").Decimal | null;
     }>;
     remove(user: UserContext, id: number): Promise<{
-        association_id: number;
-        user_id: number;
         id: number;
-        created_at: Date;
         phone_number: string;
+        association_id: number;
+        created_at: Date;
         updated_at: Date;
+        user_id: number;
         full_name: string;
-        status: import("@prisma/client").$Enums.DriverStatus;
         license_no: string | null;
         license_expiry: Date | null;
+        status: import("@prisma/client").$Enums.DriverStatus;
         has_smartphone: boolean;
         active_until_date: Date | null;
         interest_accrued: import("@prisma/client/runtime/library").Decimal;

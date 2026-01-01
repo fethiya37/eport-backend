@@ -10,34 +10,34 @@ export declare class AssociationService {
     private readonly activityLog;
     constructor(associations: IAssociationRepository, prisma: PrismaService, activityLog: ActivityLogService);
     publicList(filter?: AssociationFilter): Promise<{
-        name: string;
         id: number;
-        created_at: Date;
         phone_number: string | null;
+        name: string;
+        created_at: Date;
         updated_at: Date;
         logo: string | null;
     }[]>;
     publicGet(id: number): Promise<{
-        name: string;
         id: number;
-        created_at: Date;
         phone_number: string | null;
+        name: string;
+        created_at: Date;
         updated_at: Date;
         logo: string | null;
     }>;
     create(ctx: UserContext, dto: CreateAssociationDto): Promise<{
-        name: string;
         id: number;
-        created_at: Date;
         phone_number: string | null;
+        name: string;
+        created_at: Date;
         updated_at: Date;
         logo: string | null;
     }>;
     update(ctx: UserContext, id: number, dto: UpdateAssociationDto): Promise<{
-        name: string;
         id: number;
-        created_at: Date;
         phone_number: string | null;
+        name: string;
+        created_at: Date;
         updated_at: Date;
         logo: string | null;
     }>;

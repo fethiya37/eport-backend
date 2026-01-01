@@ -7,34 +7,34 @@ export declare class AssociationController {
     private readonly service;
     constructor(service: AssociationService);
     publicList(filter: AssociationFilterDto): Promise<{
-        name: string;
         id: number;
-        created_at: Date;
         phone_number: string | null;
+        name: string;
+        created_at: Date;
         updated_at: Date;
         logo: string | null;
     }[]>;
     publicGet(id: number): Promise<{
-        name: string;
         id: number;
-        created_at: Date;
         phone_number: string | null;
+        name: string;
+        created_at: Date;
         updated_at: Date;
         logo: string | null;
     }>;
     create(user: UserContext, dto: CreateAssociationDto): Promise<{
-        name: string;
         id: number;
-        created_at: Date;
         phone_number: string | null;
+        name: string;
+        created_at: Date;
         updated_at: Date;
         logo: string | null;
     }>;
     update(user: UserContext, id: number, dto: UpdateAssociationDto): Promise<{
-        name: string;
         id: number;
-        created_at: Date;
         phone_number: string | null;
+        name: string;
+        created_at: Date;
         updated_at: Date;
         logo: string | null;
     }>;

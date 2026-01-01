@@ -13,11 +13,11 @@ export declare class DriverService {
     constructor(drivers: IDriverRepository, policyRepo: IAssociationPolicyRepository, prisma: PrismaService, activityLog: ActivityLogService);
     create(ctx: UserContext, dto: CreateDriverDto): Promise<{
         id: number;
-        user_id: number;
+        phone_number: string;
         association_id: number;
         created_at: Date;
-        phone_number: string;
         updated_at: Date;
+        user_id: number;
         full_name: string;
         license_no: string | null;
         license_expiry: Date | null;
@@ -30,11 +30,11 @@ export declare class DriverService {
     }>;
     findAll(ctx: UserContext, filter: DriverFilter): Promise<{
         id: number;
-        user_id: number;
+        phone_number: string;
         association_id: number;
         created_at: Date;
-        phone_number: string;
         updated_at: Date;
+        user_id: number;
         full_name: string;
         license_no: string | null;
         license_expiry: Date | null;
@@ -48,11 +48,11 @@ export declare class DriverService {
     findOneWithActive(ctx: UserContext, id: number): Promise<{
         active_plate_number: string | null;
         id: number;
-        user_id: number;
+        phone_number: string;
         association_id: number;
         created_at: Date;
-        phone_number: string;
         updated_at: Date;
+        user_id: number;
         full_name: string;
         license_no: string | null;
         license_expiry: Date | null;
@@ -65,11 +65,11 @@ export declare class DriverService {
     }>;
     update(ctx: UserContext, id: number, dto: UpdateDriverDto): Promise<{
         id: number;
-        user_id: number;
+        phone_number: string;
         association_id: number;
         created_at: Date;
-        phone_number: string;
         updated_at: Date;
+        user_id: number;
         full_name: string;
         license_no: string | null;
         license_expiry: Date | null;
@@ -82,11 +82,11 @@ export declare class DriverService {
     }>;
     remove(ctx: UserContext, id: number): Promise<{
         id: number;
-        user_id: number;
+        phone_number: string;
         association_id: number;
         created_at: Date;
-        phone_number: string;
         updated_at: Date;
+        user_id: number;
         full_name: string;
         license_no: string | null;
         license_expiry: Date | null;
@@ -99,11 +99,11 @@ export declare class DriverService {
     }>;
     findDriversWithoutVehicle(ctx: UserContext): Promise<{
         id: number;
-        user_id: number;
+        phone_number: string;
         association_id: number;
         created_at: Date;
-        phone_number: string;
         updated_at: Date;
+        user_id: number;
         full_name: string;
         license_no: string | null;
         license_expiry: Date | null;
