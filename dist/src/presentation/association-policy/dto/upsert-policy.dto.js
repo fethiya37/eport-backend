@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.UpsertPolicyDto = void 0;
 const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
+const class_transformer_1 = require("class-transformer");
 class UpsertPolicyDto {
     weekly_fee;
     monthly_fee;
@@ -20,19 +21,25 @@ class UpsertPolicyDto {
 exports.UpsertPolicyDto = UpsertPolicyDto;
 __decorate([
     (0, swagger_1.ApiProperty)({ example: 200 }),
-    (0, class_validator_1.IsNumber)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)({ allowNaN: false, allowInfinity: false }),
     (0, class_validator_1.Min)(0),
     __metadata("design:type", Number)
 ], UpsertPolicyDto.prototype, "weekly_fee", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ example: 600 }),
-    (0, class_validator_1.IsNumber)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)({ allowNaN: false, allowInfinity: false }),
     (0, class_validator_1.Min)(0),
     __metadata("design:type", Number)
 ], UpsertPolicyDto.prototype, "monthly_fee", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 0.2, description: 'Daily fine percent. 0.2 = 20% per day' }),
-    (0, class_validator_1.IsNumber)(),
+    (0, swagger_1.ApiProperty)({
+        example: 0.2,
+        description: 'Daily fine percent. 0.2 = 20% per day',
+    }),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)({ allowNaN: false, allowInfinity: false }),
     (0, class_validator_1.Min)(0),
     __metadata("design:type", Number)
 ], UpsertPolicyDto.prototype, "daily_fine_percent", void 0);

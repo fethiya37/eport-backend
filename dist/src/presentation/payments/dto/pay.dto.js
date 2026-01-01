@@ -10,8 +10,10 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PayDto = void 0;
-const class_validator_1 = require("class-validator");
 const swagger_1 = require("@nestjs/swagger");
+const class_transformer_1 = require("class-transformer");
+const class_validator_1 = require("class-validator");
+const no_html_decorator_1 = require("../../../common/decorators/no-html.decorator");
 class PayDto {
     driver_id;
     plate_number;
@@ -26,13 +28,18 @@ exports.PayDto = PayDto;
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ description: 'Driver ID if paying for a specific driver' }),
     (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
     (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(1),
     __metadata("design:type", Number)
 ], PayDto.prototype, "driver_id", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ description: 'Vehicle plate number if paying by vehicle' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(20),
+    (0, no_html_decorator_1.NoHtml)({ message: 'plate_number must not include HTML or script tags' }),
+    (0, class_validator_1.Matches)(/^[A-Za-z0-9-]+$/u, { message: 'plate_number contains invalid characters' }),
     __metadata("design:type", String)
 ], PayDto.prototype, "plate_number", void 0);
 __decorate([
@@ -41,9 +48,7 @@ __decorate([
         enum: ['WEEKLY', 'MONTHLY'],
         example: 'WEEKLY',
     }),
-    (0, class_validator_1.IsEnum)(['WEEKLY', 'MONTHLY'], {
-        message: 'fee_plan must be WEEKLY or MONTHLY',
-    }),
+    (0, class_validator_1.IsIn)(['WEEKLY', 'MONTHLY'], { message: 'fee_plan must be WEEKLY or MONTHLY' }),
     __metadata("design:type", String)
 ], PayDto.prototype, "fee_plan", void 0);
 __decorate([
@@ -52,6 +57,7 @@ __decorate([
         example: 1,
         minimum: 0,
     }),
+    (0, class_transformer_1.Type)(() => Number),
     (0, class_validator_1.IsInt)(),
     (0, class_validator_1.Min)(0),
     __metadata("design:type", Number)
@@ -78,7 +84,9 @@ __decorate([
         example: 500.0,
     }),
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsNumber)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)({ allowNaN: false, allowInfinity: false }),
+    (0, class_validator_1.Min)(0),
     __metadata("design:type", Number)
 ], PayDto.prototype, "amount", void 0);
 __decorate([
@@ -89,6 +97,11 @@ __decorate([
     }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(20),
+    (0, no_html_decorator_1.NoHtml)({ message: 'payment_method must not include HTML or script tags' }),
+    (0, class_validator_1.IsIn)(['CASH', 'BANK', 'MOBILE', 'OTHER'], {
+        message: 'payment_method must be CASH, BANK, MOBILE, or OTHER',
+    }),
     __metadata("design:type", String)
 ], PayDto.prototype, "payment_method", void 0);
 //# sourceMappingURL=pay.dto.js.map

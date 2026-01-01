@@ -13,6 +13,7 @@ exports.CreateManyRouteQuotasDto = void 0;
 const swagger_1 = require("@nestjs/swagger");
 const class_transformer_1 = require("class-transformer");
 const class_validator_1 = require("class-validator");
+const no_html_decorator_1 = require("../../../common/decorators/no-html.decorator");
 class CreateManyItem {
     route_id;
     no_vehicles;
@@ -48,18 +49,23 @@ __decorate([
 __decorate([
     (0, swagger_1.ApiProperty)({ example: '2017-01-08' }),
     (0, class_validator_1.IsString)(),
-    (0, class_validator_1.Matches)(/^\d{4}-\d{2}-\d{2}$/, { message: 'start_date must be YYYY-MM-DD' }),
+    (0, class_validator_1.MaxLength)(10),
+    (0, no_html_decorator_1.NoHtml)({ message: 'start_date must not include HTML or script tags' }),
+    (0, class_validator_1.Matches)(/^\d{4}-\d{2}-\d{2}$/u, { message: 'start_date must be YYYY-MM-DD' }),
     __metadata("design:type", String)
 ], CreateManyRouteQuotasDto.prototype, "start_date", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ example: '2017-01-14' }),
     (0, class_validator_1.IsString)(),
-    (0, class_validator_1.Matches)(/^\d{4}-\d{2}-\d{2}$/, { message: 'end_date must be YYYY-MM-DD' }),
+    (0, class_validator_1.MaxLength)(10),
+    (0, no_html_decorator_1.NoHtml)({ message: 'end_date must not include HTML or script tags' }),
+    (0, class_validator_1.Matches)(/^\d{4}-\d{2}-\d{2}$/u, { message: 'end_date must be YYYY-MM-DD' }),
     __metadata("design:type", String)
 ], CreateManyRouteQuotasDto.prototype, "end_date", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ type: [CreateManyItem] }),
     (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.ArrayNotEmpty)(),
     (0, class_validator_1.ValidateNested)({ each: true }),
     (0, class_transformer_1.Type)(() => CreateManyItem),
     __metadata("design:type", Array)

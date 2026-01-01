@@ -13,6 +13,7 @@ exports.RouteInputDto = void 0;
 const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
 const class_transformer_1 = require("class-transformer");
+const no_html_decorator_1 = require("../../../common/decorators/no-html.decorator");
 class RouteInputDto {
     id;
     departure;
@@ -32,23 +33,29 @@ __decorate([
 __decorate([
     (0, swagger_1.ApiProperty)({ example: 'Addis Ababa' }),
     (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
     (0, class_validator_1.MaxLength)(255),
+    (0, no_html_decorator_1.NoHtml)({ message: 'departure must not include HTML or script tags' }),
     __metadata("design:type", String)
 ], RouteInputDto.prototype, "departure", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ example: 'Adama' }),
     (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
     (0, class_validator_1.MaxLength)(255),
+    (0, no_html_decorator_1.NoHtml)({ message: 'arrival must not include HTML or script tags' }),
     __metadata("design:type", String)
 ], RouteInputDto.prototype, "arrival", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ example: '99.50', description: 'numeric(6,2) — string or number' }),
     (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.Matches)(/^\d{1,4}(\.\d{1,2})?$/u, { message: 'kilometer must be a valid decimal (up to 2 dp)' }),
     __metadata("design:type", Object)
 ], RouteInputDto.prototype, "kilometer", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ example: '150.00', description: 'numeric(6,2) — string or number' }),
     (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.Matches)(/^\d{1,4}(\.\d{1,2})?$/u, { message: 'tariff must be a valid decimal (up to 2 dp)' }),
     __metadata("design:type", Object)
 ], RouteInputDto.prototype, "tariff", void 0);
 //# sourceMappingURL=route-input.dto.js.map

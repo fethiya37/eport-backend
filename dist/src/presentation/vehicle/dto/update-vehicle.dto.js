@@ -11,9 +11,10 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UpdateVehicleDto = void 0;
 const swagger_1 = require("@nestjs/swagger");
-const class_validator_1 = require("class-validator");
 const class_transformer_1 = require("class-transformer");
+const class_validator_1 = require("class-validator");
 const client_1 = require("@prisma/client");
+const no_html_decorator_1 = require("../../../common/decorators/no-html.decorator");
 class UpdateVehicleDto {
     plate_number;
     libre_no;
@@ -32,12 +33,17 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.MaxLength)(20),
+    (0, no_html_decorator_1.NoHtml)({ message: 'plate_number must not include HTML or script tags' }),
+    (0, class_validator_1.Matches)(/^[A-Za-z0-9-]+$/u, { message: 'plate_number contains invalid characters' }),
     __metadata("design:type", Object)
 ], UpdateVehicleDto.prototype, "plate_number", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ example: 'LIBRE-1122' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(30),
+    (0, no_html_decorator_1.NoHtml)({ message: 'libre_no must not include HTML or script tags' }),
+    (0, class_validator_1.Matches)(/^[A-Za-z0-9-]+$/u, { message: 'libre_no contains invalid characters' }),
     __metadata("design:type", Object)
 ], UpdateVehicleDto.prototype, "libre_no", void 0);
 __decorate([
@@ -61,6 +67,7 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.MaxLength)(255),
+    (0, no_html_decorator_1.NoHtml)({ message: 'make must not include HTML or script tags' }),
     __metadata("design:type", Object)
 ], UpdateVehicleDto.prototype, "make", void 0);
 __decorate([
@@ -68,6 +75,7 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.MaxLength)(255),
+    (0, no_html_decorator_1.NoHtml)({ message: 'model must not include HTML or script tags' }),
     __metadata("design:type", Object)
 ], UpdateVehicleDto.prototype, "model", void 0);
 __decorate([
@@ -75,6 +83,7 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.MaxLength)(255),
+    (0, no_html_decorator_1.NoHtml)({ message: 'color must not include HTML or script tags' }),
     __metadata("design:type", Object)
 ], UpdateVehicleDto.prototype, "color", void 0);
 __decorate([

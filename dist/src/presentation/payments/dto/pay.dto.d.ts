@@ -6,5 +6,5 @@ export declare class PayDto {
     covered_start_date: string;
     covered_end_date: string;
     amount?: number;
-    payment_method?: string;
+    payment_method?: 'CASH' | 'BANK' | 'MOBILE' | 'OTHER';
 }

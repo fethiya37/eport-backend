@@ -12,10 +12,10 @@ export declare class UserService {
     private readonly activityLog;
     constructor(users: IUserRepository, prisma: PrismaService, activityLog: ActivityLogService);
     create(ctx: UserContext, dto: CreateUserDto): Promise<{
+        name: string | null;
         id: number;
         phone_number: string;
         user_type: import("@prisma/client").$Enums.UserType;
-        name: string | null;
         password_hash: string | null;
         is_locked: boolean;
         failed_login_attempts: number;
@@ -25,10 +25,10 @@ export declare class UserService {
         updated_at: Date;
     }>;
     findAll(ctx: UserContext, raw: UserFilter): Promise<{
+        name: string | null;
         id: number;
         phone_number: string;
         user_type: import("@prisma/client").$Enums.UserType;
-        name: string | null;
         password_hash: string | null;
         is_locked: boolean;
         failed_login_attempts: number;
@@ -38,10 +38,10 @@ export declare class UserService {
         updated_at: Date;
     }[]>;
     findOne(ctx: UserContext, id: number): Promise<{
+        name: string | null;
         id: number;
         phone_number: string;
         user_type: import("@prisma/client").$Enums.UserType;
-        name: string | null;
         password_hash: string | null;
         is_locked: boolean;
         failed_login_attempts: number;
@@ -51,10 +51,10 @@ export declare class UserService {
         updated_at: Date;
     }>;
     update(ctx: UserContext, id: number, dto: UpdateUserDto): Promise<{
+        name: string | null;
         id: number;
         phone_number: string;
         user_type: import("@prisma/client").$Enums.UserType;
-        name: string | null;
         password_hash: string | null;
         is_locked: boolean;
         failed_login_attempts: number;
@@ -64,10 +64,10 @@ export declare class UserService {
         updated_at: Date;
     }>;
     remove(ctx: UserContext, id: number): Promise<{
+        name: string | null;
         id: number;
         phone_number: string;
         user_type: import("@prisma/client").$Enums.UserType;
-        name: string | null;
         password_hash: string | null;
         is_locked: boolean;
         failed_login_attempts: number;

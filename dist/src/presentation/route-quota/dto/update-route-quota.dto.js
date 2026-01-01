@@ -11,9 +11,10 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UpdateRouteQuotaDto = void 0;
 const swagger_1 = require("@nestjs/swagger");
-const class_validator_1 = require("class-validator");
 const class_transformer_1 = require("class-transformer");
+const class_validator_1 = require("class-validator");
 const client_1 = require("@prisma/client");
+const no_html_decorator_1 = require("../../../common/decorators/no-html.decorator");
 class UpdateRouteQuotaDto {
     start_date;
     end_date;
@@ -26,14 +27,18 @@ __decorate([
     (0, swagger_1.ApiPropertyOptional)(),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
-    (0, class_validator_1.Matches)(/^\d{4}-\d{2}-\d{2}$/, { message: 'start_date must be YYYY-MM-DD' }),
+    (0, class_validator_1.MaxLength)(10),
+    (0, no_html_decorator_1.NoHtml)({ message: 'start_date must not include HTML or script tags' }),
+    (0, class_validator_1.Matches)(/^\d{4}-\d{2}-\d{2}$/u, { message: 'start_date must be YYYY-MM-DD' }),
     __metadata("design:type", String)
 ], UpdateRouteQuotaDto.prototype, "start_date", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)(),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
-    (0, class_validator_1.Matches)(/^\d{4}-\d{2}-\d{2}$/, { message: 'end_date must be YYYY-MM-DD' }),
+    (0, class_validator_1.MaxLength)(10),
+    (0, no_html_decorator_1.NoHtml)({ message: 'end_date must not include HTML or script tags' }),
+    (0, class_validator_1.Matches)(/^\d{4}-\d{2}-\d{2}$/u, { message: 'end_date must be YYYY-MM-DD' }),
     __metadata("design:type", String)
 ], UpdateRouteQuotaDto.prototype, "end_date", void 0);
 __decorate([

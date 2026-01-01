@@ -13,6 +13,7 @@ exports.LoginDto = void 0;
 const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
 const client_1 = require("@prisma/client");
+const no_html_decorator_1 = require("../../../common/decorators/no-html.decorator");
 class LoginDto {
     phone_number;
     password;
@@ -20,22 +21,31 @@ class LoginDto {
 }
 exports.LoginDto = LoginDto;
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: '0911223344' }),
+    (0, swagger_1.ApiProperty)({ example: '+251912345678' }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
-    (0, class_validator_1.MaxLength)(20),
-    (0, class_validator_1.MinLength)(4),
+    (0, class_validator_1.MinLength)(13),
+    (0, class_validator_1.MaxLength)(13),
+    (0, no_html_decorator_1.NoHtml)({ message: 'phone_number must not include HTML or script tags' }),
+    (0, class_validator_1.Matches)(/^\+2519\d{8}$/, {
+        message: 'phone_number must be in +2519XXXXXXXX format',
+    }),
     __metadata("design:type", String)
 ], LoginDto.prototype, "phone_number", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'StrongP@ssw0rd' }),
+    (0, swagger_1.ApiProperty)({ example: 'StrongP@ssw0rd', writeOnly: true }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
     (0, class_validator_1.MinLength)(4),
+    (0, class_validator_1.MaxLength)(128),
+    (0, no_html_decorator_1.NoHtml)({ message: 'password must not include HTML or script tags' }),
     __metadata("design:type", String)
 ], LoginDto.prototype, "password", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ enum: client_1.UserType, description: 'Sent implicitly by client: Driver (mobile) or Association (web)' }),
+    (0, swagger_1.ApiPropertyOptional)({
+        enum: client_1.UserType,
+        description: 'Sent implicitly by client: Driver (mobile) or Association (web)',
+    }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(client_1.UserType),
     __metadata("design:type", String)

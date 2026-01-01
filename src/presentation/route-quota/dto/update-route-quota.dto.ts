@@ -1,19 +1,32 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsOptional, Min, IsString, Matches, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
+import {
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import { RouteQuotaStatus } from '@prisma/client';
+import { NoHtml } from '../../../common/decorators/no-html.decorator';
 
 export class UpdateRouteQuotaDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'start_date must be YYYY-MM-DD' })
+  @MaxLength(10)
+  @NoHtml({ message: 'start_date must not include HTML or script tags' })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/u, { message: 'start_date must be YYYY-MM-DD' })
   start_date?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'end_date must be YYYY-MM-DD' })
+  @MaxLength(10)
+  @NoHtml({ message: 'end_date must not include HTML or script tags' })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/u, { message: 'end_date must be YYYY-MM-DD' })
   end_date?: string;
 
   @ApiPropertyOptional()

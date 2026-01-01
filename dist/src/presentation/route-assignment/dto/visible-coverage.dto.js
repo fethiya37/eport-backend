@@ -10,8 +10,9 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.VisibleCoverageQueryDto = void 0;
-const class_validator_1 = require("class-validator");
 const class_transformer_1 = require("class-transformer");
+const class_validator_1 = require("class-validator");
+const no_html_decorator_1 = require("../../../common/decorators/no-html.decorator");
 class VisibleCoverageQueryDto {
     plate_number;
     driver_id;
@@ -20,6 +21,9 @@ exports.VisibleCoverageQueryDto = VisibleCoverageQueryDto;
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(20),
+    (0, no_html_decorator_1.NoHtml)({ message: 'plate_number must not include HTML or script tags' }),
+    (0, class_validator_1.Matches)(/^[A-Za-z0-9-]+$/u, { message: 'plate_number contains invalid characters' }),
     __metadata("design:type", String)
 ], VisibleCoverageQueryDto.prototype, "plate_number", void 0);
 __decorate([

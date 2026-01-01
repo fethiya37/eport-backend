@@ -1,24 +1,41 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsDateString, IsEnum, IsOptional, IsString, MaxLength, IsBoolean, IsNumber } from 'class-validator';
+import {
+  IsBoolean,
+  IsDateString,
+  IsEnum,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Matches,
+  IsNumber,
+  Min,
+} from 'class-validator';
 import { DriverStatus } from '@prisma/client';
 import { Type } from 'class-transformer';
+import { NoHtml } from '../../../common/decorators/no-html.decorator';
 
 export class UpdateDriverDto {
   @ApiPropertyOptional({ example: 'New Name' })
   @IsOptional()
   @IsString()
   @MaxLength(100)
+  @NoHtml({ message: 'full_name must not include HTML or script tags' })
   full_name?: string;
 
-  @ApiPropertyOptional({ example: '+251922233344' })
+  @ApiPropertyOptional({ example: '+251912345678' })
   @IsOptional()
   @IsString()
-  @MaxLength(20)
+  @MaxLength(13)
+  @NoHtml({ message: 'phone_number must not include HTML or script tags' })
+  @Matches(/^\+2519\d{8}$/u, { message: 'phone_number must be in +2519XXXXXXXX format' })
   phone_number?: string;
 
   @ApiPropertyOptional({ example: 'D-654321' })
   @IsOptional()
   @IsString()
+  @MaxLength(30)
+  @NoHtml({ message: 'license_no must not include HTML or script tags' })
+  @Matches(/^[A-Za-z0-9-]+$/u, { message: 'license_no contains invalid characters' })
   license_no?: string | null;
 
   @ApiPropertyOptional({ example: '2031-01-01' })
@@ -41,9 +58,10 @@ export class UpdateDriverDto {
   @IsDateString()
   active_until_date?: string | null;
 
-  @ApiPropertyOptional({ example: 125.50, description: 'Total interest accrued (Decimal(10,2))' })
+  @ApiPropertyOptional({ example: 125.5, description: 'Total interest accrued (Decimal(10,2))' })
   @IsOptional()
   @Type(() => Number)
-  @IsNumber()
+  @IsNumber({ allowNaN: false, allowInfinity: false })
+  @Min(0)
   interest_accrued?: number;
 }

@@ -11,8 +11,9 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AssignmentItemDto = void 0;
 const swagger_1 = require("@nestjs/swagger");
-const class_validator_1 = require("class-validator");
 const class_transformer_1 = require("class-transformer");
+const class_validator_1 = require("class-validator");
+const no_html_decorator_1 = require("../../../common/decorators/no-html.decorator");
 class AssignmentItemDto {
     id;
     route_id;
@@ -55,10 +56,18 @@ __decorate([
 ], AssignmentItemDto.prototype, "vehicle_id", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ example: '2017-01-01' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(10),
+    (0, no_html_decorator_1.NoHtml)({ message: 'start_date must not include HTML or script tags' }),
+    (0, class_validator_1.Matches)(/^\d{4}-\d{2}-\d{2}$/u, { message: 'start_date must be YYYY-MM-DD' }),
     __metadata("design:type", String)
 ], AssignmentItemDto.prototype, "start_date", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ example: '2017-01-07' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(10),
+    (0, no_html_decorator_1.NoHtml)({ message: 'end_date must not include HTML or script tags' }),
+    (0, class_validator_1.Matches)(/^\d{4}-\d{2}-\d{2}$/u, { message: 'end_date must be YYYY-MM-DD' }),
     __metadata("design:type", String)
 ], AssignmentItemDto.prototype, "end_date", void 0);
 __decorate([
@@ -69,6 +78,7 @@ __decorate([
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ example: 'Approved' }),
     (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)(['Approved', 'Pending'], { message: 'status must be Approved or Pending' }),
     __metadata("design:type", String)
 ], AssignmentItemDto.prototype, "status", void 0);
 //# sourceMappingURL=assignment-item.dto.js.map

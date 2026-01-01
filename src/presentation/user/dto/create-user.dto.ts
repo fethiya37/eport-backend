@@ -1,14 +1,26 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength, IsInt, Min } from 'class-validator';
+import {
+  IsEnum,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+  Matches,
+} from 'class-validator';
 import { UserType } from '@prisma/client';
 import { Type } from 'class-transformer';
+import { NoHtml } from '../../../common/decorators/no-html.decorator';
 
 export class CreateUserDto {
-  @ApiProperty({ example: '+251911223344' })
+  @ApiProperty({ example: '+251912345678' })
   @IsString()
   @IsNotEmpty()
-  @MaxLength(20)
-  phone_number!: string; 
+  @MaxLength(13)
+  @NoHtml({ message: 'phone_number must not include HTML or script tags' })
+  @Matches(/^\+2519\d{8}$/u, { message: 'phone_number must be in +2519XXXXXXXX format' })
+  phone_number!: string;
 
   @ApiProperty({ enum: UserType, example: UserType.Admin })
   @IsEnum(UserType)
@@ -18,9 +30,9 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   @MaxLength(100)
+  @NoHtml({ message: 'name must not include HTML or script tags' })
   name?: string | null;
 
-  // Required only when user_type === 'Association'; otherwise we will set it to null in service.
   @ApiPropertyOptional({ example: 1, description: 'Required only if user_type = Association' })
   @IsOptional()
   @Type(() => Number)

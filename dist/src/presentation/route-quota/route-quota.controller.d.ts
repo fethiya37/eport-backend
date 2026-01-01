@@ -8,8 +8,8 @@ export declare class RouteQuotaController {
     private readonly service;
     constructor(service: RouteQuotaService);
     create(user: UserContext, dto: CreateRouteQuotaDto): Promise<{
-        id: number;
         association_id: number;
+        id: number;
         created_at: Date;
         updated_at: Date;
         status: import("@prisma/client").$Enums.RouteQuotaStatus;
@@ -20,8 +20,8 @@ export declare class RouteQuotaController {
         remaining_vehicles: number;
     }>;
     find(user: UserContext, filter: RouteQuotaFilterDto): Promise<{
-        id: number;
         association_id: number;
+        id: number;
         created_at: Date;
         updated_at: Date;
         status: import("@prisma/client").$Enums.RouteQuotaStatus;
@@ -32,8 +32,8 @@ export declare class RouteQuotaController {
         remaining_vehicles: number;
     }[]>;
     update(user: UserContext, id: number, dto: UpdateRouteQuotaDto): Promise<{
-        id: number;
         association_id: number;
+        id: number;
         created_at: Date;
         updated_at: Date;
         status: import("@prisma/client").$Enums.RouteQuotaStatus;
@@ -44,8 +44,8 @@ export declare class RouteQuotaController {
         remaining_vehicles: number;
     }>;
     createMany(user: UserContext, dto: CreateManyRouteQuotasDto): Promise<{
-        id: number;
         association_id: number;
+        id: number;
         created_at: Date;
         updated_at: Date;
         status: import("@prisma/client").$Enums.RouteQuotaStatus;
@@ -56,8 +56,8 @@ export declare class RouteQuotaController {
         remaining_vehicles: number;
     }[]>;
     remove(user: UserContext, id: number): Promise<{
-        id: number;
         association_id: number;
+        id: number;
         created_at: Date;
         updated_at: Date;
         status: import("@prisma/client").$Enums.RouteQuotaStatus;

@@ -8,10 +8,10 @@ export declare class UserController {
     private readonly service;
     constructor(service: UserService);
     create(user: UserContext, dto: CreateUserDto): Promise<{
+        name: string | null;
         id: number;
         phone_number: string;
         user_type: import("@prisma/client").$Enums.UserType;
-        name: string | null;
         password_hash: string | null;
         is_locked: boolean;
         failed_login_attempts: number;
@@ -21,10 +21,10 @@ export declare class UserController {
         updated_at: Date;
     }>;
     findAll(user: UserContext, filter: UserFilterDto): Promise<{
+        name: string | null;
         id: number;
         phone_number: string;
         user_type: import("@prisma/client").$Enums.UserType;
-        name: string | null;
         password_hash: string | null;
         is_locked: boolean;
         failed_login_attempts: number;
@@ -34,10 +34,10 @@ export declare class UserController {
         updated_at: Date;
     }[]>;
     findOne(user: UserContext, id: number): Promise<{
+        name: string | null;
         id: number;
         phone_number: string;
         user_type: import("@prisma/client").$Enums.UserType;
-        name: string | null;
         password_hash: string | null;
         is_locked: boolean;
         failed_login_attempts: number;
@@ -47,10 +47,10 @@ export declare class UserController {
         updated_at: Date;
     }>;
     update(user: UserContext, id: number, dto: UpdateUserDto): Promise<{
+        name: string | null;
         id: number;
         phone_number: string;
         user_type: import("@prisma/client").$Enums.UserType;
-        name: string | null;
         password_hash: string | null;
         is_locked: boolean;
         failed_login_attempts: number;
@@ -60,10 +60,10 @@ export declare class UserController {
         updated_at: Date;
     }>;
     remove(user: UserContext, id: number): Promise<{
+        name: string | null;
         id: number;
         phone_number: string;
         user_type: import("@prisma/client").$Enums.UserType;
-        name: string | null;
         password_hash: string | null;
         is_locked: boolean;
         failed_login_attempts: number;

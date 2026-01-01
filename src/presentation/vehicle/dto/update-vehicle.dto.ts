@@ -1,18 +1,33 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsInt, IsOptional, IsString, MaxLength, Min, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
+import {
+  IsBoolean,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Matches,
+  Min,
+} from 'class-validator';
 import { VehicleStatus } from '@prisma/client';
+import { NoHtml } from '../../../common/decorators/no-html.decorator';
 
 export class UpdateVehicleDto {
   @ApiPropertyOptional({ example: 'ABC-54321' })
   @IsOptional()
   @IsString()
   @MaxLength(20)
+  @NoHtml({ message: 'plate_number must not include HTML or script tags' })
+  @Matches(/^[A-Za-z0-9-]+$/u, { message: 'plate_number contains invalid characters' })
   plate_number?: string | null;
 
   @ApiPropertyOptional({ example: 'LIBRE-1122' })
   @IsOptional()
   @IsString()
+  @MaxLength(30)
+  @NoHtml({ message: 'libre_no must not include HTML or script tags' })
+  @Matches(/^[A-Za-z0-9-]+$/u, { message: 'libre_no contains invalid characters' })
   libre_no?: string | null;
 
   @ApiPropertyOptional({ example: 11 })
@@ -33,18 +48,21 @@ export class UpdateVehicleDto {
   @IsOptional()
   @IsString()
   @MaxLength(255)
+  @NoHtml({ message: 'make must not include HTML or script tags' })
   make?: string | null;
 
   @ApiPropertyOptional({ example: 'i10' })
   @IsOptional()
   @IsString()
   @MaxLength(255)
+  @NoHtml({ message: 'model must not include HTML or script tags' })
   model?: string | null;
 
   @ApiPropertyOptional({ example: 'Black' })
   @IsOptional()
   @IsString()
   @MaxLength(255)
+  @NoHtml({ message: 'color must not include HTML or script tags' })
   color?: string | null;
 
   @ApiPropertyOptional({ example: 5 })

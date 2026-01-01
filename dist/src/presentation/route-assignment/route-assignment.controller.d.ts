@@ -9,8 +9,8 @@ export declare class RouteAssignmentController {
     private readonly service;
     constructor(service: RouteAssignmentService);
     bulkUpsert(user: UserContext, dto: BulkUpsertAssignmentsDto): Promise<{
-        id: number;
         association_id: number;
+        id: number;
         created_at: Date;
         updated_at: Date;
         status: import("@prisma/client").$Enums.RouteAssignmentStatus;
@@ -65,8 +65,8 @@ export declare class RouteAssignmentController {
         } | null;
     }[]>;
     updateOne(user: UserContext, id: number, dto: UpdateAssignmentDto): Promise<{
-        id: number;
         association_id: number;
+        id: number;
         created_at: Date;
         updated_at: Date;
         status: import("@prisma/client").$Enums.RouteAssignmentStatus;
@@ -83,8 +83,8 @@ export declare class RouteAssignmentController {
         route_quota_id: number | null;
     }>;
     remove(user: UserContext, id: number): Promise<{
-        id: number;
         association_id: number;
+        id: number;
         created_at: Date;
         updated_at: Date;
         status: import("@prisma/client").$Enums.RouteAssignmentStatus;

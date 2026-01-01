@@ -11,9 +11,10 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RouteAssignmentFilterDto = void 0;
 const swagger_1 = require("@nestjs/swagger");
-const class_validator_1 = require("class-validator");
 const class_transformer_1 = require("class-transformer");
+const class_validator_1 = require("class-validator");
 const client_1 = require("@prisma/client");
+const no_html_decorator_1 = require("../../../common/decorators/no-html.decorator");
 class RouteAssignmentFilterDto {
     association_id;
     route_id;
@@ -59,14 +60,18 @@ __decorate([
     (0, swagger_1.ApiPropertyOptional)({ example: '2017-01-01' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
-    (0, class_validator_1.Matches)(/^\d{4}-\d{2}-\d{2}$/),
+    (0, class_validator_1.MaxLength)(10),
+    (0, no_html_decorator_1.NoHtml)({ message: 'date_from must not include HTML or script tags' }),
+    (0, class_validator_1.Matches)(/^\d{4}-\d{2}-\d{2}$/u, { message: 'date_from must be YYYY-MM-DD' }),
     __metadata("design:type", String)
 ], RouteAssignmentFilterDto.prototype, "date_from", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ example: '2017-01-07' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
-    (0, class_validator_1.Matches)(/^\d{4}-\d{2}-\d{2}$/),
+    (0, class_validator_1.MaxLength)(10),
+    (0, no_html_decorator_1.NoHtml)({ message: 'date_to must not include HTML or script tags' }),
+    (0, class_validator_1.Matches)(/^\d{4}-\d{2}-\d{2}$/u, { message: 'date_to must be YYYY-MM-DD' }),
     __metadata("design:type", String)
 ], RouteAssignmentFilterDto.prototype, "date_to", void 0);
 __decorate([

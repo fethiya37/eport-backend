@@ -14,6 +14,7 @@ const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
 const client_1 = require("@prisma/client");
 const class_transformer_1 = require("class-transformer");
+const no_html_decorator_1 = require("../../../common/decorators/no-html.decorator");
 class CreateUserDto {
     phone_number;
     user_type;
@@ -22,10 +23,12 @@ class CreateUserDto {
 }
 exports.CreateUserDto = CreateUserDto;
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: '+251911223344' }),
+    (0, swagger_1.ApiProperty)({ example: '+251912345678' }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
-    (0, class_validator_1.MaxLength)(20),
+    (0, class_validator_1.MaxLength)(13),
+    (0, no_html_decorator_1.NoHtml)({ message: 'phone_number must not include HTML or script tags' }),
+    (0, class_validator_1.Matches)(/^\+2519\d{8}$/u, { message: 'phone_number must be in +2519XXXXXXXX format' }),
     __metadata("design:type", String)
 ], CreateUserDto.prototype, "phone_number", void 0);
 __decorate([
@@ -38,6 +41,7 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.MaxLength)(100),
+    (0, no_html_decorator_1.NoHtml)({ message: 'name must not include HTML or script tags' }),
     __metadata("design:type", Object)
 ], CreateUserDto.prototype, "name", void 0);
 __decorate([
