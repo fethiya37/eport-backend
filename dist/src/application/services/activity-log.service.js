@@ -21,27 +21,31 @@ let ActivityLogService = class ActivityLogService {
     constructor(logs) {
         this.logs = logs;
     }
+    getUserId(ctx) {
+        if (!ctx)
+            return null;
+        return ctx.user_id ?? null;
+    }
     async log(ctx, input) {
         const payload = {
-            user_id: ctx ? ctx.userId ?? null : null,
+            user_id: this.getUserId(ctx),
             association_id: ctx?.association_id ?? null,
             action: `${input.module}:${input.action}`,
             entity_type: input.entity ?? null,
             entity_id: input.entity_id ?? null,
-            description: null,
             ip_address: input.ip_address ?? null,
         };
         await this.logs.create(payload);
     }
     async findMany(ctx, filter, options) {
-        const effectiveFilter = { ...filter };
+        const effective = { ...filter };
         if (!(0, roles_util_1.isAdminLike)(ctx.user_type)) {
             if (!ctx.association_id) {
                 throw new common_1.ForbiddenException('Association context required');
             }
-            effectiveFilter.association_id = ctx.association_id;
+            effective.association_id = ctx.association_id;
         }
-        return this.logs.findMany(effectiveFilter, options);
+        return this.logs.findMany(effective, options);
     }
     async findOne(ctx, id) {
         const log = await this.logs.findById(id);

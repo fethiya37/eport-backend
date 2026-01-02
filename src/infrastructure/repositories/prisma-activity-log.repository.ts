@@ -20,7 +20,6 @@ export class PrismaActivityLogRepository implements IActivityLogRepository {
         action: data.action,
         entity_type: data.entity_type ?? null,
         entity_id: data.entity_id ?? null,
-        description: data.description ?? null,
         ip_address: data.ip_address ?? null,
       },
     });

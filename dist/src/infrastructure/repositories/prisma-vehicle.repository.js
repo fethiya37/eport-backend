@@ -27,8 +27,9 @@ let PrismaVehicleRepository = class PrismaVehicleRepository {
         return { association_id: ctx.association_id };
     }
     async create(ctx, data) {
-        if ((0, roles_util_1.isAdminLike)(ctx.user_type))
+        if ((0, roles_util_1.isAdminLike)(ctx.user_type)) {
             throw new common_1.ForbiddenException('Admin/Superadmin cannot create vehicles');
+        }
         if (!ctx.association_id || ctx.association_id !== data.association_id) {
             throw new common_1.ForbiddenException('Cannot create vehicle for another association');
         }
@@ -45,14 +46,14 @@ let PrismaVehicleRepository = class PrismaVehicleRepository {
         try {
             return await this.prisma.vehicle.create({
                 data: {
-                    plate_number: data.plate_number,
-                    libre_no: data.libre_no ?? null,
+                    plate_number: data.plate_number.trim(),
+                    libre_no: data.libre_no ? data.libre_no.trim() : null,
                     owner_id: data.owner_id,
                     association_id: data.association_id,
                     driver_id: data.driver_id ?? null,
-                    make: data.make ?? null,
-                    model: data.model ?? null,
-                    color: data.color ?? null,
+                    make: data.make ? data.make.trim() : null,
+                    model: data.model ? data.model.trim() : null,
+                    color: data.color ? data.color.trim() : null,
                     capacity: data.capacity ?? null,
                     status: client_1.VehicleStatus.ACTIVE,
                     is_weekly: data.is_weekly,
@@ -64,12 +65,10 @@ let PrismaVehicleRepository = class PrismaVehicleRepository {
                 const target = Array.isArray(err.meta?.target)
                     ? err.meta?.target
                     : [String(err.meta?.target ?? '')];
-                if (target.includes('plate_number')) {
+                if (target.includes('plate_number'))
                     throw new common_1.BadRequestException('Plate number already exists');
-                }
-                if (target.includes('driver_id')) {
+                if (target.includes('driver_id'))
                     throw new common_1.BadRequestException('This driver is already assigned to another vehicle');
-                }
             }
             throw err;
         }
@@ -82,13 +81,14 @@ let PrismaVehicleRepository = class PrismaVehicleRepository {
                 ? { association_id: filter.association_id }
                 : {}),
             ...(filter?.id ? { id: filter.id } : {}),
-            ...(filter?.plate_number ? { plate_number: filter.plate_number } : {}),
+            ...(filter?.plate_number ? { plate_number: filter.plate_number.trim() } : {}),
             ...(filter?.status ? { status: filter.status } : {}),
             ...(filter?.owner_id ? { owner_id: filter.owner_id } : {}),
             ...(filter?.driver_id ? { driver_id: filter.driver_id } : {}),
-            ...(filter?.make ? { make: { contains: filter.make, mode: 'insensitive' } } : {}),
-            ...(filter?.model ? { model: { contains: filter.model, mode: 'insensitive' } } : {}),
-            ...(filter?.color ? { color: { contains: filter.color, mode: 'insensitive' } } : {}),
+            ...(filter?.make ? { make: { contains: filter.make.trim(), mode: 'insensitive' } } : {}),
+            ...(filter?.model ? { model: { contains: filter.model.trim(), mode: 'insensitive' } } : {}),
+            ...(filter?.color ? { color: { contains: filter.color.trim(), mode: 'insensitive' } } : {}),
+            ...(typeof filter?.is_weekly === 'boolean' ? { is_weekly: filter.is_weekly } : {}),
         };
         return this.prisma.vehicle.findMany({
             where,
@@ -121,20 +121,19 @@ let PrismaVehicleRepository = class PrismaVehicleRepository {
         });
     }
     async update(ctx, id, data) {
-        if ((0, roles_util_1.isAdminLike)(ctx.user_type))
-            throw new common_1.ForbiddenException('Admin/Superadmin cannot update vehicles');
         const existing = await this.findById(ctx, id);
         if (!existing)
             throw new common_1.NotFoundException('Vehicle not found');
-        if (data.owner_id) {
+        const targetAssociationId = existing.association_id;
+        if (data.owner_id !== undefined) {
             const owner = await this.prisma.owner.findUnique({ where: { id: data.owner_id } });
-            if (!owner || owner.association_id !== existing.association_id) {
+            if (!owner || owner.association_id !== targetAssociationId) {
                 throw new common_1.BadRequestException('Owner must belong to the same association');
             }
         }
-        if (data.driver_id) {
+        if (data.driver_id !== undefined && data.driver_id !== null) {
             const driver = await this.prisma.driver.findUnique({ where: { id: data.driver_id } });
-            if (!driver || driver.association_id !== existing.association_id) {
+            if (!driver || driver.association_id !== targetAssociationId) {
                 throw new common_1.BadRequestException('Driver must belong to the same association');
             }
         }
@@ -142,13 +141,17 @@ let PrismaVehicleRepository = class PrismaVehicleRepository {
             return await this.prisma.vehicle.update({
                 where: { id },
                 data: {
-                    ...(data.plate_number !== undefined ? { plate_number: data.plate_number } : {}),
-                    ...(data.libre_no !== undefined ? { libre_no: data.libre_no } : {}),
+                    ...(data.plate_number !== undefined
+                        ? { plate_number: data.plate_number ? data.plate_number.trim() : data.plate_number }
+                        : {}),
+                    ...(data.libre_no !== undefined
+                        ? { libre_no: data.libre_no ? data.libre_no.trim() : data.libre_no }
+                        : {}),
                     ...(data.owner_id !== undefined ? { owner_id: data.owner_id } : {}),
                     ...(data.driver_id !== undefined ? { driver_id: data.driver_id } : {}),
-                    ...(data.make !== undefined ? { make: data.make } : {}),
-                    ...(data.model !== undefined ? { model: data.model } : {}),
-                    ...(data.color !== undefined ? { color: data.color } : {}),
+                    ...(data.make !== undefined ? { make: data.make ? data.make.trim() : data.make } : {}),
+                    ...(data.model !== undefined ? { model: data.model ? data.model.trim() : data.model } : {}),
+                    ...(data.color !== undefined ? { color: data.color ? data.color.trim() : data.color } : {}),
                     ...(data.capacity !== undefined ? { capacity: data.capacity } : {}),
                     ...(data.status !== undefined ? { status: data.status } : {}),
                     ...(data.is_weekly !== undefined ? { is_weekly: data.is_weekly } : {}),
@@ -161,12 +164,10 @@ let PrismaVehicleRepository = class PrismaVehicleRepository {
                 const target = Array.isArray(err.meta?.target)
                     ? err.meta?.target
                     : [String(err.meta?.target ?? '')];
-                if (target.includes('plate_number')) {
+                if (target.includes('plate_number'))
                     throw new common_1.BadRequestException('Plate number already exists');
-                }
-                if (target.includes('driver_id')) {
+                if (target.includes('driver_id'))
                     throw new common_1.BadRequestException('This driver is already assigned to another vehicle');
-                }
             }
             throw err;
         }
@@ -207,9 +208,8 @@ let PrismaVehicleRepository = class PrismaVehicleRepository {
                 available.push(v);
             }
         }
-        if (input.mode === 'quota') {
+        if (input.mode === 'quota')
             return { count: available.length };
-        }
         return { count: available.length, vehicles: available };
     }
 };

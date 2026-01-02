@@ -40,6 +40,11 @@ export class RouteQuotaService {
     private readonly activityLog: ActivityLogService,
   ) {}
 
+  private requireAssociationContext(ctx: UserContext) {
+    if (!ctx.association_id) throw new ForbiddenException('Association context required');
+    return ctx.association_id;
+  }
+
   async create(ctx: UserContext, dto: CreateRouteQuotaDto) {
     if (!isAdminLike(ctx.user_type)) throw new ForbiddenException('Only Admin/Superadmin');
 
@@ -98,6 +103,7 @@ export class RouteQuotaService {
           `no_vehicles for route ${item.route_id} exceeds active driver-vehicle pairs`,
         );
       }
+
       await this.ensureNoOverlap(dto.association_id, item.route_id, start_date, end_date);
 
       rows.push({
@@ -126,8 +132,10 @@ export class RouteQuotaService {
   }
 
   find(ctx: UserContext, filter: RouteQuotaFilterDto) {
-    if (!isAdminLike(ctx.user_type) && ctx.association_id) {
-      filter.association_id = ctx.association_id;
+    // ✅ SECURITY FIX: non-admin must always be association-scoped (and must have association context)
+    if (!isAdminLike(ctx.user_type)) {
+      const association_id = this.requireAssociationContext(ctx);
+      filter.association_id = association_id;
     }
     return this.quotas.find(filter);
   }
@@ -143,8 +151,11 @@ export class RouteQuotaService {
       throw new ForbiddenException('Only Admin, Superadmin or Association can update quota');
     }
 
-    if (isAssociation && ctx.association_id !== existing.association_id) {
-      throw new ForbiddenException('Cannot modify quota outside your association');
+    if (isAssociation) {
+      const association_id = this.requireAssociationContext(ctx);
+      if (association_id !== existing.association_id) {
+        throw new ForbiddenException('Cannot modify quota outside your association');
+      }
     }
 
     const approvedCount = await this.prisma.routeAssignment.count({

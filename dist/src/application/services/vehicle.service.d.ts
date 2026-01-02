@@ -73,23 +73,6 @@ export declare class VehicleService {
         is_weekly: boolean;
         deleted_at: Date | null;
     }>;
-    findActiveWithoutDriver(ctx: UserContext): Promise<{
-        id: number;
-        association_id: number;
-        created_at: Date;
-        updated_at: Date;
-        status: import("@prisma/client").$Enums.VehicleStatus;
-        plate_number: string;
-        libre_no: string | null;
-        owner_id: number;
-        driver_id: number | null;
-        make: string | null;
-        model: string | null;
-        color: string | null;
-        capacity: number | null;
-        is_weekly: boolean;
-        deleted_at: Date | null;
-    }[]>;
     update(ctx: UserContext, id: number, dto: UpdateVehicleDto): Promise<{
         id: number;
         association_id: number;

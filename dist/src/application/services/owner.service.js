@@ -17,7 +17,7 @@ const common_1 = require("@nestjs/common");
 const owner_repository_1 = require("../../domain/repositories/owner.repository");
 const prisma_service_1 = require("../../../prisma/prisma.service");
 const roles_util_1 = require("../../common/auth/roles.util");
-const activity_log_service_1 = require("./activity-log.service");
+const activity_log_service_1 = require("../services/activity-log.service");
 let OwnerService = class OwnerService {
     owners;
     prisma;

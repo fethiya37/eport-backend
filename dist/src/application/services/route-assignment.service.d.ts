@@ -12,6 +12,7 @@ export declare class RouteAssignmentService {
     private readonly activityLog;
     constructor(repo: IRouteAssignmentRepository, prisma: PrismaService, activityLog: ActivityLogService);
     private parseGcDate;
+    private assertAssociationScope;
     private existsRoute;
     private existsVehicleInAssociation;
     private existsVehicleOverlap;

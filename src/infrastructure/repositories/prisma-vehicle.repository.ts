@@ -12,7 +12,7 @@ import { UserContext } from 'src/common/context/user-context';
 
 @Injectable()
 export class PrismaVehicleRepository implements IVehicleRepository {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   private scopeWhere(ctx: UserContext): Prisma.VehicleWhereInput {
     if (isAdminLike(ctx.user_type)) return {};
@@ -35,8 +35,9 @@ export class PrismaVehicleRepository implements IVehicleRepository {
       is_weekly: boolean;
     },
   ): Promise<Vehicle> {
-    if (isAdminLike(ctx.user_type))
+    if (isAdminLike(ctx.user_type)) {
       throw new ForbiddenException('Admin/Superadmin cannot create vehicles');
+    }
     if (!ctx.association_id || ctx.association_id !== data.association_id) {
       throw new ForbiddenException('Cannot create vehicle for another association');
     }
@@ -56,14 +57,14 @@ export class PrismaVehicleRepository implements IVehicleRepository {
     try {
       return await this.prisma.vehicle.create({
         data: {
-          plate_number: data.plate_number,
-          libre_no: data.libre_no ?? null,
+          plate_number: data.plate_number.trim(),
+          libre_no: data.libre_no ? data.libre_no.trim() : null,
           owner_id: data.owner_id,
           association_id: data.association_id,
           driver_id: data.driver_id ?? null,
-          make: data.make ?? null,
-          model: data.model ?? null,
-          color: data.color ?? null,
+          make: data.make ? data.make.trim() : null,
+          model: data.model ? data.model.trim() : null,
+          color: data.color ? data.color.trim() : null,
           capacity: data.capacity ?? null,
           status: VehicleStatus.ACTIVE,
           is_weekly: data.is_weekly,
@@ -75,12 +76,8 @@ export class PrismaVehicleRepository implements IVehicleRepository {
           ? (err.meta?.target as string[])
           : [String(err.meta?.target ?? '')];
 
-        if (target.includes('plate_number')) {
-          throw new BadRequestException('Plate number already exists');
-        }
-        if (target.includes('driver_id')) {
-          throw new BadRequestException('This driver is already assigned to another vehicle');
-        }
+        if (target.includes('plate_number')) throw new BadRequestException('Plate number already exists');
+        if (target.includes('driver_id')) throw new BadRequestException('This driver is already assigned to another vehicle');
       }
       throw err;
     }
@@ -95,13 +92,14 @@ export class PrismaVehicleRepository implements IVehicleRepository {
         ? { association_id: filter.association_id }
         : {}),
       ...(filter?.id ? { id: filter.id } : {}),
-      ...(filter?.plate_number ? { plate_number: filter.plate_number } : {}),
+      ...(filter?.plate_number ? { plate_number: filter.plate_number.trim() } : {}),
       ...(filter?.status ? { status: filter.status } : {}),
       ...(filter?.owner_id ? { owner_id: filter.owner_id } : {}),
       ...(filter?.driver_id ? { driver_id: filter.driver_id } : {}),
-      ...(filter?.make ? { make: { contains: filter.make, mode: 'insensitive' } } : {}),
-      ...(filter?.model ? { model: { contains: filter.model, mode: 'insensitive' } } : {}),
-      ...(filter?.color ? { color: { contains: filter.color, mode: 'insensitive' } } : {}),
+      ...(filter?.make ? { make: { contains: filter.make.trim(), mode: 'insensitive' } } : {}),
+      ...(filter?.model ? { model: { contains: filter.model.trim(), mode: 'insensitive' } } : {}),
+      ...(filter?.color ? { color: { contains: filter.color.trim(), mode: 'insensitive' } } : {}),
+      ...(typeof (filter as any)?.is_weekly === 'boolean' ? { is_weekly: (filter as any).is_weekly } : {}),
     };
 
     return this.prisma.vehicle.findMany({
@@ -137,6 +135,7 @@ export class PrismaVehicleRepository implements IVehicleRepository {
     });
   }
 
+  // ✅ Admin can update; Association is still scoped (via findById checks)
   async update(
     ctx: UserContext,
     id: number,
@@ -153,22 +152,21 @@ export class PrismaVehicleRepository implements IVehicleRepository {
       is_weekly: boolean;
     }>,
   ): Promise<Vehicle> {
-    if (isAdminLike(ctx.user_type))
-      throw new ForbiddenException('Admin/Superadmin cannot update vehicles');
-
     const existing = await this.findById(ctx, id);
     if (!existing) throw new NotFoundException('Vehicle not found');
 
-    if (data.owner_id) {
+    const targetAssociationId = existing.association_id;
+
+    if (data.owner_id !== undefined) {
       const owner = await this.prisma.owner.findUnique({ where: { id: data.owner_id } });
-      if (!owner || owner.association_id !== existing.association_id) {
+      if (!owner || owner.association_id !== targetAssociationId) {
         throw new BadRequestException('Owner must belong to the same association');
       }
     }
 
-    if (data.driver_id) {
+    if (data.driver_id !== undefined && data.driver_id !== null) {
       const driver = await this.prisma.driver.findUnique({ where: { id: data.driver_id } });
-      if (!driver || driver.association_id !== existing.association_id) {
+      if (!driver || driver.association_id !== targetAssociationId) {
         throw new BadRequestException('Driver must belong to the same association');
       }
     }
@@ -177,13 +175,17 @@ export class PrismaVehicleRepository implements IVehicleRepository {
       return await this.prisma.vehicle.update({
         where: { id },
         data: {
-          ...(data.plate_number !== undefined ? { plate_number: data.plate_number } : {}),
-          ...(data.libre_no !== undefined ? { libre_no: data.libre_no } : {}),
+          ...(data.plate_number !== undefined
+            ? { plate_number: data.plate_number ? data.plate_number.trim() : data.plate_number }
+            : {}),
+          ...(data.libre_no !== undefined
+            ? { libre_no: data.libre_no ? data.libre_no.trim() : data.libre_no }
+            : {}),
           ...(data.owner_id !== undefined ? { owner_id: data.owner_id } : {}),
           ...(data.driver_id !== undefined ? { driver_id: data.driver_id } : {}),
-          ...(data.make !== undefined ? { make: data.make } : {}),
-          ...(data.model !== undefined ? { model: data.model } : {}),
-          ...(data.color !== undefined ? { color: data.color } : {}),
+          ...(data.make !== undefined ? { make: data.make ? data.make.trim() : data.make } : {}),
+          ...(data.model !== undefined ? { model: data.model ? data.model.trim() : data.model } : {}),
+          ...(data.color !== undefined ? { color: data.color ? data.color.trim() : data.color } : {}),
           ...(data.capacity !== undefined ? { capacity: data.capacity } : {}),
           ...(data.status !== undefined ? { status: data.status } : {}),
           ...(data.is_weekly !== undefined ? { is_weekly: data.is_weekly } : {}),
@@ -196,12 +198,8 @@ export class PrismaVehicleRepository implements IVehicleRepository {
           ? (err.meta?.target as string[])
           : [String(err.meta?.target ?? '')];
 
-        if (target.includes('plate_number')) {
-          throw new BadRequestException('Plate number already exists');
-        }
-        if (target.includes('driver_id')) {
-          throw new BadRequestException('This driver is already assigned to another vehicle');
-        }
+        if (target.includes('plate_number')) throw new BadRequestException('Plate number already exists');
+        if (target.includes('driver_id')) throw new BadRequestException('This driver is already assigned to another vehicle');
       }
       throw err;
     }
@@ -222,10 +220,8 @@ export class PrismaVehicleRepository implements IVehicleRepository {
     input: { association_id?: number; is_weekly: boolean; start_date: Date; mode: 'quota' | 'direct' },
   ): Promise<{ count: number; vehicles?: Vehicle[] }> {
     const assocId = isAdminLike(ctx.user_type) ? input.association_id : ctx.association_id;
-
     if (!assocId) throw new BadRequestException('association_id is required');
 
-    // 1. Candidate vehicles
     const vehicles = await this.prisma.vehicle.findMany({
       where: {
         association_id: assocId,
@@ -236,7 +232,6 @@ export class PrismaVehicleRepository implements IVehicleRepository {
       include: input.mode === 'direct' ? { driver: true } : undefined,
     });
 
-    // 2. Filter out vehicles with overlapping assignments
     const available: typeof vehicles = [];
     for (const v of vehicles) {
       const latest = await this.prisma.routeAssignment.findFirst({
@@ -253,10 +248,7 @@ export class PrismaVehicleRepository implements IVehicleRepository {
       }
     }
 
-    // 3. Return based on mode
-    if (input.mode === 'quota') {
-      return { count: available.length };
-    }
+    if (input.mode === 'quota') return { count: available.length };
     return { count: available.length, vehicles: available };
   }
 }

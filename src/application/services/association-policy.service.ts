@@ -1,4 +1,4 @@
-import { Inject, Injectable, BadRequestException } from '@nestjs/common';
+import { Inject, Injectable, BadRequestException, ForbiddenException } from '@nestjs/common';
 import {
   type IAssociationPolicyRepository,
   ASSOCIATION_POLICY_REPOSITORY,
@@ -15,18 +15,39 @@ export class AssociationPolicyService {
     private readonly activityLog: ActivityLogService,
   ) {}
 
+  private assertPolicyInput(dto: {
+    weekly_fee: number;
+    monthly_fee: number;
+    daily_fine_percent: number;
+  }) {
+    if (!Number.isFinite(dto.weekly_fee) || dto.weekly_fee < 0) {
+      throw new BadRequestException('weekly_fee must be a non-negative number');
+    }
+    if (!Number.isFinite(dto.monthly_fee) || dto.monthly_fee < 0) {
+      throw new BadRequestException('monthly_fee must be a non-negative number');
+    }
+    if (!Number.isFinite(dto.daily_fine_percent) || dto.daily_fine_percent < 0 || dto.daily_fine_percent > 1) {
+      throw new BadRequestException('daily_fine_percent must be between 0 and 1');
+    }
+  }
+
   async upsert(
     ctx: UserContext,
     dto: { weekly_fee: number; monthly_fee: number; daily_fine_percent: number },
   ) {
     if (!ctx.association_id) throw new BadRequestException('association_id required');
+
     if (!isAdminLike(ctx.user_type) && ctx.user_type !== 'Association') {
-      throw new BadRequestException('Only Association/Admin can set policy');
+      throw new ForbiddenException('Only Association/Admin can set policy');
     }
+
+    this.assertPolicyInput(dto);
 
     const policy = await this.repo.upsert({
       association_id: ctx.association_id,
-      ...dto,
+      weekly_fee: dto.weekly_fee,
+      monthly_fee: dto.monthly_fee,
+      daily_fine_percent: dto.daily_fine_percent,
     });
 
     await this.activityLog.log(ctx, {
@@ -39,7 +60,7 @@ export class AssociationPolicyService {
     return policy;
   }
 
-  get(ctx: UserContext) {
+  async get(ctx: UserContext) {
     if (!ctx.association_id) throw new BadRequestException('association_id required');
     return this.repo.get(ctx.association_id);
   }

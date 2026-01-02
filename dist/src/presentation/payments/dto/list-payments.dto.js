@@ -13,6 +13,7 @@ exports.ListPaymentsDto = void 0;
 const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
 const client_1 = require("@prisma/client");
+const no_html_decorator_1 = require("../../../common/decorators/no-html.decorator");
 class ListPaymentsDto {
     association_id;
     driver_id;
@@ -52,6 +53,9 @@ __decorate([
     (0, swagger_1.ApiPropertyOptional)({ description: 'Filter by plate number' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(20),
+    (0, no_html_decorator_1.NoHtml)({ message: 'plate_number must not include HTML or script tags' }),
+    (0, class_validator_1.Matches)(/^[A-Za-z0-9-]+$/u, { message: 'plate_number contains invalid characters' }),
     __metadata("design:type", String)
 ], ListPaymentsDto.prototype, "plate_number", void 0);
 __decorate([
@@ -64,12 +68,14 @@ __decorate([
     (0, swagger_1.ApiPropertyOptional)({ description: 'Start date (inclusive, YYYY-MM-DD)' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
+    (0, class_validator_1.Matches)(/^\d{4}-\d{2}-\d{2}$/u, { message: 'from_date must be YYYY-MM-DD' }),
     __metadata("design:type", String)
 ], ListPaymentsDto.prototype, "from_date", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ description: 'End date (inclusive, YYYY-MM-DD)' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
+    (0, class_validator_1.Matches)(/^\d{4}-\d{2}-\d{2}$/u, { message: 'to_date must be YYYY-MM-DD' }),
     __metadata("design:type", String)
 ], ListPaymentsDto.prototype, "to_date", void 0);
 //# sourceMappingURL=list-payments.dto.js.map

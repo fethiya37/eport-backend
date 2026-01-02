@@ -12,7 +12,6 @@ import {
   ASSOCIATION_SUBACCOUNT_REPOSITORY,
 } from '../../domain/repositories/association-subaccount.repository';
 import type { UserContext } from '../../common/context/user-context';
-import { isAdminLike } from '../../common/auth/roles.util';
 import { ActivityLogService } from '../services/activity-log.service';
 
 @Injectable()
@@ -23,19 +22,19 @@ export class AssociationSubaccountService {
     @Inject(ASSOCIATION_SUBACCOUNT_REPOSITORY)
     private readonly repo: IAssociationSubaccountRepository,
     private readonly activityLog: ActivityLogService,
-  ) { }
+  ) {}
 
-  private resolveAssociationId(ctx: UserContext, association_id?: number) {
-    if (isAdminLike(ctx.user_type)) {
-      if (!association_id)
-        throw new BadRequestException('association_id is required for admin/superadmin');
-      return association_id;
+  private requireAssociationId(ctx: UserContext): number {
+    if (ctx.user_type !== 'Association') {
+      throw new ForbiddenException('Only Association can manage subaccounts');
     }
-    if (!ctx.association_id) throw new ForbiddenException('association context missing');
+    if (!ctx.association_id) {
+      throw new ForbiddenException('association context missing');
+    }
     return ctx.association_id;
   }
 
-  async createForAssociation(
+  async createForMyAssociation(
     ctx: UserContext,
     dto: {
       bank_code: number;
@@ -45,9 +44,8 @@ export class AssociationSubaccountService {
       split_type?: 'fixed' | 'percentage';
       split_value?: number;
     },
-    association_id?: number,
   ) {
-    const assocId = this.resolveAssociationId(ctx, association_id);
+    const assocId = this.requireAssociationId(ctx);
 
     const assoc = await this.prisma.association.findUnique({ where: { id: assocId } });
     if (!assoc) throw new BadRequestException('association not found');
@@ -86,14 +84,17 @@ export class AssociationSubaccountService {
     return sub;
   }
 
-  async getMine(ctx: UserContext, association_id?: number) {
-    const assocId = this.resolveAssociationId(ctx, association_id);
+  async getMine(ctx: UserContext) {
+    const assocId = this.requireAssociationId(ctx);
+
     const row = await this.repo.findByAssociationId(ctx, assocId);
     if (!row) throw new NotFoundException('subaccount not found');
     return row;
   }
 
   async hardDelete(ctx: UserContext, id: number) {
+    this.requireAssociationId(ctx);
+
     await this.repo.hardDelete(ctx, id);
 
     await this.activityLog.log(ctx, {

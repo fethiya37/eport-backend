@@ -13,6 +13,7 @@ exports.DriverFilterDto = void 0;
 const class_validator_1 = require("class-validator");
 const client_1 = require("@prisma/client");
 const class_transformer_1 = require("class-transformer");
+const no_html_decorator_1 = require("../../../common/decorators/no-html.decorator");
 class DriverFilterDto {
     association_id;
     id;
@@ -38,11 +39,16 @@ __decorate([
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(100),
+    (0, no_html_decorator_1.NoHtml)({ message: 'full_name must not include HTML or script tags' }),
     __metadata("design:type", String)
 ], DriverFilterDto.prototype, "full_name", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(13),
+    (0, no_html_decorator_1.NoHtml)({ message: 'phone_number must not include HTML or script tags' }),
+    (0, class_validator_1.Matches)(/^\+2519\d{8}$/u, { message: 'phone_number must be in +2519XXXXXXXX format' }),
     __metadata("design:type", String)
 ], DriverFilterDto.prototype, "phone_number", void 0);
 __decorate([
@@ -53,6 +59,8 @@ __decorate([
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(30),
+    (0, no_html_decorator_1.NoHtml)({ message: 'license_no must not include HTML or script tags' }),
     __metadata("design:type", String)
 ], DriverFilterDto.prototype, "license_no", void 0);
 __decorate([

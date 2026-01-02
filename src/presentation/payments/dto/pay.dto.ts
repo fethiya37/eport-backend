@@ -52,6 +52,7 @@ export class PayDto {
     example: '2025-09-01',
   })
   @IsISO8601()
+  @NoHtml({ message: 'covered_start_date must not include HTML or script tags' })
   covered_start_date!: string;
 
   @ApiProperty({
@@ -59,6 +60,7 @@ export class PayDto {
     example: '2025-09-07',
   })
   @IsISO8601()
+  @NoHtml({ message: 'covered_end_date must not include HTML or script tags' })
   covered_end_date!: string;
 
   @ApiPropertyOptional({

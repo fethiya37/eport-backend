@@ -23,6 +23,7 @@ import * as bcrypt from 'bcrypt';
 import type { UserContext } from 'src/common/context/user-context';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { ActivityLogService } from '../services/activity-log.service';
+import { assertStrongPassword, generateStrongPassword } from 'src/common/security/password';
 
 @Injectable()
 export class DriverService {
@@ -32,7 +33,7 @@ export class DriverService {
     private readonly policyRepo: IAssociationPolicyRepository,
     private readonly prisma: PrismaService,
     private readonly activityLog: ActivityLogService,
-  ) {}
+  ) { }
 
   async create(ctx: UserContext, dto: CreateDriverDto) {
     if (isAdminLike(ctx.user_type)) {
@@ -42,10 +43,15 @@ export class DriverService {
       throw new BadRequestException('association_id is required');
     }
 
+    const fullName = dto.full_name.trim();
+    const phone = dto.phone_number.trim();
+    const licenseNo = dto.license_no === undefined ? undefined : (dto.license_no ?? null);
+    const licenseNoTrimmed = typeof licenseNo === 'string' ? licenseNo.trim() : licenseNo;
+
     const driverUserExists = await this.prisma.user.findUnique({
       where: {
         phone_number_user_type: {
-          phone_number: dto.phone_number,
+          phone_number: phone,
           user_type: UserType.Driver,
         },
       },
@@ -56,13 +62,14 @@ export class DriverService {
     }
 
     const driver = await this.prisma.$transaction(async (tx) => {
-      const password_hash = await bcrypt.hash(dto.phone_number, 10);
+      // NOTE: Using phone as password is weak. If you can, replace this with a random temp PIN + SMS.
+      const password_hash = await bcrypt.hash(phone, 10);
 
       const user = await tx.user.create({
         data: {
-          phone_number: dto.phone_number,
+          phone_number: phone,
           user_type: UserType.Driver,
-          name: dto.full_name,
+          name: fullName,
           password_hash,
           is_locked: false,
           association_id: ctx.association_id!,
@@ -74,10 +81,11 @@ export class DriverService {
         {
           user_id: user.id,
           association_id: ctx.association_id!,
-          full_name: dto.full_name,
-          phone_number: dto.phone_number,
-          license_no: dto.license_no ?? null,
+          full_name: fullName,
+          phone_number: phone,
+          license_no: licenseNoTrimmed,
           license_expiry: dto.license_expiry ? new Date(dto.license_expiry) : null,
+          has_smartphone: dto.has_smartphone,
         },
         tx,
       );
@@ -115,11 +123,17 @@ export class DriverService {
     const existing = await this.drivers.findById(ctx, id);
     if (!existing) throw new NotFoundException('Driver not found');
 
+    const fullName = dto.full_name?.trim();
+    const phone = dto.phone_number?.trim();
+    const licenseNo =
+      dto.license_no === undefined ? undefined : (dto.license_no ?? null);
+    const licenseNoTrimmed = typeof licenseNo === 'string' ? licenseNo.trim() : licenseNo;
+
     try {
-      if (dto.phone_number && dto.phone_number !== (existing as any).phone_number) {
+      if (phone && phone !== (existing as any).phone_number) {
         const dup = await this.prisma.user.findFirst({
           where: {
-            phone_number: dto.phone_number,
+            phone_number: phone,
             user_type: UserType.Driver,
             NOT: { id: (existing as any).user_id },
           },
@@ -129,27 +143,27 @@ export class DriverService {
       }
 
       const updated = await this.drivers.update(ctx, id, {
-        full_name: dto.full_name,
-        phone_number: dto.phone_number,
+        full_name: fullName,
+        phone_number: phone,
         status: dto.status as DriverStatus | undefined,
-        license_no: dto.license_no ?? undefined,
+        license_no: licenseNoTrimmed ?? undefined,
         license_expiry: dto.license_expiry ? new Date(dto.license_expiry) : undefined,
         has_smartphone: dto.has_smartphone,
         active_until_date:
           dto.active_until_date === undefined
             ? undefined
             : dto.active_until_date
-            ? new Date(dto.active_until_date)
-            : null,
+              ? new Date(dto.active_until_date)
+              : null,
         interest_accrued: dto.interest_accrued,
       });
 
-      if (dto.full_name !== undefined || dto.phone_number !== undefined) {
+      if (fullName !== undefined || phone !== undefined) {
         await this.prisma.user.update({
           where: { id: (updated as any).user_id },
           data: {
-            ...(dto.full_name !== undefined ? { name: dto.full_name } : {}),
-            ...(dto.phone_number !== undefined ? { phone_number: dto.phone_number } : {}),
+            ...(fullName !== undefined ? { name: fullName } : {}),
+            ...(phone !== undefined ? { phone_number: phone } : {}),
           },
         });
       }
@@ -180,12 +194,13 @@ export class DriverService {
     if (!driver) throw new NotFoundException('Driver not found');
 
     const removed = await this.prisma.$transaction(async (tx) => {
-      await this.drivers.remove(ctx, id, tx);
-
+      // ✅ FIX ORDER: detach vehicles first to avoid FK issues
       await tx.vehicle.updateMany({
         where: { driver_id: id },
         data: { driver_id: null },
       });
+
+      await this.drivers.remove(ctx, id, tx);
 
       await tx.user.delete({ where: { id: (driver as any).user_id } });
 
@@ -205,4 +220,45 @@ export class DriverService {
   async findDriversWithoutVehicle(ctx: UserContext) {
     return this.drivers.findWithoutVehicle(ctx);
   }
+
+  async resetPassword(ctx: UserContext, id: number) {
+    if (isAdminLike(ctx.user_type)) {
+      throw new ForbiddenException('Admin/Superadmin cannot reset driver password here');
+    }
+    if (!ctx.association_id) {
+      throw new BadRequestException('association_id is required');
+    }
+
+    const driver = await this.prisma.driver.findFirst({
+      where: { id, association_id: ctx.association_id },
+      select: { id: true, user_id: true, phone_number: true },
+    });
+
+    if (!driver) throw new NotFoundException('Driver not found');
+
+    const temp_password = generateStrongPassword();
+    assertStrongPassword(temp_password, driver.phone_number);
+    const password_hash = await bcrypt.hash(temp_password, 12);
+
+    await this.prisma.user.update({
+      where: { id: driver.user_id },
+      data: {
+        password_hash,
+        must_change_password: true,
+        failed_login_attempts: 0,
+        locked_until: null,
+        is_locked: false,
+      },
+    });
+
+    await this.activityLog.log(ctx, {
+      module: 'Driver',
+      action: 'RESET_PASSWORD',
+      entity: 'Driver',
+      entity_id: driver.id,
+    });
+
+    return { temp_password };
+  }
+
 }

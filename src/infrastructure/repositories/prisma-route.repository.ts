@@ -1,11 +1,16 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
-import { IRoutesRepository, RouteFilter, RouteUpsertInput, UpsertGroupWithRoutesArgs } from 'src/domain/repositories/route.repository';
+import {
+  IRoutesRepository,
+  RouteFilter,
+  RouteUpsertInput,
+  UpsertGroupWithRoutesArgs,
+} from 'src/domain/repositories/route.repository';
 
 @Injectable()
 export class PrismaRoutesRepository implements IRoutesRepository {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   listRouteGroups(includeRoutes: boolean) {
     return this.prisma.routeGroup.findMany({
@@ -15,11 +20,14 @@ export class PrismaRoutesRepository implements IRoutesRepository {
   }
 
   listRoutes(filter: RouteFilter) {
+    const dep = filter.departure_contains?.trim();
+    const arr = filter.arrival_contains?.trim();
+
     return this.prisma.route.findMany({
       where: {
         ...(filter.route_group_id ? { route_group_id: filter.route_group_id } : {}),
-        ...(filter.departure_contains ? { departure: { contains: filter.departure_contains, mode: 'insensitive' } } : {}),
-        ...(filter.arrival_contains ? { arrival: { contains: filter.arrival_contains, mode: 'insensitive' } } : {}),
+        ...(dep ? { departure: { contains: dep, mode: 'insensitive' } } : {}),
+        ...(arr ? { arrival: { contains: arr, mode: 'insensitive' } } : {}),
       },
       orderBy: { id: 'asc' },
       include: { route_group: true },
@@ -27,7 +35,10 @@ export class PrismaRoutesRepository implements IRoutesRepository {
   }
 
   getRoute(id: number) {
-    return this.prisma.route.findUnique({ where: { id }, include: { route_group: true } });
+    return this.prisma.route.findUnique({
+      where: { id },
+      include: { route_group: true },
+    });
   }
 
   getRouteGroup(id: number, includeRoutes: boolean) {
@@ -42,9 +53,10 @@ export class PrismaRoutesRepository implements IRoutesRepository {
 
     const result = await this.prisma.$transaction(async (tx) => {
       if (args.route_group_id && args.route_group) {
+        const groupName = args.route_group.trim();
         await tx.routeGroup.update({
           where: { id: groupId },
-          data: { route_group: args.route_group },
+          data: { route_group: groupName },
         });
       }
 
@@ -66,10 +78,13 @@ export class PrismaRoutesRepository implements IRoutesRepository {
       for (const r of args.routes) {
         this.validateRouteInput(r);
 
+        const departure = r.departure.trim();
+        const arrival = r.arrival.trim();
+
         const data = {
           route_group_id: groupId,
-          departure: r.departure,
-          arrival: r.arrival,
+          departure,
+          arrival,
           kilometer:
             r.kilometer === null || r.kilometer === undefined
               ? null
@@ -81,7 +96,9 @@ export class PrismaRoutesRepository implements IRoutesRepository {
         };
 
         if (r.id) {
-          const exists = await tx.route.findFirst({ where: { id: r.id, route_group_id: groupId } });
+          const exists = await tx.route.findFirst({
+            where: { id: r.id, route_group_id: groupId },
+          });
           if (!exists) throw new BadRequestException(`Route #${r.id} not found in this group`);
           await tx.route.update({ where: { id: r.id }, data });
         } else {
@@ -104,11 +121,14 @@ export class PrismaRoutesRepository implements IRoutesRepository {
     const existing = await this.prisma.route.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Route not found');
 
+    const departure = r.departure.trim();
+    const arrival = r.arrival.trim();
+
     return this.prisma.route.update({
       where: { id },
       data: {
-        departure: r.departure,
-        arrival: r.arrival,
+        departure,
+        arrival,
         kilometer:
           r.kilometer === null || r.kilometer === undefined
             ? null
@@ -123,14 +143,21 @@ export class PrismaRoutesRepository implements IRoutesRepository {
 
   private async ensureGroup(args: UpsertGroupWithRoutesArgs): Promise<number> {
     if (args.route_group_id) {
-      const group = await this.prisma.routeGroup.findUnique({ where: { id: args.route_group_id } });
+      const group = await this.prisma.routeGroup.findUnique({
+        where: { id: args.route_group_id },
+      });
       if (!group) throw new BadRequestException('route_group_id not found');
       return group.id;
     }
-    if (!args.route_group || !args.route_group.trim()) {
+
+    const name = args.route_group?.trim();
+    if (!name) {
       throw new BadRequestException('route_group is required when route_group_id is not provided');
     }
-    const created = await this.prisma.routeGroup.create({ data: { route_group: args.route_group } });
+
+    const created = await this.prisma.routeGroup.create({
+      data: { route_group: name },
+    });
     return created.id;
   }
 
@@ -154,11 +181,13 @@ export class PrismaRoutesRepository implements IRoutesRepository {
         select: { id: true },
       });
       const routeIds = routes.map((r) => r.id);
+
       if (routeIds.length) {
         await tx.routeAssignment.deleteMany({ where: { route_id: { in: routeIds } } });
         await tx.routeQuota.deleteMany({ where: { route_id: { in: routeIds } } });
         await tx.route.deleteMany({ where: { id: { in: routeIds } } });
       }
+
       await tx.routeGroup.delete({ where: { id } });
     });
   }

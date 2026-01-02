@@ -1,55 +1,61 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString } from 'class-validator';
+import { IsDateString, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export class LogFilterDto {
-  @ApiPropertyOptional({ description: 'Filter by user ID' })
+  @ApiPropertyOptional()
   @IsOptional()
   @Type(() => Number)
   @IsInt()
+  @Min(1)
   user_id?: number;
 
-  @ApiPropertyOptional({ description: 'Filter by association ID (admins only)' })
+  @ApiPropertyOptional({ description: 'Admins only' })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
+  @Min(1)
   association_id?: number;
 
-  @ApiPropertyOptional({ description: 'Filter by action string' })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   action?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by entity type, e.g. OWNER, DRIVER' })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   entity_type?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by entity ID' })
+  @ApiPropertyOptional()
   @IsOptional()
   @Type(() => Number)
   @IsInt()
+  @Min(1)
   entity_id?: number;
 
-  @ApiPropertyOptional({ description: 'Created from date (ISO string)' })
+  @ApiPropertyOptional()
   @IsOptional()
-  @IsString()
+  @IsDateString()
   date_from?: string;
 
-  @ApiPropertyOptional({ description: 'Created to date (ISO string)' })
+  @ApiPropertyOptional()
   @IsOptional()
-  @IsString()
+  @IsDateString()
   date_to?: string;
 
-  @ApiPropertyOptional({ description: 'Pagination: skip', default: 0 })
+  @ApiPropertyOptional({ default: 0 })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
+  @Min(0)
   skip?: number = 0;
 
-  @ApiPropertyOptional({ description: 'Pagination: take', default: 100 })
+  @ApiPropertyOptional({ default: 100, maximum: 200 })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
+  @Min(1)
+  @Max(200)
   take?: number = 100;
 }

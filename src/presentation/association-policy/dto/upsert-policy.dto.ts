@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNumber, Min } from 'class-validator';
+import { IsNumber, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class UpsertPolicyDto {
@@ -22,5 +22,6 @@ export class UpsertPolicyDto {
   @Type(() => Number)
   @IsNumber({ allowNaN: false, allowInfinity: false })
   @Min(0)
+  @Max(1)
   daily_fine_percent!: number;
 }

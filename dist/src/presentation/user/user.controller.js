@@ -28,26 +28,49 @@ let UserController = class UserController {
     constructor(service) {
         this.service = service;
     }
-    create(user, dto) {
-        return this.service.create(user, dto);
+    toSafeUser(u) {
+        return {
+            id: u.id,
+            phone_number: u.phone_number,
+            user_type: u.user_type,
+            name: u.name ?? null,
+            association_id: u.association_id ?? null,
+            is_locked: !!u.is_locked,
+            created_at: u.created_at,
+            updated_at: u.updated_at,
+        };
     }
-    findAll(user, filter) {
+    async create(user, dto) {
+        const result = await this.service.create(user, dto);
+        return {
+            user: this.toSafeUser(result.user),
+            temp_password: result.temp_password,
+        };
+    }
+    async findAll(user, filter) {
         const normalized = {
             ...filter,
             is_locked: filter.is_locked === undefined ? undefined : filter.is_locked === 'true',
         };
-        return this.service.findAll(user, normalized);
+        const list = await this.service.findAll(user, normalized);
+        return list.map((u) => this.toSafeUser(u));
     }
-    findOne(user, id) {
-        return this.service.findOne(user, id);
+    async findOne(user, id) {
+        const u = await this.service.findOne(user, id);
+        return this.toSafeUser(u);
     }
-    update(user, id, dto) {
-        return this.service.update(user, id, dto);
+    async update(user, id, dto) {
+        const updated = await this.service.update(user, id, dto);
+        return this.toSafeUser(updated);
     }
-    remove(user, id) {
-        return this.service.remove(user, id);
+    async remove(user, id) {
+        const removed = await this.service.remove(user, id);
+        return this.toSafeUser(removed);
     }
-    changeMyPassword(user, dto) {
+    async resetPassword(user, id) {
+        return this.service.resetPasswordByAdmin(user, id);
+    }
+    async changeMyPassword(user, dto) {
         return this.service.changeOwnPassword(user, dto);
     }
 };
@@ -59,7 +82,7 @@ __decorate([
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object, create_user_dto_1.CreateUserDto]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], UserController.prototype, "create", null);
 __decorate([
     (0, common_1.Get)(),
@@ -68,7 +91,7 @@ __decorate([
     __param(1, (0, common_1.Query)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object, user_filter_dto_1.UserFilterDto]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], UserController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Get)(':id'),
@@ -77,7 +100,7 @@ __decorate([
     __param(1, (0, common_1.Param)('id', common_1.ParseIntPipe)),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object, Number]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], UserController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Patch)(':id'),
@@ -87,7 +110,7 @@ __decorate([
     __param(2, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object, Number, update_user_dto_1.UpdateUserDto]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], UserController.prototype, "update", null);
 __decorate([
     (0, common_1.Delete)(':id'),
@@ -96,15 +119,24 @@ __decorate([
     __param(1, (0, common_1.Param)('id', common_1.ParseIntPipe)),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object, Number]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], UserController.prototype, "remove", null);
+__decorate([
+    (0, common_1.Post)(':id/reset-password'),
+    (0, roles_decorator_1.Roles)('Admin', 'Superadmin'),
+    __param(0, (0, auth_user_decorator_1.AuthUser)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseIntPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Number]),
+    __metadata("design:returntype", Promise)
+], UserController.prototype, "resetPassword", null);
 __decorate([
     (0, common_1.Patch)('me/password'),
     __param(0, (0, auth_user_decorator_1.AuthUser)()),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object, change_password_dto_1.ChangePasswordDto]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], UserController.prototype, "changeMyPassword", null);
 exports.UserController = UserController = __decorate([
     (0, swagger_1.ApiTags)('users'),

@@ -32,18 +32,18 @@ let ChapaSubaccountController = class ChapaSubaccountController {
     async listBanks(country) {
         return this.chapa.listBanks(country ?? 'ET');
     }
-    async create(user, dto, association_id) {
-        return this.svc.createForAssociation(user, {
+    async create(user, dto) {
+        return this.svc.createForMyAssociation(user, {
             bank_code: dto.bank_code,
             account_number: dto.account_number,
             account_name: dto.account_name,
             business_name: dto.business_name,
             split_type: dto.split_type,
             split_value: dto.split_value,
-        }, association_id ? Number(association_id) : undefined);
+        });
     }
-    async getMine(user, association_id) {
-        return this.svc.getMine(user, association_id ? Number(association_id) : undefined);
+    async getMine(user) {
+        return this.svc.getMine(user);
     }
     async remove(user, id) {
         return this.svc.hardDelete(user, id);
@@ -52,7 +52,7 @@ let ChapaSubaccountController = class ChapaSubaccountController {
 exports.ChapaSubaccountController = ChapaSubaccountController;
 __decorate([
     (0, common_1.Get)('banks'),
-    (0, roles_decorator_1.Roles)('Admin', 'Superadmin', 'Association'),
+    (0, roles_decorator_1.Roles)('Association'),
     (0, swagger_1.ApiOperation)({ summary: 'List banks from Chapa' }),
     (0, swagger_1.ApiQuery)({ name: 'country', required: false, example: 'ET' }),
     __param(0, (0, common_1.Query)('country')),
@@ -63,43 +63,29 @@ __decorate([
 __decorate([
     (0, common_1.Post)(),
     (0, common_1.HttpCode)(201),
-    (0, roles_decorator_1.Roles)('Association', 'Admin', 'Superadmin'),
+    (0, roles_decorator_1.Roles)('Association'),
     (0, swagger_1.ApiOperation)({ summary: 'Create Chapa subaccount (one per association)' }),
     (0, swagger_1.ApiResponse)({ status: 201 }),
-    (0, swagger_1.ApiQuery)({
-        name: 'association_id',
-        required: false,
-        type: Number,
-        description: 'Admin/Superadmin must pass this; Association users use their own',
-    }),
     __param(0, (0, auth_user_decorator_1.AuthUser)()),
     __param(1, (0, common_1.Body)()),
-    __param(2, (0, common_1.Query)('association_id')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, create_subaccount_dto_1.CreateSubaccountDto, Number]),
+    __metadata("design:paramtypes", [Object, create_subaccount_dto_1.CreateSubaccountDto]),
     __metadata("design:returntype", Promise)
 ], ChapaSubaccountController.prototype, "create", null);
 __decorate([
     (0, common_1.Get)('me'),
-    (0, roles_decorator_1.Roles)('Association', 'Admin', 'Superadmin'),
-    (0, swagger_1.ApiOperation)({ summary: 'Get subaccount for your association or a given association_id' }),
-    (0, swagger_1.ApiQuery)({
-        name: 'association_id',
-        required: false,
-        type: Number,
-        description: 'Admin/Superadmin can query any association; Association users get their own',
-    }),
+    (0, roles_decorator_1.Roles)('Association'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get subaccount for my association' }),
     __param(0, (0, auth_user_decorator_1.AuthUser)()),
-    __param(1, (0, common_1.Query)('association_id')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, Number]),
+    __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], ChapaSubaccountController.prototype, "getMine", null);
 __decorate([
     (0, common_1.Delete)(':id'),
     (0, common_1.HttpCode)(200),
-    (0, roles_decorator_1.Roles)('Association', 'Admin', 'Superadmin'),
-    (0, swagger_1.ApiOperation)({ summary: 'Hard delete a subaccount record (DB only)' }),
+    (0, roles_decorator_1.Roles)('Association'),
+    (0, swagger_1.ApiOperation)({ summary: 'Hard delete a subaccount record (DB only) for my association' }),
     __param(0, (0, auth_user_decorator_1.AuthUser)()),
     __param(1, (0, common_1.Param)('id', common_1.ParseIntPipe)),
     __metadata("design:type", Function),

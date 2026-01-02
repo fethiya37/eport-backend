@@ -3,6 +3,7 @@ import type { UserContext } from 'src/common/context/user-context';
 export declare class ActivityLogService {
     private readonly logs;
     constructor(logs: IActivityLogRepository);
+    private getUserId;
     log(ctx: UserContext | null, input: {
         module: string;
         action: string;

@@ -1,5 +1,16 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, ParseIntPipe, Post, Query, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  ParseIntPipe,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../infrastructure/auth/jwt.guard';
 import { AssociationContextGuard } from '../../infrastructure/auth/association-context.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -20,7 +31,7 @@ export class ChapaSubaccountController {
   ) {}
 
   @Get('banks')
-  @Roles('Admin', 'Superadmin', 'Association')
+  @Roles('Association')
   @ApiOperation({ summary: 'List banks from Chapa' })
   @ApiQuery({ name: 'country', required: false, example: 'ET' })
   async listBanks(@Query('country') country?: string) {
@@ -29,51 +40,31 @@ export class ChapaSubaccountController {
 
   @Post()
   @HttpCode(201)
-  @Roles('Association', 'Admin', 'Superadmin')
+  @Roles('Association')
   @ApiOperation({ summary: 'Create Chapa subaccount (one per association)' })
   @ApiResponse({ status: 201 })
-  @ApiQuery({
-    name: 'association_id',
-    required: false,
-    type: Number,
-    description: 'Admin/Superadmin must pass this; Association users use their own',
-  })
-  async create(
-    @AuthUser() user: UserContext,
-    @Body() dto: CreateSubaccountDto,
-    @Query('association_id') association_id?: number,
-  ) {
-    return this.svc.createForAssociation(
-      user,
-      {
-        bank_code: dto.bank_code,
-        account_number: dto.account_number,
-        account_name: dto.account_name,
-        business_name: dto.business_name,
-        split_type: dto.split_type,
-        split_value: dto.split_value,
-      },
-      association_id ? Number(association_id) : undefined,
-    );
+  async create(@AuthUser() user: UserContext, @Body() dto: CreateSubaccountDto) {
+    return this.svc.createForMyAssociation(user, {
+      bank_code: dto.bank_code,
+      account_number: dto.account_number,
+      account_name: dto.account_name,
+      business_name: dto.business_name,
+      split_type: dto.split_type,
+      split_value: dto.split_value,
+    });
   }
 
   @Get('me')
-  @Roles('Association', 'Admin', 'Superadmin')
-  @ApiOperation({ summary: 'Get subaccount for your association or a given association_id' })
-  @ApiQuery({
-    name: 'association_id',
-    required: false,
-    type: Number,
-    description: 'Admin/Superadmin can query any association; Association users get their own',
-  })
-  async getMine(@AuthUser() user: UserContext, @Query('association_id') association_id?: number) {
-    return this.svc.getMine(user, association_id ? Number(association_id) : undefined);
+  @Roles('Association')
+  @ApiOperation({ summary: 'Get subaccount for my association' })
+  async getMine(@AuthUser() user: UserContext) {
+    return this.svc.getMine(user);
   }
 
   @Delete(':id')
   @HttpCode(200)
-  @Roles('Association', 'Admin', 'Superadmin')
-  @ApiOperation({ summary: 'Hard delete a subaccount record (DB only)' })
+  @Roles('Association')
+  @ApiOperation({ summary: 'Hard delete a subaccount record (DB only) for my association' })
   async remove(@AuthUser() user: UserContext, @Param('id', ParseIntPipe) id: number) {
     return this.svc.hardDelete(user, id);
   }

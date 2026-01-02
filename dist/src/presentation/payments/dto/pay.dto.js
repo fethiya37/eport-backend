@@ -68,6 +68,7 @@ __decorate([
         example: '2025-09-01',
     }),
     (0, class_validator_1.IsISO8601)(),
+    (0, no_html_decorator_1.NoHtml)({ message: 'covered_start_date must not include HTML or script tags' }),
     __metadata("design:type", String)
 ], PayDto.prototype, "covered_start_date", void 0);
 __decorate([
@@ -76,6 +77,7 @@ __decorate([
         example: '2025-09-07',
     }),
     (0, class_validator_1.IsISO8601)(),
+    (0, no_html_decorator_1.NoHtml)({ message: 'covered_end_date must not include HTML or script tags' }),
     __metadata("design:type", String)
 ], PayDto.prototype, "covered_end_date", void 0);
 __decorate([

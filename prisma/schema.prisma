@@ -66,6 +66,7 @@ model User {
   user_type             UserType
   name                  String?   @db.VarChar(100)
   password_hash         String?   @db.VarChar(255)
+  must_change_password  Boolean   @default(true)
   is_locked             Boolean   @default(false)
   failed_login_attempts Int       @default(0)
   locked_until          DateTime?
@@ -86,6 +87,7 @@ model User {
   @@index([user_type, association_id])
   @@map("users")
 }
+
 
 model UserToken {
   id         Int      @id @default(autoincrement())

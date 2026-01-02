@@ -5,6 +5,7 @@ export declare class AssociationPolicyService {
     private readonly repo;
     private readonly activityLog;
     constructor(repo: IAssociationPolicyRepository, activityLog: ActivityLogService);
+    private assertPolicyInput;
     upsert(ctx: UserContext, dto: {
         weekly_fee: number;
         monthly_fee: number;

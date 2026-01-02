@@ -5,6 +5,7 @@ export declare class PrismaDriverPaymentRepository implements IDriverPaymentRepo
     private readonly prisma;
     constructor(prisma: PrismaService);
     create(row: DriverPaymentCreate, tx?: Prisma.TransactionClient): Promise<DriverPayment>;
+    private parseDateBound;
     findMany(filters: any): Promise<any[]>;
     getTotalByAssociation(association_id: number): Promise<{
         total_amount: number;

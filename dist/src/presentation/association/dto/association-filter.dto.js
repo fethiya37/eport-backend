@@ -13,6 +13,7 @@ exports.AssociationFilterDto = void 0;
 const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
 const class_transformer_1 = require("class-transformer");
+const no_html_decorator_1 = require("../../../common/decorators/no-html.decorator");
 class AssociationFilterDto {
     id;
     name;
@@ -31,6 +32,7 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.MaxLength)(100),
+    (0, no_html_decorator_1.NoHtml)({ message: 'name must not include HTML or script tags' }),
     __metadata("design:type", String)
 ], AssociationFilterDto.prototype, "name", void 0);
 //# sourceMappingURL=association-filter.dto.js.map

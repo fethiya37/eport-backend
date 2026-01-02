@@ -8,7 +8,6 @@ export interface ActivityLogCreate {
   action: string;
   entity_type?: string | null;
   entity_id?: number | null;
-  description?: string | null;
   ip_address?: string | null;
 }
 
@@ -37,9 +36,7 @@ export interface ActivityLogWithRelations extends ActivityLog {
 
 export interface IActivityLogRepository {
   create(data: ActivityLogCreate): Promise<ActivityLog>;
-
   findById(id: number): Promise<ActivityLogWithRelations | null>;
-
   findMany(
     filter: ActivityLogFilter,
     options?: { skip?: number; take?: number },

@@ -108,7 +108,7 @@ __decorate([
 ], VehicleController.prototype, "update", null);
 __decorate([
     (0, common_1.Delete)(':id'),
-    (0, roles_decorator_1.Roles)('Admin', 'Superadmin', 'Association'),
+    (0, roles_decorator_1.Roles)('Association'),
     __param(0, (0, auth_user_decorator_1.AuthUser)()),
     __param(1, (0, common_1.Param)('id', common_1.ParseIntPipe)),
     __metadata("design:type", Function),

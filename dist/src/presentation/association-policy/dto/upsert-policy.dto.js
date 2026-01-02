@@ -41,6 +41,7 @@ __decorate([
     (0, class_transformer_1.Type)(() => Number),
     (0, class_validator_1.IsNumber)({ allowNaN: false, allowInfinity: false }),
     (0, class_validator_1.Min)(0),
+    (0, class_validator_1.Max)(1),
     __metadata("design:type", Number)
 ], UpsertPolicyDto.prototype, "daily_fine_percent", void 0);
 //# sourceMappingURL=upsert-policy.dto.js.map

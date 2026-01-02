@@ -33,7 +33,10 @@ export class PrismaAssociationSubaccountRepository implements IAssociationSubacc
     return client.associationSubaccount.create({ data });
   }
 
-  async findByAssociationId(ctx: UserContext, association_id: number): Promise<AssociationSubaccount | null> {
+  async findByAssociationId(
+    ctx: UserContext,
+    association_id: number,
+  ): Promise<AssociationSubaccount | null> {
     this.ensureScope(ctx, association_id);
     return this.prisma.associationSubaccount.findUnique({ where: { association_id } });
   }

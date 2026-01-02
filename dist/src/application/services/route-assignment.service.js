@@ -39,6 +39,15 @@ let RouteAssignmentService = class RouteAssignmentService {
         }
         return new Date(s);
     }
+    assertAssociationScope(ctx, associationId) {
+        if ((0, roles_util_1.isAdminLike)(ctx.user_type))
+            return;
+        if (!ctx.association_id)
+            throw new common_1.ForbiddenException('Association context required');
+        if (ctx.association_id !== associationId) {
+            throw new common_1.ForbiddenException('You can only manage your association data');
+        }
+    }
     async existsRoute(route_id) {
         return !!(await this.prisma.route.findUnique({ where: { id: route_id } }));
     }
@@ -136,7 +145,9 @@ let RouteAssignmentService = class RouteAssignmentService {
     }
     async find(ctx, filter) {
         const f = { ...filter };
-        if (!(0, roles_util_1.isAdminLike)(ctx.user_type) && ctx.association_id) {
+        if (!(0, roles_util_1.isAdminLike)(ctx.user_type)) {
+            if (!ctx.association_id)
+                throw new common_1.ForbiddenException('Association context required');
             f.association_id = ctx.association_id;
         }
         const date_from = f.date_from ? this.parseGcDate(f.date_from) : undefined;
@@ -177,6 +188,7 @@ let RouteAssignmentService = class RouteAssignmentService {
         const existing = (await this.repo.findByIds([id]))[0];
         if (!existing)
             throw new common_1.NotFoundException('Assignment not found');
+        this.assertAssociationScope(ctx, existing.association_id);
         if (!(0, roles_util_1.isAdminLike)(ctx.user_type) && existing.status === client_1.RouteAssignmentStatus.Approved) {
             throw new common_1.ForbiddenException('Association users cannot update approved assignments');
         }
@@ -186,10 +198,13 @@ let RouteAssignmentService = class RouteAssignmentService {
             throw new common_1.BadRequestException('start_date must be <= end_date');
         const vehicle = await this.prisma.vehicle.findUnique({
             where: { id: dto.vehicle_id ?? existing.vehicle_id },
-            select: { is_weekly: true, driver_id: true },
+            select: { is_weekly: true, driver_id: true, association_id: true },
         });
         if (!vehicle)
             throw new common_1.NotFoundException('Vehicle not found');
+        if (!(0, roles_util_1.isAdminLike)(ctx.user_type) && ctx.association_id && vehicle.association_id !== ctx.association_id) {
+            throw new common_1.ForbiddenException('Vehicle not in your association');
+        }
         const driver = vehicle.driver_id
             ? await this.prisma.driver.findUnique({
                 where: { id: vehicle.driver_id },
@@ -227,6 +242,7 @@ let RouteAssignmentService = class RouteAssignmentService {
         const existing = (await this.repo.findByIds([id]))[0];
         if (!existing)
             throw new common_1.NotFoundException('Assignment not found');
+        this.assertAssociationScope(ctx, existing.association_id);
         if (!(0, roles_util_1.isAdminLike)(ctx.user_type) && existing.status === client_1.RouteAssignmentStatus.Approved) {
             throw new common_1.ForbiddenException('Association users cannot delete approved assignments');
         }

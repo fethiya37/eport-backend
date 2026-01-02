@@ -7,9 +7,9 @@ import { UserContext } from 'src/common/context/user-context';
 
 @Injectable()
 export class PrismaOwnerRepository implements IOwnerRepository {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
-  private scopeWhere(ctx: UserContext) {
+  private scopeWhere(ctx: UserContext): Prisma.OwnerWhereInput {
     if (isAdminLike(ctx.user_type)) return {};
     if (!ctx.association_id) throw new ForbiddenException('Association context required');
     return { association_id: ctx.association_id };
@@ -37,7 +37,7 @@ export class PrismaOwnerRepository implements IOwnerRepository {
   }
 
   async findAll(ctx: UserContext, association_id?: number): Promise<Owner[]> {
-    const where =
+    const where: Prisma.OwnerWhereInput =
       isAdminLike(ctx.user_type)
         ? association_id
           ? { association_id }
@@ -74,6 +74,7 @@ export class PrismaOwnerRepository implements IOwnerRepository {
     if (isAdminLike(ctx.user_type)) {
       throw new ForbiddenException('Admin/Superadmin cannot update owners');
     }
+
     const existing = await this.findById(ctx, id);
     if (!existing) throw new NotFoundException('Owner not found');
 
@@ -88,6 +89,7 @@ export class PrismaOwnerRepository implements IOwnerRepository {
     if (isAdminLike(ctx.user_type)) {
       throw new ForbiddenException('Admin/Superadmin cannot delete owners');
     }
+
     const existing = await this.findById(ctx, id);
     if (!existing) throw new NotFoundException('Owner not found');
 

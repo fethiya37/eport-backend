@@ -18,7 +18,6 @@ const driver_repository_1 = require("../../domain/repositories/driver.repository
 const driver_payment_repository_1 = require("../../domain/repositories/driver-payment.repository");
 const association_policy_repository_1 = require("../../domain/repositories/association-policy.repository");
 const prisma_service_1 = require("../../../prisma/prisma.service");
-const roles_util_1 = require("../../common/auth/roles.util");
 const route_assignment_service_1 = require("./route-assignment.service");
 const sms_gateway_service_1 = require("./sms-gateway.service");
 const activity_log_service_1 = require("./activity-log.service");
@@ -38,6 +37,11 @@ let PaymentsService = class PaymentsService {
         this.routeService = routeService;
         this.smsGateway = smsGateway;
         this.activityLog = activityLog;
+    }
+    assertPaymentsActor(ctx) {
+        if (ctx.user_type !== 'Association' && ctx.user_type !== 'Driver') {
+            throw new common_1.ForbiddenException('Not allowed');
+        }
     }
     pad2(n) {
         return n < 10 ? `0${n}` : `${n}`;
@@ -69,14 +73,30 @@ let PaymentsService = class PaymentsService {
             return digits.slice(3);
         return digits;
     }
+    assertFeeConfig(p) {
+        if (!Number.isFinite(p.weekly_fee) || p.weekly_fee < 0) {
+            throw new common_1.BadRequestException('Invalid association policy: weekly_fee');
+        }
+        if (!Number.isFinite(p.monthly_fee) || p.monthly_fee < 0) {
+            throw new common_1.BadRequestException('Invalid association policy: monthly_fee');
+        }
+        if (!Number.isFinite(p.daily_fine_percent) || p.daily_fine_percent < 0 || p.daily_fine_percent > 1) {
+            throw new common_1.BadRequestException('Invalid association policy: daily_fine_percent');
+        }
+    }
     async getFees(association_id) {
         const p = await this.policy.get(association_id);
         if (!p)
             throw new common_1.BadRequestException('Association policy not configured');
+        this.assertFeeConfig({
+            weekly_fee: Number(p.weekly_fee),
+            monthly_fee: Number(p.monthly_fee),
+            daily_fine_percent: Number(p.daily_fine_percent),
+        });
         return {
-            weekly_fee: p.weekly_fee,
-            monthly_fee: p.monthly_fee,
-            daily_rate: p.daily_fine_percent,
+            weekly_fee: Number(p.weekly_fee),
+            monthly_fee: Number(p.monthly_fee),
+            daily_rate: Number(p.daily_fine_percent),
         };
     }
     parsePaymentMethod(value) {
@@ -99,6 +119,10 @@ let PaymentsService = class PaymentsService {
             return v;
         throw new common_1.BadRequestException('Invalid payment_method. Use one of: CASH | BANK | MOBILE | OTHER');
     }
+    normalizePlate(plate) {
+        const p = (plate ?? '').trim();
+        return p.length ? p : undefined;
+    }
     async resolveDriver(ctx, driver_id, plate_number) {
         if (!driver_id && !plate_number) {
             throw new common_1.BadRequestException('Provide driver_id or plate_number');
@@ -110,8 +134,11 @@ let PaymentsService = class PaymentsService {
                 throw new common_1.NotFoundException('Driver not found');
         }
         else {
+            const plate = this.normalizePlate(plate_number);
+            if (!plate)
+                throw new common_1.BadRequestException('Invalid plate_number');
             const v = await this.prisma.vehicle.findUnique({
-                where: { plate_number: plate_number },
+                where: { plate_number: plate },
                 select: { id: true, association_id: true, driver_id: true },
             });
             if (!v)
@@ -122,7 +149,7 @@ let PaymentsService = class PaymentsService {
             if (!d)
                 throw new common_1.NotFoundException('Driver not found');
         }
-        if (!(0, roles_util_1.isAdminLike)(ctx.user_type) && ctx.user_type !== 'Driver') {
+        if (ctx.user_type === 'Association') {
             if (!ctx.association_id || d.association_id !== ctx.association_id) {
                 throw new common_1.ForbiddenException('Target driver not in your association');
             }
@@ -168,8 +195,9 @@ let PaymentsService = class PaymentsService {
         return { startGc, endGc };
     }
     computeTotal(feePlan, isOverdue, prepayQty, baseFee, interestAccrued) {
+        const interestSafe = Number.isFinite(interestAccrued) ? Math.max(0, interestAccrued) : 0;
         const current = isOverdue ? baseFee : 0;
-        const interest = isOverdue ? interestAccrued : 0;
+        const interest = isOverdue ? interestSafe : 0;
         const future = prepayQty * baseFee;
         return Math.round((current + interest + future + Number.EPSILON) * 100) / 100;
     }
@@ -180,6 +208,7 @@ let PaymentsService = class PaymentsService {
         return { firstName, lastName };
     }
     async applyPayment(ctx, dto) {
+        this.assertPaymentsActor(ctx);
         const d = await this.resolveDriver(ctx, dto.driver_id, dto.plate_number);
         this.assertPlanMatches(d.is_weekly, dto.fee_plan);
         const prepayQty = Math.max(0, dto.prepaid_qty ?? 0);
@@ -187,7 +216,13 @@ let PaymentsService = class PaymentsService {
         const { startGc, endGc } = this.parseAndValidateWindow(dto.fee_plan, dto.covered_start_date, dto.covered_end_date, isOverdue, prepayQty);
         const fees = await this.getFees(d.association_id);
         const baseFee = dto.fee_plan === 'WEEKLY' ? fees.weekly_fee : fees.monthly_fee;
+        if (!Number.isFinite(baseFee) || baseFee < 0) {
+            throw new common_1.BadRequestException('Invalid fee configuration');
+        }
         const total = this.computeTotal(dto.fee_plan, isOverdue, prepayQty, baseFee, Number(d.interest_accrued ?? 0));
+        if (!Number.isFinite(total) || total < 0) {
+            throw new common_1.BadRequestException('Invalid computed total');
+        }
         if (dto.amount !== undefined) {
             const provided = Math.round((dto.amount + Number.EPSILON) * 100) / 100;
             if (provided !== total) {
@@ -206,7 +241,7 @@ let PaymentsService = class PaymentsService {
                 paid_at: new Date(),
                 created_by_user_id: ctx.userId,
                 payment_method: this.parsePaymentMethod(dto.payment_method),
-                plate_number: dto.plate_number ?? d.vehicle_plate ?? null,
+                plate_number: this.normalizePlate(dto.plate_number) ?? d.vehicle_plate ?? null,
             }, tx);
             const vehicleId = d.vehicle_id;
             if (!vehicleId)
@@ -239,23 +274,21 @@ let PaymentsService = class PaymentsService {
             entity_id: createdPayment.id,
         });
         const coverage = await this.routeService.visibleCoverage(ctx, {
-            plate_number: dto.plate_number ?? d.vehicle_plate,
+            plate_number: this.normalizePlate(dto.plate_number) ?? d.vehicle_plate,
         });
         if (!d.has_smartphone) {
             const msg = this.formatCoverageSmsCompact(coverage);
             try {
                 await this.smsGateway.sendSms(this.toLocalEtMobile(d.phone_number), msg);
             }
-            catch (err) {
-                console.error('Failed to send SMS', err);
-            }
+            catch (e) { }
         }
         return {
             payment: {
-                plate_number: dto.plate_number ?? d.vehicle_plate ?? null,
+                plate_number: this.normalizePlate(dto.plate_number) ?? d.vehicle_plate ?? null,
                 fee_plan: dto.fee_plan,
                 breakdown: {
-                    interest: isOverdue ? Number(d.interest_accrued ?? 0) : 0,
+                    interest: isOverdue ? Math.max(0, Number(d.interest_accrued ?? 0)) : 0,
                     current_fee: isOverdue ? baseFee : 0,
                     future_fee: prepayQty * baseFee,
                     total,
@@ -273,8 +306,11 @@ let PaymentsService = class PaymentsService {
         return `Plate: ${data.plate_number}\n${assignments}`;
     }
     async listPayments(ctx, filters) {
-        if (!(0, roles_util_1.isAdminLike)(ctx.user_type))
-            filters.association_id = ctx.association_id;
+        this.assertPaymentsActor(ctx);
+        if (ctx.user_type !== 'Association') {
+            throw new common_1.ForbiddenException('Not allowed');
+        }
+        filters.association_id = ctx.association_id;
         const rows = await this.payments.findMany(filters);
         return rows.map((p) => ({
             id: p.id,
@@ -298,6 +334,10 @@ let PaymentsService = class PaymentsService {
         }));
     }
     async totalPayments(ctx) {
+        this.assertPaymentsActor(ctx);
+        if (ctx.user_type !== 'Association') {
+            throw new common_1.ForbiddenException('Not allowed');
+        }
         if (!ctx.association_id)
             throw new common_1.ForbiddenException('Association context required');
         const totals = await this.payments.getTotalByAssociation(ctx.association_id);
@@ -362,6 +402,9 @@ let PaymentsService = class PaymentsService {
         };
     }
     async initOnlineFromPayDto(ctx, dto) {
+        this.assertPaymentsActor(ctx);
+        if (ctx.user_type !== 'Driver')
+            throw new common_1.ForbiddenException('Not allowed');
         const d = await this.resolveDriver(ctx, dto.driver_id, dto.plate_number);
         this.assertPlanMatches(d.is_weekly, dto.fee_plan);
         const prepayQty = Math.max(0, dto.prepaid_qty ?? 0);

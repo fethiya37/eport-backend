@@ -9,15 +9,15 @@ export declare class AssociationSubaccountService {
     private readonly repo;
     private readonly activityLog;
     constructor(prisma: PrismaService, chapa: ChapaApiService, repo: IAssociationSubaccountRepository, activityLog: ActivityLogService);
-    private resolveAssociationId;
-    createForAssociation(ctx: UserContext, dto: {
+    private requireAssociationId;
+    createForMyAssociation(ctx: UserContext, dto: {
         bank_code: number;
         account_number: string;
         account_name: string;
         business_name: string;
         split_type?: 'fixed' | 'percentage';
         split_value?: number;
-    }, association_id?: number): Promise<{
+    }): Promise<{
         id: number;
         association_id: number;
         created_at: Date;
@@ -26,7 +26,7 @@ export declare class AssociationSubaccountService {
         account_name: string;
         account_number: string;
     }>;
-    getMine(ctx: UserContext, association_id?: number): Promise<{
+    getMine(ctx: UserContext): Promise<{
         id: number;
         association_id: number;
         created_at: Date;

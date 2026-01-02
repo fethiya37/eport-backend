@@ -147,14 +147,14 @@ let VehicleService = class VehicleService {
             throw new common_1.BadRequestException('association_id is required');
         }
         const created = await this.vehicles.create(ctx, {
-            plate_number: dto.plate_number,
-            libre_no: dto.libre_no ?? null,
+            plate_number: dto.plate_number.trim(),
+            libre_no: dto.libre_no ? dto.libre_no.trim() : null,
             owner_id: dto.owner_id,
             association_id: ctx.association_id,
             driver_id: dto.driver_id ?? null,
-            make: dto.make ?? null,
-            model: dto.model ?? null,
-            color: dto.color ?? null,
+            make: dto.make ? dto.make.trim() : null,
+            model: dto.model ? dto.model.trim() : null,
+            color: dto.color ? dto.color.trim() : null,
             capacity: dto.capacity ?? null,
             is_weekly: dto.is_weekly ?? false,
         });
@@ -175,21 +175,18 @@ let VehicleService = class VehicleService {
             throw new common_1.NotFoundException('Vehicle not found');
         return v;
     }
-    async findActiveWithoutDriver(ctx) {
-        return this.vehicles.findActiveWithoutDriver(ctx);
-    }
     async update(ctx, id, dto) {
         const existing = await this.vehicles.findById(ctx, id);
         if (!existing)
             throw new common_1.NotFoundException('Vehicle not found');
         const updated = await this.vehicles.update(ctx, id, {
-            plate_number: dto.plate_number,
-            libre_no: dto.libre_no,
+            plate_number: dto.plate_number ? dto.plate_number.trim() : dto.plate_number,
+            libre_no: dto.libre_no ? dto.libre_no.trim() : dto.libre_no,
             owner_id: dto.owner_id,
             driver_id: dto.driver_id ?? existing.driver_id,
-            make: dto.make,
-            model: dto.model,
-            color: dto.color,
+            make: dto.make ? dto.make.trim() : dto.make,
+            model: dto.model ? dto.model.trim() : dto.model,
+            color: dto.color ? dto.color.trim() : dto.color,
             capacity: dto.capacity,
             status: dto.vehicle_status,
             is_weekly: dto.is_weekly ?? existing.is_weekly,
@@ -229,11 +226,17 @@ let VehicleService = class VehicleService {
         return deleted;
     }
     async resolveForPayment(ctx, q) {
+        const isAssociationUser = ctx.user_type === 'Association';
+        const assocId = ctx.association_id ?? null;
+        if (isAssociationUser && !assocId) {
+            throw new common_1.BadRequestException('association context required');
+        }
+        const plate = q.plate?.trim();
         let vehicle = null;
         let driver = null;
-        if (q.plate) {
+        if (plate) {
             vehicle = await this.prisma.vehicle.findUnique({
-                where: { plate_number: q.plate },
+                where: { plate_number: plate },
                 select: {
                     driver_id: true,
                     association_id: true,
@@ -243,6 +246,9 @@ let VehicleService = class VehicleService {
             });
             if (!vehicle)
                 throw new common_1.NotFoundException('Vehicle not found');
+            if (isAssociationUser && vehicle.association_id !== assocId) {
+                throw new common_1.ForbiddenException('Not in your association');
+            }
             if (!vehicle.driver_id)
                 throw new common_1.BadRequestException('No driver assigned to this plate');
             const d = await this.prisma.driver.findUnique({
@@ -257,6 +263,9 @@ let VehicleService = class VehicleService {
             });
             if (!d)
                 throw new common_1.NotFoundException('Driver not found');
+            if (isAssociationUser && d.association_id !== assocId) {
+                throw new common_1.ForbiddenException('Not in your association');
+            }
             driver = {
                 ...d,
                 interest_accrued: d.interest_accrued ? Number(d.interest_accrued) : 0,
@@ -276,9 +285,11 @@ let VehicleService = class VehicleService {
             });
             if (!d)
                 throw new common_1.NotFoundException('Driver not found');
-            if (!d.vehicle) {
-                throw new common_1.BadRequestException('This driver does not have a vehicle assigned');
+            if (isAssociationUser && d.association_id !== assocId) {
+                throw new common_1.ForbiddenException('Not in your association');
             }
+            if (!d.vehicle)
+                throw new common_1.BadRequestException('This driver does not have a vehicle assigned');
             driver = {
                 ...d,
                 interest_accrued: d.interest_accrued ? Number(d.interest_accrued) : 0,
@@ -293,8 +304,8 @@ let VehicleService = class VehicleService {
         else {
             throw new common_1.BadRequestException('Either plate or driver_id is required');
         }
-        if (!driver)
-            throw new common_1.NotFoundException('Driver not found');
+        if (!driver || !vehicle)
+            throw new common_1.NotFoundException('Driver/Vehicle not found');
         const policy = await this.policyRepo.get(driver.association_id);
         if (!policy)
             throw new common_1.NotFoundException('Association policy not found');
@@ -305,16 +316,14 @@ let VehicleService = class VehicleService {
         return {
             association_name: association?.name ?? '',
             driver_name: driver.full_name,
-            plate_number: vehicle?.plate_number ?? null,
-            is_weekly: Boolean(vehicle?.is_weekly),
+            plate_number: vehicle.plate_number ?? null,
+            is_weekly: Boolean(vehicle.is_weekly),
             active_until_date: driver.active_until_date
                 ? new Date(driver.active_until_date).toISOString().slice(0, 10)
                 : null,
             interest_accrued: driver.interest_accrued ?? 0,
             policy: {
-                plan_fee: Boolean(vehicle?.is_weekly)
-                    ? policy.weekly_fee
-                    : policy.monthly_fee,
+                plan_fee: Boolean(vehicle.is_weekly) ? policy.weekly_fee : policy.monthly_fee,
                 daily_fine_percent: policy.daily_fine_percent,
             },
         };

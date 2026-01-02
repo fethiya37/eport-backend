@@ -114,4 +114,7 @@ export declare class DriverService {
         last_accrual_date: Date | null;
         last_accrual_amount: import("@prisma/client/runtime/library").Decimal | null;
     }[]>;
+    resetPassword(ctx: UserContext, id: number): Promise<{
+        temp_password: string;
+    }>;
 }

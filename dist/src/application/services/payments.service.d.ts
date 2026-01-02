@@ -16,15 +16,18 @@ export declare class PaymentsService {
     private readonly smsGateway;
     private readonly activityLog;
     constructor(drivers: IDriverRepository, payments: IDriverPaymentRepository, policy: IAssociationPolicyRepository, prisma: PrismaService, routeService: RouteAssignmentService, smsGateway: SmsGatewayService, activityLog: ActivityLogService);
+    private assertPaymentsActor;
     private pad2;
     private ymdEAT;
     private todayEatYmd;
     private isOverdueEAT;
     private startOfDay;
     private toLocalEtMobile;
+    private assertFeeConfig;
     private getFees;
     private parsePaymentMethod;
     private coercePaymentMethodLiteral;
+    private normalizePlate;
     private resolveDriver;
     private assertPlanMatches;
     private assertWeeklyWindow;

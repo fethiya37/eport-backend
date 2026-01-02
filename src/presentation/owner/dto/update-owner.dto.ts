@@ -1,10 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  IsOptional,
-  IsString,
-  MaxLength,
-  Matches,
-} from 'class-validator';
+import { IsOptional, IsString, MaxLength, Matches } from 'class-validator';
 import { NoHtml } from '../../../common/decorators/no-html.decorator';
 
 export class UpdateOwnerDto {

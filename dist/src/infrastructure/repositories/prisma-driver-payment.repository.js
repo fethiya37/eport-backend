@@ -19,6 +19,7 @@ let PrismaDriverPaymentRepository = class PrismaDriverPaymentRepository {
         this.prisma = prisma;
     }
     async create(row, tx) {
+        const plate = row.plate_number ? row.plate_number.trim() : null;
         const data = {
             association_id: row.association_id,
             driver_id: row.driver_id,
@@ -30,11 +31,18 @@ let PrismaDriverPaymentRepository = class PrismaDriverPaymentRepository {
             paid_at: row.paid_at,
             created_by_user_id: row.created_by_user_id,
             payment_method: (row.payment_method ?? null),
-            plate_number: row.plate_number ?? null,
+            plate_number: plate && plate.length ? plate : null,
         };
         if (tx)
             return tx.driverPayment.create({ data });
         return this.prisma.driverPayment.create({ data });
+    }
+    parseDateBound(date, endOfDay) {
+        const d = new Date(date + (endOfDay ? 'T23:59:59+03:00' : 'T00:00:00+03:00'));
+        if (isNaN(d.getTime())) {
+            throw new common_1.BadRequestException('Invalid date filter');
+        }
+        return d;
     }
     async findMany(filters) {
         return this.prisma.driverPayment.findMany({
@@ -43,14 +51,10 @@ let PrismaDriverPaymentRepository = class PrismaDriverPaymentRepository {
                 ...(filters.driver_id && { driver_id: Number(filters.driver_id) }),
                 ...(filters.created_by_user_id && { created_by_user_id: Number(filters.created_by_user_id) }),
                 ...(filters.fee_plan && { fee_plan: filters.fee_plan }),
-                ...(filters.plate_number && { plate_number: filters.plate_number }),
+                ...(filters.plate_number && { plate_number: String(filters.plate_number).trim() }),
                 ...(filters.payment_method && { payment_method: filters.payment_method }),
-                ...(filters.from_date && {
-                    paid_at: { gte: new Date(filters.from_date + 'T00:00:00+03:00') },
-                }),
-                ...(filters.to_date && {
-                    paid_at: { lte: new Date(filters.to_date + 'T23:59:59+03:00') },
-                }),
+                ...(filters.from_date && { paid_at: { gte: this.parseDateBound(filters.from_date, false) } }),
+                ...(filters.to_date && { paid_at: { lte: this.parseDateBound(filters.to_date, true) } }),
             },
             include: {
                 driver: {

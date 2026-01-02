@@ -49,17 +49,28 @@ exports.UserService = void 0;
 const common_1 = require("@nestjs/common");
 const user_repository_1 = require("../../domain/repositories/user.repository");
 const prisma_service_1 = require("../../../prisma/prisma.service");
+const client_1 = require("@prisma/client");
 const bcrypt = __importStar(require("bcrypt"));
 const roles_util_1 = require("../../common/auth/roles.util");
 const activity_log_service_1 = require("../services/activity-log.service");
-function canManage(acting, target) {
-    if (acting === 'Superadmin')
-        return ['Superadmin', 'Admin', 'Controller', 'Association'].includes(target);
-    if (acting === 'Admin')
-        return ['Controller', 'Association'].includes(target);
+const password_1 = require("../../common/security/password");
+const SHARABLE_ROLES = new Set(['Association', 'Driver']);
+function canCreateOrUpdateRole(acting, target) {
+    if (acting === client_1.UserType.Superadmin) {
+        return target === client_1.UserType.Admin || target === client_1.UserType.Controller || target === client_1.UserType.Association;
+    }
+    if (acting === client_1.UserType.Admin) {
+        return target === client_1.UserType.Controller || target === client_1.UserType.Association;
+    }
     return false;
 }
-const SHARABLE_ROLES = new Set(['Association', 'Driver']);
+function canReadRole(acting, target) {
+    if (acting === client_1.UserType.Superadmin)
+        return true;
+    if (acting === client_1.UserType.Admin)
+        return target === client_1.UserType.Controller || target === client_1.UserType.Association;
+    return false;
+}
 let UserService = class UserService {
     users;
     prisma;
@@ -72,7 +83,10 @@ let UserService = class UserService {
     async create(ctx, dto) {
         if (!(0, roles_util_1.isAdminLike)(ctx.user_type))
             throw new common_1.ForbiddenException('Only Admin/Superadmin');
-        if (!canManage(ctx.user_type, dto.user_type)) {
+        if (dto.user_type === client_1.UserType.Superadmin) {
+            throw new common_1.ForbiddenException('Superadmin can only be created by seeding');
+        }
+        if (!canCreateOrUpdateRole(ctx.user_type, dto.user_type)) {
             throw new common_1.ForbiddenException(`You cannot create user_type ${dto.user_type}`);
         }
         const siblings = await this.prisma.user.findMany({
@@ -80,8 +94,8 @@ let UserService = class UserService {
             select: { id: true, user_type: true },
         });
         if (siblings.length > 0) {
-            const rolesOnPhone = new Set(siblings.map(s => s.user_type));
-            const isAllSharable = Array.from(rolesOnPhone).every(r => SHARABLE_ROLES.has(r));
+            const rolesOnPhone = new Set(siblings.map((s) => s.user_type));
+            const isAllSharable = Array.from(rolesOnPhone).every((r) => SHARABLE_ROLES.has(r));
             const creatingSharable = SHARABLE_ROLES.has(dto.user_type);
             if (!(isAllSharable && creatingSharable)) {
                 throw new common_1.BadRequestException('Phone number is already in use');
@@ -91,7 +105,7 @@ let UserService = class UserService {
             }
         }
         let associationId = null;
-        if (dto.user_type === 'Association' || dto.user_type === 'Driver') {
+        if (dto.user_type === client_1.UserType.Association || dto.user_type === client_1.UserType.Driver) {
             if (dto.association_id == null)
                 throw new common_1.BadRequestException('association_id is required');
             const assoc = await this.prisma.association.findUnique({ where: { id: dto.association_id } });
@@ -99,10 +113,9 @@ let UserService = class UserService {
                 throw new common_1.BadRequestException('association not found');
             associationId = dto.association_id;
         }
-        else {
-            associationId = null;
-        }
-        const password_hash = await bcrypt.hash(dto.phone_number, 10);
+        const temp_password = (0, password_1.generateStrongPassword)();
+        (0, password_1.assertStrongPassword)(temp_password, dto.phone_number);
+        const password_hash = await bcrypt.hash(temp_password, 12);
         const created = await this.users.create({
             phone_number: dto.phone_number,
             user_type: dto.user_type,
@@ -110,57 +123,73 @@ let UserService = class UserService {
             association_id: associationId,
             password_hash,
         });
+        await this.users.update(created.id, { must_change_password: true });
         await this.activityLog.log(ctx, {
             module: 'User',
             action: 'CREATE',
             entity: 'User',
             entity_id: created.id,
         });
-        return created;
+        return { user: created, temp_password };
     }
     async findAll(ctx, raw) {
+        if (!(0, roles_util_1.isAdminLike)(ctx.user_type))
+            throw new common_1.ForbiddenException('Only Admin/Superadmin');
         const filter = { ...raw };
-        if (ctx.user_type === 'Admin' && filter.user_type && !canManage('Admin', filter.user_type)) {
-            return [];
-        }
         const list = await this.users.findAll(filter);
-        return ctx.user_type === 'Superadmin'
-            ? list
-            : list.filter(u => canManage(ctx.user_type, u.user_type));
+        if (ctx.user_type === client_1.UserType.Superadmin)
+            return list;
+        return list.filter((u) => canReadRole(ctx.user_type, u.user_type));
     }
     async findOne(ctx, id) {
+        if (!(0, roles_util_1.isAdminLike)(ctx.user_type))
+            throw new common_1.ForbiddenException('Only Admin/Superadmin');
         const user = await this.users.findById(id);
         if (!user)
             throw new common_1.NotFoundException('User not found');
-        if (!(0, roles_util_1.isAdminLike)(ctx.user_type))
-            throw new common_1.ForbiddenException('Only Admin/Superadmin');
-        if (!canManage(ctx.user_type, user.user_type)) {
+        if (!canReadRole(ctx.user_type, user.user_type)) {
             throw new common_1.ForbiddenException('Insufficient privileges');
         }
         return user;
     }
     async update(ctx, id, dto) {
+        if (!(0, roles_util_1.isAdminLike)(ctx.user_type))
+            throw new common_1.ForbiddenException('Only Admin/Superadmin');
         const existing = await this.users.findById(id);
         if (!existing)
             throw new common_1.NotFoundException('User not found');
-        if (!(0, roles_util_1.isAdminLike)(ctx.user_type))
-            throw new common_1.ForbiddenException('Only Admin/Superadmin');
-        if (!canManage(ctx.user_type, existing.user_type)) {
+        if (!canReadRole(ctx.user_type, existing.user_type)) {
             throw new common_1.ForbiddenException('Insufficient privileges');
         }
         if (id === ctx.userId && dto.is_locked !== undefined) {
             throw new common_1.ForbiddenException('You cannot lock yourself');
         }
+        if (existing.user_type === client_1.UserType.Superadmin) {
+            if (dto.user_type !== undefined && dto.user_type !== client_1.UserType.Superadmin) {
+                throw new common_1.ForbiddenException('Superadmin role cannot be changed');
+            }
+            if (dto.phone_number !== undefined && dto.phone_number !== existing.phone_number) {
+                throw new common_1.ForbiddenException('Superadmin phone_number cannot be changed');
+            }
+        }
+        if (dto.user_type === client_1.UserType.Superadmin) {
+            throw new common_1.ForbiddenException('Superadmin can only be created by seeding');
+        }
         const nextPhone = dto.phone_number ?? existing.phone_number;
         const nextRole = dto.user_type ?? existing.user_type;
+        if (nextRole !== existing.user_type) {
+            if (!canCreateOrUpdateRole(ctx.user_type, nextRole)) {
+                throw new common_1.ForbiddenException(`You cannot set user_type ${nextRole}`);
+            }
+        }
         if (nextPhone !== existing.phone_number || nextRole !== existing.user_type) {
             const siblings = await this.prisma.user.findMany({
                 where: { phone_number: nextPhone, NOT: { id } },
                 select: { id: true, user_type: true },
             });
             if (siblings.length > 0) {
-                const rolesOnPhone = new Set(siblings.map(s => s.user_type));
-                const isAllSharable = Array.from(rolesOnPhone).every(r => SHARABLE_ROLES.has(r));
+                const rolesOnPhone = new Set(siblings.map((s) => s.user_type));
+                const isAllSharable = Array.from(rolesOnPhone).every((r) => SHARABLE_ROLES.has(r));
                 const nextIsSharable = SHARABLE_ROLES.has(nextRole);
                 if (!(isAllSharable && nextIsSharable)) {
                     throw new common_1.BadRequestException('Phone number is already in use');
@@ -170,8 +199,8 @@ let UserService = class UserService {
                 }
             }
         }
-        let finalAssociationId;
-        if (nextRole === 'Association' || nextRole === 'Driver') {
+        let finalAssociationId = existing.association_id ?? null;
+        if (nextRole === client_1.UserType.Association || nextRole === client_1.UserType.Driver) {
             const candidate = dto.association_id ?? existing.association_id;
             if (candidate == null)
                 throw new common_1.BadRequestException('association_id is required');
@@ -199,16 +228,19 @@ let UserService = class UserService {
         return updated;
     }
     async remove(ctx, id) {
+        if (!(0, roles_util_1.isAdminLike)(ctx.user_type))
+            throw new common_1.ForbiddenException('Only Admin/Superadmin');
         const user = await this.users.findById(id);
         if (!user)
             throw new common_1.NotFoundException('User not found');
-        if (!(0, roles_util_1.isAdminLike)(ctx.user_type))
-            throw new common_1.ForbiddenException('Only Admin/Superadmin');
-        if (!canManage(ctx.user_type, user.user_type)) {
-            throw new common_1.ForbiddenException('Insufficient privileges');
-        }
         if (id === ctx.userId)
             throw new common_1.ForbiddenException('You cannot delete yourself');
+        if (user.user_type === client_1.UserType.Superadmin) {
+            throw new common_1.ForbiddenException('Superadmin cannot be deleted');
+        }
+        if (!canCreateOrUpdateRole(ctx.user_type, user.user_type)) {
+            throw new common_1.ForbiddenException('Insufficient privileges');
+        }
         const deleted = await this.users.remove(id);
         await this.activityLog.log(ctx, {
             module: 'User',
@@ -225,8 +257,15 @@ let UserService = class UserService {
         const ok = await bcrypt.compare(dto.old_password, me.password_hash);
         if (!ok)
             throw new common_1.BadRequestException('old password is incorrect');
-        const new_hash = await bcrypt.hash(dto.new_password, 10);
-        await this.users.update(ctx.userId, { password_hash: new_hash });
+        (0, password_1.assertStrongPassword)(dto.new_password, me.phone_number);
+        const new_hash = await bcrypt.hash(dto.new_password, 12);
+        await this.users.update(ctx.userId, {
+            password_hash: new_hash,
+            must_change_password: false,
+            failed_login_attempts: 0,
+            locked_until: null,
+            is_locked: false,
+        });
         await this.activityLog.log(ctx, {
             module: 'User',
             action: 'CHANGE_PASSWORD',
@@ -234,6 +273,36 @@ let UserService = class UserService {
             entity_id: ctx.userId,
         });
         return { success: true };
+    }
+    async resetPasswordByAdmin(ctx, id) {
+        if (!(0, roles_util_1.isAdminLike)(ctx.user_type))
+            throw new common_1.ForbiddenException('Only Admin/Superadmin');
+        const target = await this.users.findById(id);
+        if (!target)
+            throw new common_1.NotFoundException('User not found');
+        if (target.user_type === client_1.UserType.Superadmin) {
+            throw new common_1.ForbiddenException('Superadmin password cannot be reset here');
+        }
+        if (!canReadRole(ctx.user_type, target.user_type)) {
+            throw new common_1.ForbiddenException('Insufficient privileges');
+        }
+        const temp_password = (0, password_1.generateStrongPassword)();
+        (0, password_1.assertStrongPassword)(temp_password, target.phone_number);
+        const password_hash = await bcrypt.hash(temp_password, 12);
+        await this.users.update(id, {
+            password_hash,
+            must_change_password: true,
+            failed_login_attempts: 0,
+            locked_until: null,
+            is_locked: false,
+        });
+        await this.activityLog.log(ctx, {
+            module: 'User',
+            action: 'RESET_PASSWORD',
+            entity: 'User',
+            entity_id: id,
+        });
+        return { temp_password };
     }
 };
 exports.UserService = UserService;

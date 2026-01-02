@@ -43,6 +43,9 @@ let DriverController = class DriverController {
     update(user, id, dto) {
         return this.service.update(user, id, dto);
     }
+    resetPassword(user, id) {
+        return this.service.resetPassword(user, id);
+    }
     remove(user, id) {
         return this.service.remove(user, id);
     }
@@ -50,7 +53,7 @@ let DriverController = class DriverController {
 exports.DriverController = DriverController;
 __decorate([
     (0, common_1.Get)(),
-    (0, roles_decorator_1.Roles)('Admin', 'Superadmin', 'Association'),
+    (0, roles_decorator_1.Roles)('Association'),
     __param(0, (0, auth_user_decorator_1.AuthUser)()),
     __param(1, (0, common_1.Query)()),
     __metadata("design:type", Function),
@@ -59,7 +62,7 @@ __decorate([
 ], DriverController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Get)('without-vehicle'),
-    (0, roles_decorator_1.Roles)('Admin', 'Superadmin', 'Association'),
+    (0, roles_decorator_1.Roles)('Association'),
     __param(0, (0, auth_user_decorator_1.AuthUser)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -67,7 +70,7 @@ __decorate([
 ], DriverController.prototype, "findWithoutVehicle", null);
 __decorate([
     (0, common_1.Get)(':id'),
-    (0, roles_decorator_1.Roles)('Admin', 'Superadmin', 'Association'),
+    (0, roles_decorator_1.Roles)('Association'),
     __param(0, (0, auth_user_decorator_1.AuthUser)()),
     __param(1, (0, common_1.Param)('id', common_1.ParseIntPipe)),
     __metadata("design:type", Function),
@@ -85,7 +88,7 @@ __decorate([
 ], DriverController.prototype, "create", null);
 __decorate([
     (0, common_1.Patch)(':id'),
-    (0, roles_decorator_1.Roles)('Admin', 'Superadmin', 'Association'),
+    (0, roles_decorator_1.Roles)('Association'),
     __param(0, (0, auth_user_decorator_1.AuthUser)()),
     __param(1, (0, common_1.Param)('id', common_1.ParseIntPipe)),
     __param(2, (0, common_1.Body)()),
@@ -94,8 +97,17 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], DriverController.prototype, "update", null);
 __decorate([
+    (0, common_1.Post)(':id/reset-password'),
+    (0, roles_decorator_1.Roles)('Association'),
+    __param(0, (0, auth_user_decorator_1.AuthUser)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseIntPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Number]),
+    __metadata("design:returntype", void 0)
+], DriverController.prototype, "resetPassword", null);
+__decorate([
     (0, common_1.Delete)(':id'),
-    (0, roles_decorator_1.Roles)('Admin', 'Superadmin', 'Association'),
+    (0, roles_decorator_1.Roles)('Association'),
     __param(0, (0, auth_user_decorator_1.AuthUser)()),
     __param(1, (0, common_1.Param)('id', common_1.ParseIntPipe)),
     __metadata("design:type", Function),

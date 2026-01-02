@@ -24,7 +24,6 @@ import {
   startOfWeekMonday,
   etMonthStart,
 } from '../../common/utils/ethio-period.util';
-import { gcToEthiopian } from 'src/common/utils/ethio-date.util';
 import { ActivityLogService } from '../services/activity-log.service';
 
 @Injectable()
@@ -44,6 +43,14 @@ export class RouteAssignmentService {
       return new Date(Date.UTC(y, m - 1, dd));
     }
     return new Date(s);
+  }
+
+  private assertAssociationScope(ctx: UserContext, associationId: number) {
+    if (isAdminLike(ctx.user_type)) return;
+    if (!ctx.association_id) throw new ForbiddenException('Association context required');
+    if (ctx.association_id !== associationId) {
+      throw new ForbiddenException('You can only manage your association data');
+    }
   }
 
   private async existsRoute(route_id: number): Promise<boolean> {
@@ -80,6 +87,7 @@ export class RouteAssignmentService {
     const association_id = isAdminLike(ctx.user_type)
       ? dto.association_id ?? ctx.association_id ?? null
       : ctx.association_id ?? null;
+
     if (!association_id) throw new BadRequestException('association_id is required');
 
     const now = new Date();
@@ -176,7 +184,9 @@ export class RouteAssignmentService {
 
   async find(ctx: UserContext, filter: RouteAssignmentFilterDto) {
     const f = { ...filter };
-    if (!isAdminLike(ctx.user_type) && ctx.association_id) {
+
+    if (!isAdminLike(ctx.user_type)) {
+      if (!ctx.association_id) throw new ForbiddenException('Association context required');
       f.association_id = ctx.association_id;
     }
 
@@ -220,6 +230,9 @@ export class RouteAssignmentService {
   async updateOne(ctx: UserContext, id: number, dto: UpdateAssignmentDto) {
     const existing = (await this.repo.findByIds([id]))[0];
     if (!existing) throw new NotFoundException('Assignment not found');
+
+    this.assertAssociationScope(ctx, existing.association_id);
+
     if (!isAdminLike(ctx.user_type) && existing.status === RouteAssignmentStatus.Approved) {
       throw new ForbiddenException('Association users cannot update approved assignments');
     }
@@ -230,9 +243,13 @@ export class RouteAssignmentService {
 
     const vehicle = await this.prisma.vehicle.findUnique({
       where: { id: dto.vehicle_id ?? existing.vehicle_id },
-      select: { is_weekly: true, driver_id: true },
+      select: { is_weekly: true, driver_id: true, association_id: true },
     });
     if (!vehicle) throw new NotFoundException('Vehicle not found');
+
+    if (!isAdminLike(ctx.user_type) && ctx.association_id && vehicle.association_id !== ctx.association_id) {
+      throw new ForbiddenException('Vehicle not in your association');
+    }
 
     const driver = vehicle.driver_id
       ? await this.prisma.driver.findUnique({
@@ -276,6 +293,8 @@ export class RouteAssignmentService {
   async remove(ctx: UserContext, id: number) {
     const existing = (await this.repo.findByIds([id]))[0];
     if (!existing) throw new NotFoundException('Assignment not found');
+
+    this.assertAssociationScope(ctx, existing.association_id);
 
     if (!isAdminLike(ctx.user_type) && existing.status === RouteAssignmentStatus.Approved) {
       throw new ForbiddenException('Association users cannot delete approved assignments');

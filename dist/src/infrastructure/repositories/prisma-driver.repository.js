@@ -32,13 +32,17 @@ let PrismaDriverRepository = class PrismaDriverRepository {
         if (!ctx.association_id || ctx.association_id !== data.association_id) {
             throw new common_1.ForbiddenException('Cannot create driver for another association');
         }
+        const fullName = data.full_name.trim();
+        const phone = data.phone_number.trim();
+        const licenseNo = data.license_no === undefined ? undefined : (data.license_no ?? null);
+        const licenseNoTrimmed = typeof licenseNo === 'string' ? licenseNo.trim() : licenseNo;
         return tx.driver.create({
             data: {
                 user_id: data.user_id,
                 association_id: data.association_id,
-                full_name: data.full_name,
-                phone_number: data.phone_number,
-                license_no: data.license_no ?? null,
+                full_name: fullName,
+                phone_number: phone,
+                license_no: licenseNoTrimmed,
                 license_expiry: data.license_expiry ?? null,
                 has_smartphone: data.has_smartphone ?? true,
             },
@@ -46,14 +50,19 @@ let PrismaDriverRepository = class PrismaDriverRepository {
     }
     async findAll(ctx, filter) {
         const baseScope = this.scopeWhere(ctx);
+        const fullName = filter?.full_name?.trim();
+        const phone = filter?.phone_number?.trim();
+        const licenseNo = filter?.license_no?.trim();
         const where = {
             ...baseScope,
-            ...((0, roles_util_1.isAdminLike)(ctx.user_type) && filter?.association_id ? { association_id: filter.association_id } : {}),
+            ...((0, roles_util_1.isAdminLike)(ctx.user_type) && filter?.association_id
+                ? { association_id: filter.association_id }
+                : {}),
             ...(filter?.id ? { id: filter.id } : {}),
-            ...(filter?.full_name ? { full_name: { contains: filter.full_name, mode: 'insensitive' } } : {}),
-            ...(filter?.phone_number ? { phone_number: filter.phone_number } : {}),
+            ...(fullName ? { full_name: { contains: fullName, mode: 'insensitive' } } : {}),
+            ...(phone ? { phone_number: phone } : {}),
             ...(filter?.status ? { status: filter.status } : {}),
-            ...(filter?.license_no ? { license_no: { contains: filter.license_no, mode: 'insensitive' } } : {}),
+            ...(licenseNo ? { license_no: { contains: licenseNo, mode: 'insensitive' } } : {}),
             ...(filter?.has_smartphone !== undefined ? { has_smartphone: filter.has_smartphone } : {}),
         };
         return this.prisma.driver.findMany({ where, orderBy: { id: 'asc' } });
@@ -77,10 +86,12 @@ let PrismaDriverRepository = class PrismaDriverRepository {
         if (!existing)
             throw new common_1.NotFoundException('Driver not found');
         const updateData = {
-            ...(data.full_name !== undefined ? { full_name: data.full_name } : {}),
-            ...(data.phone_number !== undefined ? { phone_number: data.phone_number } : {}),
+            ...(data.full_name !== undefined ? { full_name: data.full_name.trim() } : {}),
+            ...(data.phone_number !== undefined ? { phone_number: data.phone_number.trim() } : {}),
             ...(data.status !== undefined ? { status: data.status } : {}),
-            ...(data.license_no !== undefined ? { license_no: data.license_no } : {}),
+            ...(data.license_no !== undefined
+                ? { license_no: typeof data.license_no === 'string' ? data.license_no.trim() : data.license_no }
+                : {}),
             ...(data.license_expiry !== undefined ? { license_expiry: data.license_expiry } : {}),
             ...(data.has_smartphone !== undefined ? { has_smartphone: data.has_smartphone } : {}),
             ...(data.active_until_date !== undefined ? { active_until_date: data.active_until_date } : {}),

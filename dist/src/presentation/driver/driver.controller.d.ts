@@ -92,6 +92,9 @@ export declare class DriverController {
         last_accrual_date: Date | null;
         last_accrual_amount: import("@prisma/client/runtime/library").Decimal | null;
     }>;
+    resetPassword(user: UserContext, id: number): Promise<{
+        temp_password: string;
+    }>;
     remove(user: UserContext, id: number): Promise<{
         id: number;
         phone_number: string;

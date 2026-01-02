@@ -15,6 +15,11 @@ export class ActivityLogService {
     private readonly logs: IActivityLogRepository,
   ) {}
 
+  private getUserId(ctx: UserContext | null): number | null {
+    if (!ctx) return null;
+    return (ctx as any).user_id ?? null;
+  }
+
   async log(
     ctx: UserContext | null,
     input: {
@@ -26,12 +31,11 @@ export class ActivityLogService {
     },
   ): Promise<void> {
     const payload: ActivityLogCreate = {
-      user_id: ctx ? (ctx as any).userId ?? null : null,
+      user_id: this.getUserId(ctx),
       association_id: ctx?.association_id ?? null,
       action: `${input.module}:${input.action}`,
       entity_type: input.entity ?? null,
       entity_id: input.entity_id ?? null,
-      description: null,
       ip_address: input.ip_address ?? null,
     };
 
@@ -43,16 +47,16 @@ export class ActivityLogService {
     filter: ActivityLogFilter,
     options?: { skip?: number; take?: number },
   ) {
-    const effectiveFilter: ActivityLogFilter = { ...filter };
+    const effective: ActivityLogFilter = { ...filter };
 
     if (!isAdminLike(ctx.user_type)) {
       if (!ctx.association_id) {
         throw new ForbiddenException('Association context required');
       }
-      effectiveFilter.association_id = ctx.association_id;
+      effective.association_id = ctx.association_id;
     }
 
-    return this.logs.findMany(effectiveFilter, options);
+    return this.logs.findMany(effective, options);
   }
 
   async findOne(ctx: UserContext, id: number) {

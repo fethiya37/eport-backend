@@ -15,6 +15,7 @@ export declare class RouteQuotaService {
     private readonly prisma;
     private readonly activityLog;
     constructor(quotas: IRouteQuotaRepository, associations: IAssociationRepository, routesRepo: IRoutesRepository, prisma: PrismaService, activityLog: ActivityLogService);
+    private requireAssociationContext;
     create(ctx: UserContext, dto: CreateRouteQuotaDto): Promise<{
         id: number;
         association_id: number;

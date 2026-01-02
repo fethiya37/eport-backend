@@ -12,17 +12,21 @@ export declare class UserService {
     private readonly activityLog;
     constructor(users: IUserRepository, prisma: PrismaService, activityLog: ActivityLogService);
     create(ctx: UserContext, dto: CreateUserDto): Promise<{
-        id: number;
-        phone_number: string;
-        user_type: import("@prisma/client").$Enums.UserType;
-        name: string | null;
-        password_hash: string | null;
-        is_locked: boolean;
-        failed_login_attempts: number;
-        locked_until: Date | null;
-        association_id: number | null;
-        created_at: Date;
-        updated_at: Date;
+        user: {
+            id: number;
+            phone_number: string;
+            user_type: import("@prisma/client").$Enums.UserType;
+            name: string | null;
+            password_hash: string | null;
+            must_change_password: boolean;
+            is_locked: boolean;
+            failed_login_attempts: number;
+            locked_until: Date | null;
+            association_id: number | null;
+            created_at: Date;
+            updated_at: Date;
+        };
+        temp_password: string;
     }>;
     findAll(ctx: UserContext, raw: UserFilter): Promise<{
         id: number;
@@ -30,6 +34,7 @@ export declare class UserService {
         user_type: import("@prisma/client").$Enums.UserType;
         name: string | null;
         password_hash: string | null;
+        must_change_password: boolean;
         is_locked: boolean;
         failed_login_attempts: number;
         locked_until: Date | null;
@@ -43,6 +48,7 @@ export declare class UserService {
         user_type: import("@prisma/client").$Enums.UserType;
         name: string | null;
         password_hash: string | null;
+        must_change_password: boolean;
         is_locked: boolean;
         failed_login_attempts: number;
         locked_until: Date | null;
@@ -56,6 +62,7 @@ export declare class UserService {
         user_type: import("@prisma/client").$Enums.UserType;
         name: string | null;
         password_hash: string | null;
+        must_change_password: boolean;
         is_locked: boolean;
         failed_login_attempts: number;
         locked_until: Date | null;
@@ -69,6 +76,7 @@ export declare class UserService {
         user_type: import("@prisma/client").$Enums.UserType;
         name: string | null;
         password_hash: string | null;
+        must_change_password: boolean;
         is_locked: boolean;
         failed_login_attempts: number;
         locked_until: Date | null;
@@ -78,5 +86,8 @@ export declare class UserService {
     }>;
     changeOwnPassword(ctx: UserContext, dto: ChangePasswordDto): Promise<{
         success: boolean;
+    }>;
+    resetPasswordByAdmin(ctx: UserContext, id: number): Promise<{
+        temp_password: string;
     }>;
 }

@@ -25,18 +25,23 @@ let PrismaRoutesRepository = class PrismaRoutesRepository {
         });
     }
     listRoutes(filter) {
+        const dep = filter.departure_contains?.trim();
+        const arr = filter.arrival_contains?.trim();
         return this.prisma.route.findMany({
             where: {
                 ...(filter.route_group_id ? { route_group_id: filter.route_group_id } : {}),
-                ...(filter.departure_contains ? { departure: { contains: filter.departure_contains, mode: 'insensitive' } } : {}),
-                ...(filter.arrival_contains ? { arrival: { contains: filter.arrival_contains, mode: 'insensitive' } } : {}),
+                ...(dep ? { departure: { contains: dep, mode: 'insensitive' } } : {}),
+                ...(arr ? { arrival: { contains: arr, mode: 'insensitive' } } : {}),
             },
             orderBy: { id: 'asc' },
             include: { route_group: true },
         });
     }
     getRoute(id) {
-        return this.prisma.route.findUnique({ where: { id }, include: { route_group: true } });
+        return this.prisma.route.findUnique({
+            where: { id },
+            include: { route_group: true },
+        });
     }
     getRouteGroup(id, includeRoutes) {
         return this.prisma.routeGroup.findUnique({
@@ -48,9 +53,10 @@ let PrismaRoutesRepository = class PrismaRoutesRepository {
         const groupId = await this.ensureGroup(args);
         const result = await this.prisma.$transaction(async (tx) => {
             if (args.route_group_id && args.route_group) {
+                const groupName = args.route_group.trim();
                 await tx.routeGroup.update({
                     where: { id: groupId },
-                    data: { route_group: args.route_group },
+                    data: { route_group: groupName },
                 });
             }
             const existingRoutes = await tx.route.findMany({
@@ -67,10 +73,12 @@ let PrismaRoutesRepository = class PrismaRoutesRepository {
             }
             for (const r of args.routes) {
                 this.validateRouteInput(r);
+                const departure = r.departure.trim();
+                const arrival = r.arrival.trim();
                 const data = {
                     route_group_id: groupId,
-                    departure: r.departure,
-                    arrival: r.arrival,
+                    departure,
+                    arrival,
                     kilometer: r.kilometer === null || r.kilometer === undefined
                         ? null
                         : new client_1.Prisma.Decimal(r.kilometer),
@@ -79,7 +87,9 @@ let PrismaRoutesRepository = class PrismaRoutesRepository {
                         : new client_1.Prisma.Decimal(r.tariff),
                 };
                 if (r.id) {
-                    const exists = await tx.route.findFirst({ where: { id: r.id, route_group_id: groupId } });
+                    const exists = await tx.route.findFirst({
+                        where: { id: r.id, route_group_id: groupId },
+                    });
                     if (!exists)
                         throw new common_1.BadRequestException(`Route #${r.id} not found in this group`);
                     await tx.route.update({ where: { id: r.id }, data });
@@ -100,11 +110,13 @@ let PrismaRoutesRepository = class PrismaRoutesRepository {
         const existing = await this.prisma.route.findUnique({ where: { id } });
         if (!existing)
             throw new common_1.NotFoundException('Route not found');
+        const departure = r.departure.trim();
+        const arrival = r.arrival.trim();
         return this.prisma.route.update({
             where: { id },
             data: {
-                departure: r.departure,
-                arrival: r.arrival,
+                departure,
+                arrival,
                 kilometer: r.kilometer === null || r.kilometer === undefined
                     ? null
                     : new client_1.Prisma.Decimal(r.kilometer),
@@ -116,15 +128,20 @@ let PrismaRoutesRepository = class PrismaRoutesRepository {
     }
     async ensureGroup(args) {
         if (args.route_group_id) {
-            const group = await this.prisma.routeGroup.findUnique({ where: { id: args.route_group_id } });
+            const group = await this.prisma.routeGroup.findUnique({
+                where: { id: args.route_group_id },
+            });
             if (!group)
                 throw new common_1.BadRequestException('route_group_id not found');
             return group.id;
         }
-        if (!args.route_group || !args.route_group.trim()) {
+        const name = args.route_group?.trim();
+        if (!name) {
             throw new common_1.BadRequestException('route_group is required when route_group_id is not provided');
         }
-        const created = await this.prisma.routeGroup.create({ data: { route_group: args.route_group } });
+        const created = await this.prisma.routeGroup.create({
+            data: { route_group: name },
+        });
         return created.id;
     }
     validateRouteInput(r) {

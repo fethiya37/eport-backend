@@ -12,7 +12,7 @@ import { CreateOwnerDto } from '../../presentation/owner/dto/create-owner.dto';
 import { UpdateOwnerDto } from '../../presentation/owner/dto/update-owner.dto';
 import { isAdminLike } from '../../common/auth/roles.util';
 import { UserContext } from 'src/common/context/user-context';
-import { ActivityLogService } from './activity-log.service';
+import { ActivityLogService } from '../services/activity-log.service';
 
 @Injectable()
 export class OwnerService {
@@ -73,7 +73,7 @@ export class OwnerService {
     const existing = await this.owners.findById(ctx, id);
     if (!existing) throw new NotFoundException('Owner not found');
 
-    const patch: any = {};
+    const patch: Partial<{ full_name: string; phone_number: string }> = {};
     if (dto.full_name !== undefined) patch.full_name = dto.full_name;
     if (dto.phone_number !== undefined) patch.phone_number = dto.phone_number;
 

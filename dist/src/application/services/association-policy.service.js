@@ -24,15 +24,29 @@ let AssociationPolicyService = class AssociationPolicyService {
         this.repo = repo;
         this.activityLog = activityLog;
     }
+    assertPolicyInput(dto) {
+        if (!Number.isFinite(dto.weekly_fee) || dto.weekly_fee < 0) {
+            throw new common_1.BadRequestException('weekly_fee must be a non-negative number');
+        }
+        if (!Number.isFinite(dto.monthly_fee) || dto.monthly_fee < 0) {
+            throw new common_1.BadRequestException('monthly_fee must be a non-negative number');
+        }
+        if (!Number.isFinite(dto.daily_fine_percent) || dto.daily_fine_percent < 0 || dto.daily_fine_percent > 1) {
+            throw new common_1.BadRequestException('daily_fine_percent must be between 0 and 1');
+        }
+    }
     async upsert(ctx, dto) {
         if (!ctx.association_id)
             throw new common_1.BadRequestException('association_id required');
         if (!(0, roles_util_1.isAdminLike)(ctx.user_type) && ctx.user_type !== 'Association') {
-            throw new common_1.BadRequestException('Only Association/Admin can set policy');
+            throw new common_1.ForbiddenException('Only Association/Admin can set policy');
         }
+        this.assertPolicyInput(dto);
         const policy = await this.repo.upsert({
             association_id: ctx.association_id,
-            ...dto,
+            weekly_fee: dto.weekly_fee,
+            monthly_fee: dto.monthly_fee,
+            daily_fine_percent: dto.daily_fine_percent,
         });
         await this.activityLog.log(ctx, {
             module: 'AssociationPolicy',
@@ -42,7 +56,7 @@ let AssociationPolicyService = class AssociationPolicyService {
         });
         return policy;
     }
-    get(ctx) {
+    async get(ctx) {
         if (!ctx.association_id)
             throw new common_1.BadRequestException('association_id required');
         return this.repo.get(ctx.association_id);

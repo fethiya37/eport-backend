@@ -34,6 +34,11 @@ let RouteQuotaService = class RouteQuotaService {
         this.prisma = prisma;
         this.activityLog = activityLog;
     }
+    requireAssociationContext(ctx) {
+        if (!ctx.association_id)
+            throw new common_1.ForbiddenException('Association context required');
+        return ctx.association_id;
+    }
     async create(ctx, dto) {
         if (!(0, roles_util_1.isAdminLike)(ctx.user_type))
             throw new common_1.ForbiddenException('Only Admin/Superadmin');
@@ -110,8 +115,9 @@ let RouteQuotaService = class RouteQuotaService {
         return created;
     }
     find(ctx, filter) {
-        if (!(0, roles_util_1.isAdminLike)(ctx.user_type) && ctx.association_id) {
-            filter.association_id = ctx.association_id;
+        if (!(0, roles_util_1.isAdminLike)(ctx.user_type)) {
+            const association_id = this.requireAssociationContext(ctx);
+            filter.association_id = association_id;
         }
         return this.quotas.find(filter);
     }
@@ -124,8 +130,11 @@ let RouteQuotaService = class RouteQuotaService {
         if (!isAdmin && !isAssociation) {
             throw new common_1.ForbiddenException('Only Admin, Superadmin or Association can update quota');
         }
-        if (isAssociation && ctx.association_id !== existing.association_id) {
-            throw new common_1.ForbiddenException('Cannot modify quota outside your association');
+        if (isAssociation) {
+            const association_id = this.requireAssociationContext(ctx);
+            if (association_id !== existing.association_id) {
+                throw new common_1.ForbiddenException('Cannot modify quota outside your association');
+            }
         }
         const approvedCount = await this.prisma.routeAssignment.count({
             where: { route_quota_id: id, status: 'Approved' },

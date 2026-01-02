@@ -1,5 +1,17 @@
-import { Body, Controller, Delete, Get, Param, ParseBoolPipe, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags, ApiQuery } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseBoolPipe,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../infrastructure/auth/jwt.guard';
 import { AssociationContextGuard } from '../../infrastructure/auth/association-context.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -15,9 +27,8 @@ import type { UserContext } from 'src/common/context/user-context';
 @UseGuards(JwtAuthGuard, AssociationContextGuard)
 @Controller('vehicles')
 export class VehicleController {
-  constructor(private readonly service: VehicleService) { }
+  constructor(private readonly service: VehicleService) {}
 
-  // READS
   @Get()
   @Roles('Admin', 'Superadmin', 'Association')
   findAll(@AuthUser() user: UserContext, @Query() filter: VehicleFilterDto) {
@@ -37,38 +48,35 @@ export class VehicleController {
     });
   }
 
-
-
   @Get(':id')
   @Roles('Admin', 'Superadmin', 'Association')
   findOne(@AuthUser() user: UserContext, @Param('id', ParseIntPipe) id: number) {
     return this.service.findOne(user, id);
   }
 
-  // MUTATIONS: Association only
   @Post()
   @Roles('Association')
   create(@AuthUser() user: UserContext, @Body() dto: CreateVehicleDto) {
     return this.service.create(user, dto);
   }
 
-
+  // ✅ Admin/Superadmin can update vehicle
   @Patch(':id')
   @Roles('Admin', 'Superadmin', 'Association')
-  update(@AuthUser() user: UserContext, @Param('id', ParseIntPipe) id: number, @Body() dto: UpdateVehicleDto) {
+  update(
+    @AuthUser() user: UserContext,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateVehicleDto,
+  ) {
     return this.service.update(user, id, dto);
   }
 
+  // ✅ keep existing logic (service already blocks Admin delete)
   @Delete(':id')
-  @Roles('Admin', 'Superadmin', 'Association')
+  @Roles('Association')
   remove(@AuthUser() user: UserContext, @Param('id', ParseIntPipe) id: number) {
     return this.service.remove(user, id);
   }
-
-
-
-
-
 
   @Get('available/for-quota-or-direct')
   @Roles('Admin', 'Superadmin', 'Association')

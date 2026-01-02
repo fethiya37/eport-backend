@@ -17,7 +17,6 @@ const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../../../prisma/prisma.service");
 const chapa_api_service_1 = require("../../infrastructure/payments/chapa-api.service");
 const association_subaccount_repository_1 = require("../../domain/repositories/association-subaccount.repository");
-const roles_util_1 = require("../../common/auth/roles.util");
 const activity_log_service_1 = require("../services/activity-log.service");
 let AssociationSubaccountService = class AssociationSubaccountService {
     prisma;
@@ -30,18 +29,17 @@ let AssociationSubaccountService = class AssociationSubaccountService {
         this.repo = repo;
         this.activityLog = activityLog;
     }
-    resolveAssociationId(ctx, association_id) {
-        if ((0, roles_util_1.isAdminLike)(ctx.user_type)) {
-            if (!association_id)
-                throw new common_1.BadRequestException('association_id is required for admin/superadmin');
-            return association_id;
+    requireAssociationId(ctx) {
+        if (ctx.user_type !== 'Association') {
+            throw new common_1.ForbiddenException('Only Association can manage subaccounts');
         }
-        if (!ctx.association_id)
+        if (!ctx.association_id) {
             throw new common_1.ForbiddenException('association context missing');
+        }
         return ctx.association_id;
     }
-    async createForAssociation(ctx, dto, association_id) {
-        const assocId = this.resolveAssociationId(ctx, association_id);
+    async createForMyAssociation(ctx, dto) {
+        const assocId = this.requireAssociationId(ctx);
         const assoc = await this.prisma.association.findUnique({ where: { id: assocId } });
         if (!assoc)
             throw new common_1.BadRequestException('association not found');
@@ -74,14 +72,15 @@ let AssociationSubaccountService = class AssociationSubaccountService {
         });
         return sub;
     }
-    async getMine(ctx, association_id) {
-        const assocId = this.resolveAssociationId(ctx, association_id);
+    async getMine(ctx) {
+        const assocId = this.requireAssociationId(ctx);
         const row = await this.repo.findByAssociationId(ctx, assocId);
         if (!row)
             throw new common_1.NotFoundException('subaccount not found');
         return row;
     }
     async hardDelete(ctx, id) {
+        this.requireAssociationId(ctx);
         await this.repo.hardDelete(ctx, id);
         await this.activityLog.log(ctx, {
             module: 'AssociationSubaccount',

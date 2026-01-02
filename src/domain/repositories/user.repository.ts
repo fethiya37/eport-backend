@@ -32,9 +32,11 @@ export interface IUserRepository {
       is_locked: boolean;
       association_id: number | null;
       password_hash: string | null;
-    }>
+      must_change_password: boolean;
+      failed_login_attempts: number;
+      locked_until: Date | null;
+    }>,
   ): Promise<User>;
 
-  remove(id: number): Promise<User>;   // ✅ NEW
-
+  remove(id: number): Promise<User>;
 }
