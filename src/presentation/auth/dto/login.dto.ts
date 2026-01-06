@@ -26,7 +26,7 @@ export class LoginDto {
   @ApiProperty({ example: 'StrongP@ssw0rd', writeOnly: true })
   @IsString()
   @IsNotEmpty()
-  @MinLength(4)
+  @MinLength(10)
   @MaxLength(128)
   @NoHtml({ message: 'password must not include HTML or script tags' })
   password!: string;

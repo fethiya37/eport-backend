@@ -6,7 +6,7 @@ export class ChangePasswordDto {
   @ApiProperty({ writeOnly: true })
   @IsString()
   @IsNotEmpty()
-  @MinLength(4)
+  @MinLength(10)
   @MaxLength(128)
   @NoHtml({ message: 'old_password must not include HTML or script tags' })
   old_password!: string;
