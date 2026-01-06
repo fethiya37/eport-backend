@@ -13,8 +13,8 @@ export declare class RouteQuotaController {
         created_at: Date;
         updated_at: Date;
         status: import("@prisma/client").$Enums.RouteQuotaStatus;
-        route_id: number;
         start_date: Date;
+        route_id: number;
         end_date: Date;
         no_vehicles: number;
         remaining_vehicles: number;
@@ -25,8 +25,8 @@ export declare class RouteQuotaController {
         created_at: Date;
         updated_at: Date;
         status: import("@prisma/client").$Enums.RouteQuotaStatus;
-        route_id: number;
         start_date: Date;
+        route_id: number;
         end_date: Date;
         no_vehicles: number;
         remaining_vehicles: number;
@@ -37,8 +37,8 @@ export declare class RouteQuotaController {
         created_at: Date;
         updated_at: Date;
         status: import("@prisma/client").$Enums.RouteQuotaStatus;
-        route_id: number;
         start_date: Date;
+        route_id: number;
         end_date: Date;
         no_vehicles: number;
         remaining_vehicles: number;
@@ -49,8 +49,8 @@ export declare class RouteQuotaController {
         created_at: Date;
         updated_at: Date;
         status: import("@prisma/client").$Enums.RouteQuotaStatus;
-        route_id: number;
         start_date: Date;
+        route_id: number;
         end_date: Date;
         no_vehicles: number;
         remaining_vehicles: number;
@@ -61,8 +61,8 @@ export declare class RouteQuotaController {
         created_at: Date;
         updated_at: Date;
         status: import("@prisma/client").$Enums.RouteQuotaStatus;
-        route_id: number;
         start_date: Date;
+        route_id: number;
         end_date: Date;
         no_vehicles: number;
         remaining_vehicles: number;

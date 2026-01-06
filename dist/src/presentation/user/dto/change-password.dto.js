@@ -22,7 +22,7 @@ __decorate([
     (0, swagger_1.ApiProperty)({ writeOnly: true }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
-    (0, class_validator_1.MinLength)(4),
+    (0, class_validator_1.MinLength)(10),
     (0, class_validator_1.MaxLength)(128),
     (0, no_html_decorator_1.NoHtml)({ message: 'old_password must not include HTML or script tags' }),
     __metadata("design:type", String)

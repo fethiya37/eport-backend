@@ -23,9 +23,9 @@ export declare class RouteAssignmentService {
         updated_at: Date;
         status: import("@prisma/client").$Enums.RouteAssignmentStatus;
         is_weekly: boolean;
+        start_date: Date;
         route_id: number;
         vehicle_id: number;
-        start_date: Date;
         end_date: Date;
         history_status: import("@prisma/client").$Enums.RouteAssignmentHistoryStatus | null;
         payment_status: import("@prisma/client").$Enums.PaymentStatus;
@@ -79,9 +79,9 @@ export declare class RouteAssignmentService {
         updated_at: Date;
         status: import("@prisma/client").$Enums.RouteAssignmentStatus;
         is_weekly: boolean;
+        start_date: Date;
         route_id: number;
         vehicle_id: number;
-        start_date: Date;
         end_date: Date;
         history_status: import("@prisma/client").$Enums.RouteAssignmentHistoryStatus | null;
         payment_status: import("@prisma/client").$Enums.PaymentStatus;
@@ -97,9 +97,9 @@ export declare class RouteAssignmentService {
         updated_at: Date;
         status: import("@prisma/client").$Enums.RouteAssignmentStatus;
         is_weekly: boolean;
+        start_date: Date;
         route_id: number;
         vehicle_id: number;
-        start_date: Date;
         end_date: Date;
         history_status: import("@prisma/client").$Enums.RouteAssignmentHistoryStatus | null;
         payment_status: import("@prisma/client").$Enums.PaymentStatus;
