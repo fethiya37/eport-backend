@@ -29,6 +29,7 @@ export declare class AuthService {
             association_name: string | null;
             driver_id: number | null;
             name: string | null;
+            must_change_password: boolean;
         };
         exp: number;
         jti: `${string}-${string}-${string}-${string}-${string}`;

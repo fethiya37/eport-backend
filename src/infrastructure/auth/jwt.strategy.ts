@@ -5,11 +5,11 @@ import * as crypto from 'crypto';
 import { PrismaService } from '../../../prisma/prisma.service';
 
 type JwtPayload = {
-  sub: number; 
+  sub: number;
   user_type: 'Superadmin' | 'Admin' | 'Association' | 'Driver' | 'Controller';
   association_id: number | null;
   jti: string;
-  exp: number;  
+  exp: number;
 };
 
 @Injectable()
@@ -19,7 +19,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       secretOrKey: process.env.JWT_SECRET || 'dev-secret',
       ignoreExpiration: false,
-      passReqToCallback: true,                  
+      passReqToCallback: true,
     });
   }
 
@@ -46,10 +46,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     return {
       userId: user.id,
       user_type: user.user_type,
+      must_change_password: user.must_change_password,
       association_id: user.association_id ?? null,
       jti: payload.jti,
       exp: payload.exp,
-      tokenHash,                   
+      tokenHash,
     };
   }
 }

@@ -17,6 +17,7 @@ class AuthUserDto {
     user_type;
     association_id;
     name;
+    must_change_password;
 }
 exports.AuthUserDto = AuthUserDto;
 __decorate([
@@ -39,9 +40,15 @@ __decorate([
     (0, swagger_1.ApiProperty)({ nullable: true }),
     __metadata("design:type", Object)
 ], AuthUserDto.prototype, "name", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    __metadata("design:type", Boolean)
+], AuthUserDto.prototype, "must_change_password", void 0);
 class AuthResponseDto {
     access_token;
     user;
+    exp;
+    jti;
 }
 exports.AuthResponseDto = AuthResponseDto;
 __decorate([
@@ -52,4 +59,12 @@ __decorate([
     (0, swagger_1.ApiProperty)({ type: AuthUserDto }),
     __metadata("design:type", AuthUserDto)
 ], AuthResponseDto.prototype, "user", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    __metadata("design:type", Number)
+], AuthResponseDto.prototype, "exp", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    __metadata("design:type", String)
+], AuthResponseDto.prototype, "jti", void 0);
 //# sourceMappingURL=auth-response.dto.js.map

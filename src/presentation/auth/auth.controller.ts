@@ -30,7 +30,7 @@ export class AuthController {
       user_id: req.user.userId,
       jti: req.user.jti,
       exp: req.user.exp,
-      token_hash: req.user.tokenHash,  
+      token_hash: req.user.tokenHash,
     });
     return { status: 'ok' };
   }

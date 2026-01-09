@@ -81,6 +81,7 @@ let JwtStrategy = class JwtStrategy extends (0, passport_1.PassportStrategy)(pas
         return {
             userId: user.id,
             user_type: user.user_type,
+            must_change_password: user.must_change_password,
             association_id: user.association_id ?? null,
             jti: payload.jti,
             exp: payload.exp,

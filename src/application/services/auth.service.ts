@@ -39,6 +39,7 @@ export class AuthService {
       name: string | null;
       failed_login_attempts: number;
       locked_until: Date | null;
+      must_change_password: boolean;
     }[],
     as?: UserType,
   ) {
@@ -78,6 +79,7 @@ export class AuthService {
         name: true,
         failed_login_attempts: true,
         locked_until: true,
+        must_change_password: true,
       },
       orderBy: { id: 'asc' },
     });
@@ -202,6 +204,7 @@ export class AuthService {
         association_name,
         driver_id,
         name: user.name ?? null,
+        must_change_password: user.must_change_password,
       },
       exp: Math.floor(expDate.getTime() / 1000),
       jti,
