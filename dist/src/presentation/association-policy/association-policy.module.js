@@ -8,12 +8,12 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AssociationPolicyModule = void 0;
 const common_1 = require("@nestjs/common");
+const prisma_module_1 = require("../../../prisma/prisma.module");
+const activity_log_module_1 = require("../activity-log/activity-log.module");
 const association_policy_controller_1 = require("./association-policy.controller");
 const association_policy_service_1 = require("../../application/services/association-policy.service");
-const prisma_module_1 = require("../../../prisma/prisma.module");
 const association_policy_repository_1 = require("../../domain/repositories/association-policy.repository");
 const prisma_association_policy_repository_1 = require("../../infrastructure/repositories/prisma-association-policy.repository");
-const activity_log_module_1 = require("../activity-log/activity-log.module");
 let AssociationPolicyModule = class AssociationPolicyModule {
 };
 exports.AssociationPolicyModule = AssociationPolicyModule;

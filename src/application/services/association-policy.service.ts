@@ -1,11 +1,17 @@
 import { Inject, Injectable, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { ActivityLogService } from './activity-log.service';
+import { isAdminLike } from '../../common/auth/roles.util';
+import type { UserContext } from 'src/common/context/user-context';
 import {
   type IAssociationPolicyRepository,
   ASSOCIATION_POLICY_REPOSITORY,
 } from '../../domain/repositories/association-policy.repository';
-import type { UserContext } from 'src/common/context/user-context';
-import { isAdminLike } from '../../common/auth/roles.util';
-import { ActivityLogService } from './activity-log.service';
+
+type PolicyInput = {
+  weekly_fee: number;
+  monthly_fee: number;
+  daily_fine_percent: number;
+};
 
 @Injectable()
 export class AssociationPolicyService {
@@ -15,26 +21,25 @@ export class AssociationPolicyService {
     private readonly activityLog: ActivityLogService,
   ) {}
 
-  private assertPolicyInput(dto: {
-    weekly_fee: number;
-    monthly_fee: number;
-    daily_fine_percent: number;
-  }) {
+  private assertPolicyInput(dto: PolicyInput) {
     if (!Number.isFinite(dto.weekly_fee) || dto.weekly_fee < 0) {
       throw new BadRequestException('weekly_fee must be a non-negative number');
     }
+
     if (!Number.isFinite(dto.monthly_fee) || dto.monthly_fee < 0) {
       throw new BadRequestException('monthly_fee must be a non-negative number');
     }
-    if (!Number.isFinite(dto.daily_fine_percent) || dto.daily_fine_percent < 0 || dto.daily_fine_percent > 1) {
+
+    if (
+      !Number.isFinite(dto.daily_fine_percent) ||
+      dto.daily_fine_percent < 0 ||
+      dto.daily_fine_percent > 1
+    ) {
       throw new BadRequestException('daily_fine_percent must be between 0 and 1');
     }
   }
 
-  async upsert(
-    ctx: UserContext,
-    dto: { weekly_fee: number; monthly_fee: number; daily_fine_percent: number },
-  ) {
+  async upsert(ctx: UserContext, dto: PolicyInput) {
     if (!ctx.association_id) throw new BadRequestException('association_id required');
 
     if (!isAdminLike(ctx.user_type) && ctx.user_type !== 'Association') {

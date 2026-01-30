@@ -14,9 +14,9 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AssociationPolicyService = void 0;
 const common_1 = require("@nestjs/common");
-const association_policy_repository_1 = require("../../domain/repositories/association-policy.repository");
-const roles_util_1 = require("../../common/auth/roles.util");
 const activity_log_service_1 = require("./activity-log.service");
+const roles_util_1 = require("../../common/auth/roles.util");
+const association_policy_repository_1 = require("../../domain/repositories/association-policy.repository");
 let AssociationPolicyService = class AssociationPolicyService {
     repo;
     activityLog;
@@ -31,7 +31,9 @@ let AssociationPolicyService = class AssociationPolicyService {
         if (!Number.isFinite(dto.monthly_fee) || dto.monthly_fee < 0) {
             throw new common_1.BadRequestException('monthly_fee must be a non-negative number');
         }
-        if (!Number.isFinite(dto.daily_fine_percent) || dto.daily_fine_percent < 0 || dto.daily_fine_percent > 1) {
+        if (!Number.isFinite(dto.daily_fine_percent) ||
+            dto.daily_fine_percent < 0 ||
+            dto.daily_fine_percent > 1) {
             throw new common_1.BadRequestException('daily_fine_percent must be between 0 and 1');
         }
     }

@@ -36,6 +36,9 @@ async function bootstrap() {
         whitelist: true,
         forbidNonWhitelisted: true,
         transform: true,
+        forbidUnknownValues: true,
+        stopAtFirstError: true,
+        transformOptions: { enableImplicitConversion: true },
     }));
     app.use((0, helmet_1.default)({
         crossOriginEmbedderPolicy: false,

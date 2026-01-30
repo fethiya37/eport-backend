@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNumber, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
+import { IsNumber, Max, Min } from 'class-validator';
 
 export class UpsertPolicyDto {
   @ApiProperty({ example: 200 })

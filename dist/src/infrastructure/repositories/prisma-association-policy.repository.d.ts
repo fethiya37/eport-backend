@@ -1,5 +1,5 @@
 import { PrismaService } from '../../../prisma/prisma.service';
-import { IAssociationPolicyRepository, AssociationPolicyDTO } from '../../domain/repositories/association-policy.repository';
+import type { IAssociationPolicyRepository, AssociationPolicyDTO } from '../../domain/repositories/association-policy.repository';
 export declare class PrismaAssociationPolicyRepository implements IAssociationPolicyRepository {
     private readonly prisma;
     constructor(prisma: PrismaService);

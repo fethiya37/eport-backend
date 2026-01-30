@@ -2,9 +2,9 @@ export const ASSOCIATION_POLICY_REPOSITORY = Symbol('ASSOCIATION_POLICY_REPOSITO
 
 export type AssociationPolicyDTO = {
   association_id: number;
-  weekly_fee: number;          // ETB
-  monthly_fee: number;         // ETB
-  daily_fine_percent: number;  // e.g. 0.20 for 20% per day
+  weekly_fee: number;
+  monthly_fee: number;
+  daily_fine_percent: number;
 };
 
 export interface IAssociationPolicyRepository {
