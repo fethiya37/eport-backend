@@ -17,6 +17,7 @@ function buildAllowlist(): Set<string> {
     .map((v) => v.trim())
     .filter(Boolean)
     .map(normalizeOrigin);
+
   return new Set(items);
 }
 
@@ -89,6 +90,7 @@ async function bootstrap() {
   });
 
   app.use('/api/auth/login', loginLimiter);
+
   app.setGlobalPrefix('api');
 
   const allowlist = buildAllowlist();
@@ -96,10 +98,13 @@ async function bootstrap() {
   app.enableCors({
     origin: (origin, callback) => {
       if (!origin) return callback(null, true);
+
       const normalized = normalizeOrigin(origin);
+
       if (allowlist.has(normalized)) {
         return callback(null, true);
       }
+
       return callback(null, false);
     },
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
@@ -123,12 +128,8 @@ async function bootstrap() {
     .addBearerAuth()
     .build();
 
-  const doc = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, doc, {
-    swaggerOptions: {
-      persistAuthorization: true,
-    },
-  });
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api/docs', app, document);
 
   const port = Number(process.env.PORT ?? 3000);
   await app.listen(port);

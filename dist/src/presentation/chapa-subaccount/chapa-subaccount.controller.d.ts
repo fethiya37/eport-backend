@@ -8,8 +8,8 @@ export declare class ChapaSubaccountController {
     constructor(svc: AssociationSubaccountService, chapa: ChapaApiService);
     listBanks(country?: string): Promise<any>;
     create(user: UserContext, dto: CreateSubaccountDto): Promise<{
-        id: number;
         association_id: number;
+        id: number;
         created_at: Date;
         chapa_id: string;
         business_name: string;
@@ -17,8 +17,8 @@ export declare class ChapaSubaccountController {
         account_number: string;
     }>;
     getMine(user: UserContext): Promise<{
-        id: number;
         association_id: number;
+        id: number;
         created_at: Date;
         chapa_id: string;
         business_name: string;

@@ -44,7 +44,7 @@ __decorate([
 ], AssociationPolicyController.prototype, "get", null);
 __decorate([
     (0, common_1.Post)(),
-    (0, roles_decorator_1.Roles)('Admin', 'Superadmin', 'Association'),
+    (0, roles_decorator_1.Roles)('Association'),
     __param(0, (0, auth_user_decorator_1.AuthUser)()),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),

@@ -85,9 +85,11 @@ model User {
   @@unique([phone_number, user_type])
   @@index([association_id])
   @@index([user_type, association_id])
+  @@index([phone_number])
+  @@index([user_type])
+  @@index([association_id, user_type])
   @@map("users")
 }
-
 
 model UserToken {
   id         Int      @id @default(autoincrement())
@@ -101,6 +103,8 @@ model UserToken {
   user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@index([user_id])
+  @@index([token_hash])
+  @@index([expires_at])
   @@map("user_tokens")
 }
 
@@ -110,6 +114,7 @@ model RevokedToken {
   expires_at DateTime
 
   @@index([user_id])
+  @@index([expires_at])
   @@map("revoked_tokens")
 }
 
@@ -136,6 +141,7 @@ model Association {
 
   @@index([name])
   @@index([phone_number])
+  @@index([created_at])
   @@map("associations")
 }
 
@@ -152,6 +158,9 @@ model Owner {
 
   @@unique([association_id, phone_number])
   @@index([association_id, full_name])
+  @@index([association_id])
+  @@index([phone_number])
+  @@index([full_name])
   @@map("owners")
 }
 
@@ -185,6 +194,13 @@ model Driver {
   @@index([association_id, full_name])
   @@index([status])
   @@index([last_accrual_date])
+  @@index([user_id])
+  @@index([phone_number])
+  @@index([full_name])
+  @@index([association_id])
+  @@index([association_id, phone_number])
+  @@index([license_no])
+  @@index([license_expiry])
   @@map("drivers")
 }
 
@@ -214,6 +230,15 @@ model Vehicle {
   @@index([association_id, status])
   @@index([driver_id])
   @@index([owner_id])
+  @@index([plate_number])
+  @@index([status])
+  @@index([association_id])
+  @@index([owner_id, association_id])
+  @@index([driver_id, association_id])
+  @@index([status, association_id])
+  @@index([libre_no])
+  @@index([created_at])
+  @@index([deleted_at])
   @@map("vehicles")
 }
 
@@ -226,6 +251,7 @@ model RouteGroup {
   routes Route[]
 
   @@index([route_group])
+  @@index([created_at])
   @@map("route_groups")
 }
 
@@ -245,6 +271,11 @@ model Route {
 
   @@index([route_group_id])
   @@index([departure, arrival])
+  @@index([departure])
+  @@index([arrival])
+  @@index([route_group_id, departure])
+  @@index([created_at])
+  @@index([updated_at])
   @@map("routes")
 }
 
@@ -267,6 +298,15 @@ model RouteQuota {
 
   @@index([association_id, route_id, start_date, end_date])
   @@index([association_id, status])
+  @@index([route_id])
+  @@index([start_date])
+  @@index([end_date])
+  @@index([status])
+  @@index([association_id, route_id])
+  @@index([association_id, start_date])
+  @@index([route_id, start_date, end_date])
+  @@index([created_at])
+  @@index([updated_at])
   @@map("route_quotas")
 }
 
@@ -304,6 +344,20 @@ model RouteAssignment {
   @@index([payment_status])
   @@index([assigned_by_user_id])
   @@index([approved_by_user_id])
+  @@index([route_quota_id])
+  @@index([route_id])
+  @@index([status])
+  @@index([start_date])
+  @@index([end_date])
+  @@index([association_id, status])
+  @@index([route_quota_id, status])
+  @@index([vehicle_id])
+  @@index([created_at])
+  @@index([approved_at])
+  @@index([association_id, start_date])
+  @@index([route_quota_id, vehicle_id])
+  @@index([is_weekly])
+  @@index([history_status])
   @@map("route_assignments")
 }
 
@@ -319,6 +373,8 @@ model AssociationPolicy {
 
   association Association @relation(fields: [association_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
+  @@index([association_id])
+  @@index([created_at])
   @@map("association_policies")
 }
 
@@ -346,6 +402,16 @@ model DriverPayment {
   @@index([association_id, paid_at])
   @@index([driver_id, paid_at])
   @@index([association_id, plate_number])
+  @@index([paid_at])
+  @@index([fee_plan])
+  @@index([payment_method])
+  @@index([covered_start_date])
+  @@index([covered_end_date])
+  @@index([plate_number])
+  @@index([created_by_user_id])
+  @@index([association_id, fee_plan])
+  @@index([driver_id, fee_plan])
+  @@index([paid_at, association_id])
   @@map("driver_payments")
 }
 
@@ -360,6 +426,10 @@ model AssociationSubaccount {
 
   association Association @relation(fields: [association_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
+  @@index([association_id])
+  @@index([chapa_id])
+  @@index([business_name])
+  @@index([created_at])
   @@map("association_subaccounts")
 }
 
@@ -380,5 +450,10 @@ model ActivityLog {
   @@index([user_id, created_at])
   @@index([association_id, created_at])
   @@index([action])
+  @@index([created_at])
+  @@index([entity_type, entity_id])
+  @@index([action, created_at])
+  @@index([user_id])
+  @@index([association_id])
   @@map("activity_logs")
 }

@@ -22,8 +22,8 @@ __decorate([
     (0, swagger_1.ApiProperty)({ writeOnly: true }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
-    (0, class_validator_1.MinLength)(10),
-    (0, class_validator_1.MaxLength)(128),
+    (0, class_validator_1.MinLength)(8),
+    (0, class_validator_1.MaxLength)(64),
     (0, no_html_decorator_1.NoHtml)({ message: 'old_password must not include HTML or script tags' }),
     __metadata("design:type", String)
 ], ChangePasswordDto.prototype, "old_password", void 0);
@@ -31,8 +31,11 @@ __decorate([
     (0, swagger_1.ApiProperty)({ writeOnly: true }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
-    (0, class_validator_1.MinLength)(12),
-    (0, class_validator_1.MaxLength)(128),
+    (0, class_validator_1.MinLength)(8),
+    (0, class_validator_1.MaxLength)(64),
+    (0, class_validator_1.Matches)(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\da-zA-Z]).{8,64}$/, {
+        message: 'new_password must contain at least 1 uppercase, 1 lowercase, 1 number, and 1 symbol',
+    }),
     (0, no_html_decorator_1.NoHtml)({ message: 'new_password must not include HTML or script tags' }),
     __metadata("design:type", String)
 ], ChangePasswordDto.prototype, "new_password", void 0);

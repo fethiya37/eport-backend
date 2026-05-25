@@ -103,16 +103,12 @@ async function bootstrap() {
         .setVersion('1.0')
         .addBearerAuth()
         .build();
-    const doc = swagger_1.SwaggerModule.createDocument(app, config);
-    swagger_1.SwaggerModule.setup('api/docs', app, doc, {
-        swaggerOptions: {
-            persistAuthorization: true,
-        },
-    });
+    const document = swagger_1.SwaggerModule.createDocument(app, config);
+    swagger_1.SwaggerModule.setup('api/docs', app, document);
     const port = Number(process.env.PORT ?? 3000);
     await app.listen(port);
     console.log(`🚀 Server running at http://localhost:${port}/api`);
     console.log(`📚 Swagger docs available at http://localhost:${port}/api/docs`);
 }
 bootstrap();
-//# sourceMappingURL=main.js.map
+//# sourceMappingURL=main-backup.js.map

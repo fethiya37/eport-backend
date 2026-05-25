@@ -9,6 +9,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.JobsModule = void 0;
 const common_1 = require("@nestjs/common");
 const billing_jobs_1 = require("./billing.jobs");
+const log_cleanup_jobs_1 = require("./log-cleanup.jobs");
 const prisma_service_1 = require("../../../prisma/prisma.service");
 const route_assignment_repository_1 = require("../../domain/repositories/route-assignment.repository");
 const prisma_route_assignment_repository_1 = require("../../infrastructure/repositories/prisma-route-assignment.repository");
@@ -19,8 +20,12 @@ exports.JobsModule = JobsModule = __decorate([
     (0, common_1.Module)({
         providers: [
             billing_jobs_1.BillingJobs,
+            log_cleanup_jobs_1.LogCleanupJobs,
             prisma_service_1.PrismaService,
-            { provide: route_assignment_repository_1.ROUTE_ASSIGNMENT_REPOSITORY, useClass: prisma_route_assignment_repository_1.PrismaRouteAssignmentRepository },
+            {
+                provide: route_assignment_repository_1.ROUTE_ASSIGNMENT_REPOSITORY,
+                useClass: prisma_route_assignment_repository_1.PrismaRouteAssignmentRepository,
+            },
         ],
     })
 ], JobsModule);

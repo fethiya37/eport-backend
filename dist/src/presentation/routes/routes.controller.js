@@ -80,7 +80,6 @@ __decorate([
 ], RoutesController.prototype, "getGroup", null);
 __decorate([
     (0, common_1.Post)('upsert-group-with-routes'),
-    (0, swagger_1.ApiBearerAuth)(),
     (0, roles_decorator_1.Roles)('Admin', 'Superadmin'),
     __param(0, (0, auth_user_decorator_1.AuthUser)()),
     __param(1, (0, common_1.Body)()),
@@ -90,7 +89,6 @@ __decorate([
 ], RoutesController.prototype, "upsertGroupWithRoutes", null);
 __decorate([
     (0, common_1.Patch)(':id'),
-    (0, swagger_1.ApiBearerAuth)(),
     (0, roles_decorator_1.Roles)('Admin', 'Superadmin'),
     __param(0, (0, auth_user_decorator_1.AuthUser)()),
     __param(1, (0, common_1.Param)('id', common_1.ParseIntPipe)),
@@ -101,7 +99,6 @@ __decorate([
 ], RoutesController.prototype, "updateSingleRoute", null);
 __decorate([
     (0, common_1.Delete)('groups/:id'),
-    (0, swagger_1.ApiBearerAuth)(),
     (0, roles_decorator_1.Roles)('Admin', 'Superadmin'),
     __param(0, (0, auth_user_decorator_1.AuthUser)()),
     __param(1, (0, common_1.Param)('id', common_1.ParseIntPipe)),
@@ -111,6 +108,7 @@ __decorate([
 ], RoutesController.prototype, "deleteGroup", null);
 exports.RoutesController = RoutesController = __decorate([
     (0, swagger_1.ApiTags)('routes'),
+    (0, swagger_1.ApiBearerAuth)(),
     (0, common_1.Controller)('routes'),
     (0, common_1.UseGuards)(jwt_guard_1.JwtAuthGuard),
     __metadata("design:paramtypes", [routes_service_1.RoutesService])

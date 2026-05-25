@@ -22,7 +22,7 @@ export class AssociationPolicyController {
   }
 
   @Post()
-  @Roles('Admin', 'Superadmin', 'Association')
+  @Roles('Association')
   upsert(@AuthUser() user: UserContext, @Body() dto: UpsertPolicyDto) {
     return this.service.upsert(user, dto);
   }

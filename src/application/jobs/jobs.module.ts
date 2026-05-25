@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { BillingJobs } from './billing.jobs';
+import { LogCleanupJobs } from './log-cleanup.jobs';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ROUTE_ASSIGNMENT_REPOSITORY } from '../../domain/repositories/route-assignment.repository';
 import { PrismaRouteAssignmentRepository } from '../../infrastructure/repositories/prisma-route-assignment.repository';
@@ -7,8 +8,12 @@ import { PrismaRouteAssignmentRepository } from '../../infrastructure/repositori
 @Module({
   providers: [
     BillingJobs,
+    LogCleanupJobs,
     PrismaService,
-    { provide: ROUTE_ASSIGNMENT_REPOSITORY, useClass: PrismaRouteAssignmentRepository },
+    {
+      provide: ROUTE_ASSIGNMENT_REPOSITORY,
+      useClass: PrismaRouteAssignmentRepository,
+    },
   ],
 })
 export class JobsModule {}

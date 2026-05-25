@@ -6,43 +6,43 @@ export declare class OwnerController {
     private readonly service;
     constructor(service: OwnerService);
     findAll(user: UserContext, association_id?: number): Promise<{
-        id: number;
-        phone_number: string;
         association_id: number;
+        id: number;
         created_at: Date;
-        updated_at: Date;
         full_name: string;
+        phone_number: string;
+        updated_at: Date;
     }[]>;
     findOne(user: UserContext, id: number): Promise<{
-        id: number;
-        phone_number: string;
         association_id: number;
+        id: number;
         created_at: Date;
-        updated_at: Date;
         full_name: string;
+        phone_number: string;
+        updated_at: Date;
     }>;
     create(user: UserContext, dto: CreateOwnerDto): Promise<{
-        id: number;
-        phone_number: string;
         association_id: number;
+        id: number;
         created_at: Date;
-        updated_at: Date;
         full_name: string;
+        phone_number: string;
+        updated_at: Date;
     }>;
     update(user: UserContext, id: number, dto: UpdateOwnerDto): Promise<{
-        id: number;
-        phone_number: string;
         association_id: number;
+        id: number;
         created_at: Date;
-        updated_at: Date;
         full_name: string;
+        phone_number: string;
+        updated_at: Date;
     }>;
     remove(user: UserContext, id: number): Promise<{
-        id: number;
-        phone_number: string;
         association_id: number;
+        id: number;
         created_at: Date;
-        updated_at: Date;
         full_name: string;
+        phone_number: string;
+        updated_at: Date;
     }>;
 }

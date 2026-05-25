@@ -26,14 +26,15 @@ export class LoginDto {
   @ApiProperty({ example: 'StrongP@ssw0rd', writeOnly: true })
   @IsString()
   @IsNotEmpty()
-  @MinLength(10)
-  @MaxLength(128)
+  @MinLength(8)
+  @MaxLength(64)
   @NoHtml({ message: 'password must not include HTML or script tags' })
   password!: string;
 
   @ApiPropertyOptional({
     enum: UserType,
-    description: 'Sent implicitly by client: Driver (mobile) or Association (web)',
+    description:
+      'Sent implicitly by client: Driver (mobile) or Association (web)',
   })
   @IsOptional()
   @IsEnum(UserType)
