@@ -27,10 +27,10 @@ import { DriverFilterDto } from './dto/driver-filter.dto';
 @UseGuards(JwtAuthGuard, AssociationContextGuard)
 @Controller('drivers')
 export class DriverController {
-  constructor(private readonly service: DriverService) { }
+  constructor(private readonly service: DriverService) {}
 
   @Get()
-  @Roles('Association') // ✅ per your rule: association manages association drivers
+  @Roles('Association')
   findAll(@AuthUser() user: UserContext, @Query() filter: DriverFilterDto) {
     return this.service.findAll(user, filter);
   }
@@ -43,7 +43,10 @@ export class DriverController {
 
   @Get(':id')
   @Roles('Association')
-  findOne(@AuthUser() user: UserContext, @Param('id', ParseIntPipe) id: number) {
+  findOne(
+    @AuthUser() user: UserContext,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
     return this.service.findOneWithActive(user, id);
   }
 
@@ -63,13 +66,15 @@ export class DriverController {
     return this.service.update(user, id, dto);
   }
 
-
   @Post(':id/reset-password')
   @Roles('Association')
-  resetPassword(@AuthUser() user: UserContext, @Param('id', ParseIntPipe) id: number) {
+  resetPassword(
+    @AuthUser() user: UserContext,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
     return this.service.resetPassword(user, id);
   }
-  
+
   @Delete(':id')
   @Roles('Association')
   remove(@AuthUser() user: UserContext, @Param('id', ParseIntPipe) id: number) {

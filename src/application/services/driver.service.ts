@@ -23,7 +23,10 @@ import * as bcrypt from 'bcrypt';
 import type { UserContext } from 'src/common/context/user-context';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { ActivityLogService } from '../services/activity-log.service';
-import { assertStrongPassword, generateStrongPassword } from 'src/common/security/password';
+import {
+  assertStrongPassword,
+  generateStrongPassword,
+} from 'src/common/security/password';
 
 @Injectable()
 export class DriverService {
@@ -33,7 +36,7 @@ export class DriverService {
     private readonly policyRepo: IAssociationPolicyRepository,
     private readonly prisma: PrismaService,
     private readonly activityLog: ActivityLogService,
-  ) { }
+  ) {}
 
   async create(ctx: UserContext, dto: CreateDriverDto) {
     if (isAdminLike(ctx.user_type)) {
@@ -45,8 +48,10 @@ export class DriverService {
 
     const fullName = dto.full_name.trim();
     const phone = dto.phone_number.trim();
-    const licenseNo = dto.license_no === undefined ? undefined : (dto.license_no ?? null);
-    const licenseNoTrimmed = typeof licenseNo === 'string' ? licenseNo.trim() : licenseNo;
+    const licenseNo =
+      dto.license_no === undefined ? undefined : (dto.license_no ?? null);
+    const licenseNoTrimmed =
+      typeof licenseNo === 'string' ? licenseNo.trim() : licenseNo;
 
     const driverUserExists = await this.prisma.user.findUnique({
       where: {
@@ -58,7 +63,9 @@ export class DriverService {
       select: { id: true },
     });
     if (driverUserExists) {
-      throw new BadRequestException('Driver with this phone number already exists');
+      throw new BadRequestException(
+        'Driver with this phone number already exists',
+      );
     }
 
     const driver = await this.prisma.$transaction(async (tx) => {
@@ -84,7 +91,9 @@ export class DriverService {
           full_name: fullName,
           phone_number: phone,
           license_no: licenseNoTrimmed,
-          license_expiry: dto.license_expiry ? new Date(dto.license_expiry) : null,
+          license_expiry: dto.license_expiry
+            ? new Date(dto.license_expiry)
+            : null,
           has_smartphone: dto.has_smartphone,
         },
         tx,
@@ -127,7 +136,8 @@ export class DriverService {
     const phone = dto.phone_number?.trim();
     const licenseNo =
       dto.license_no === undefined ? undefined : (dto.license_no ?? null);
-    const licenseNoTrimmed = typeof licenseNo === 'string' ? licenseNo.trim() : licenseNo;
+    const licenseNoTrimmed =
+      typeof licenseNo === 'string' ? licenseNo.trim() : licenseNo;
 
     try {
       if (phone && phone !== (existing as any).phone_number) {
@@ -139,7 +149,10 @@ export class DriverService {
           },
           select: { id: true },
         });
-        if (dup) throw new BadRequestException('Driver with this phone number already exists');
+        if (dup)
+          throw new BadRequestException(
+            'Driver with this phone number already exists',
+          );
       }
 
       const updated = await this.drivers.update(ctx, id, {
@@ -147,7 +160,9 @@ export class DriverService {
         phone_number: phone,
         status: dto.status as DriverStatus | undefined,
         license_no: licenseNoTrimmed ?? undefined,
-        license_expiry: dto.license_expiry ? new Date(dto.license_expiry) : undefined,
+        license_expiry: dto.license_expiry
+          ? new Date(dto.license_expiry)
+          : undefined,
         has_smartphone: dto.has_smartphone,
         active_until_date:
           dto.active_until_date === undefined
@@ -178,8 +193,13 @@ export class DriverService {
       return updated;
     } catch (err) {
       if (err instanceof BadRequestException) throw err;
-      if (err instanceof PrismaClientKnownRequestError && err.code === 'P2002') {
-        throw new BadRequestException('Driver with this phone number already exists');
+      if (
+        err instanceof PrismaClientKnownRequestError &&
+        err.code === 'P2002'
+      ) {
+        throw new BadRequestException(
+          'Driver with this phone number already exists',
+        );
       }
       throw err;
     }
@@ -223,7 +243,9 @@ export class DriverService {
 
   async resetPassword(ctx: UserContext, id: number) {
     if (isAdminLike(ctx.user_type)) {
-      throw new ForbiddenException('Admin/Superadmin cannot reset driver password here');
+      throw new ForbiddenException(
+        'Admin/Superadmin cannot reset driver password here',
+      );
     }
     if (!ctx.association_id) {
       throw new BadRequestException('association_id is required');
@@ -260,5 +282,4 @@ export class DriverService {
 
     return { temp_password };
   }
-
 }

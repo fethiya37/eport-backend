@@ -108,7 +108,9 @@ let DriverService = class DriverService {
                 full_name: fullName,
                 phone_number: phone,
                 license_no: licenseNoTrimmed,
-                license_expiry: dto.license_expiry ? new Date(dto.license_expiry) : null,
+                license_expiry: dto.license_expiry
+                    ? new Date(dto.license_expiry)
+                    : null,
                 has_smartphone: dto.has_smartphone,
             }, tx);
             return createdDriver;
@@ -160,7 +162,9 @@ let DriverService = class DriverService {
                 phone_number: phone,
                 status: dto.status,
                 license_no: licenseNoTrimmed ?? undefined,
-                license_expiry: dto.license_expiry ? new Date(dto.license_expiry) : undefined,
+                license_expiry: dto.license_expiry
+                    ? new Date(dto.license_expiry)
+                    : undefined,
                 has_smartphone: dto.has_smartphone,
                 active_until_date: dto.active_until_date === undefined
                     ? undefined
@@ -189,7 +193,8 @@ let DriverService = class DriverService {
         catch (err) {
             if (err instanceof common_1.BadRequestException)
                 throw err;
-            if (err instanceof library_1.PrismaClientKnownRequestError && err.code === 'P2002') {
+            if (err instanceof library_1.PrismaClientKnownRequestError &&
+                err.code === 'P2002') {
                 throw new common_1.BadRequestException('Driver with this phone number already exists');
             }
             throw err;

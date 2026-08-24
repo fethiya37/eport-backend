@@ -11,17 +11,16 @@ const common_1 = require("@nestjs/common");
 const axios_1 = require("@nestjs/axios");
 const sms_gateway_service_1 = require("../../application/services/sms-gateway.service");
 const route_assignment_module_1 = require("../route-assignment/route-assignment.module");
+const sms_controller_1 = require("./sms.controller");
 let SmsModule = class SmsModule {
 };
 exports.SmsModule = SmsModule;
 exports.SmsModule = SmsModule = __decorate([
     (0, common_1.Module)({
-        imports: [
-            axios_1.HttpModule,
-            route_assignment_module_1.RouteAssignmentModule,
-        ],
+        imports: [axios_1.HttpModule, route_assignment_module_1.RouteAssignmentModule],
         providers: [sms_gateway_service_1.SmsGatewayService],
         exports: [sms_gateway_service_1.SmsGatewayService],
+        controllers: [sms_controller_1.SmsController],
     })
 ], SmsModule);
 //# sourceMappingURL=sms.module.js.map
