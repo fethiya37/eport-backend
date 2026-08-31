@@ -80,19 +80,31 @@ let PrismaRouteAssignmentRepository = class PrismaRouteAssignmentRepository {
     }
     async find(filter) {
         const where = {
-            ...(filter.association_id ? { association_id: filter.association_id } : {}),
+            ...(filter.association_id
+                ? { association_id: filter.association_id }
+                : {}),
             ...(filter.route_id ? { route_id: filter.route_id } : {}),
             ...(filter.status ? { status: filter.status } : {}),
-            ...(typeof filter.is_weekly === 'boolean' ? { is_weekly: filter.is_weekly } : {}),
+            ...(typeof filter.is_weekly === 'boolean'
+                ? { is_weekly: filter.is_weekly }
+                : {}),
             ...(filter.vehicle_id ? { vehicle_id: filter.vehicle_id } : {}),
-            ...(filter.payment_status ? { payment_status: filter.payment_status } : {}),
-            ...(filter.route_quota_id ? { route_quota_id: filter.route_quota_id } : {}),
+            ...(filter.payment_status
+                ? { payment_status: filter.payment_status }
+                : {}),
+            ...(filter.route_quota_id
+                ? { route_quota_id: filter.route_quota_id }
+                : {}),
             ...(filter.date_from || filter.date_to
                 ? {
                     NOT: {
                         OR: [
-                            ...(filter.date_from ? [{ end_date: { lt: filter.date_from } }] : []),
-                            ...(filter.date_to ? [{ start_date: { gt: filter.date_to } }] : []),
+                            ...(filter.date_from
+                                ? [{ end_date: { lt: filter.date_from } }]
+                                : []),
+                            ...(filter.date_to
+                                ? [{ start_date: { gt: filter.date_to } }]
+                                : []),
                         ],
                     },
                 }

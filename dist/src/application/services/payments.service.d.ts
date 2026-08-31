@@ -34,6 +34,7 @@ export declare class PaymentsService {
     private parseAndValidateWindow;
     private computeTotal;
     private splitName;
+    private formatCoverageSms;
     applyPayment(ctx: UserContext, dto: PayDto): Promise<{
         payment: {
             plate_number: any;
@@ -50,7 +51,6 @@ export declare class PaymentsService {
             };
         };
     }>;
-    private formatCoverageSmsCompact;
     listPayments(ctx: UserContext, filters: any): Promise<{
         id: any;
         association_id: any;

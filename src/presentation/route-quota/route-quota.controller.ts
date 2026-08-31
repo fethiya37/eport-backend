@@ -1,4 +1,15 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RouteQuotaService } from '../../application/services/route-quota.service';
 import { CreateRouteQuotaDto } from './dto/create-route-quota.dto';
@@ -15,7 +26,7 @@ import { CreateManyRouteQuotasDto } from './dto/create-many-route-quotas.dto';
 @UseGuards(JwtAuthGuard)
 @Controller('route-quotas')
 export class RouteQuotaController {
-  constructor(private readonly service: RouteQuotaService) { }
+  constructor(private readonly service: RouteQuotaService) {}
 
   @Post()
   @Roles('Admin', 'Superadmin')
@@ -30,16 +41,24 @@ export class RouteQuotaController {
   }
 
   @Patch(':id')
-  @Roles('Admin', 'Superadmin', 'Association') // ✅ add Association
-  @ApiOperation({ summary: 'Update route quota (Admins full edit, Association partial)' })
-  update(@AuthUser() user: UserContext, @Param('id', ParseIntPipe) id: number, @Body() dto: UpdateRouteQuotaDto) {
+  @Roles('Admin', 'Superadmin', 'Association')
+  @ApiOperation({
+    summary: 'Update route quota (Admins full edit, Association partial)',
+  })
+  update(
+    @AuthUser() user: UserContext,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateRouteQuotaDto,
+  ) {
     return this.service.update(user, id, dto);
   }
 
-
   @Post('bulk')
   @Roles('Admin', 'Superadmin')
-  createMany(@AuthUser() user: UserContext, @Body() dto: CreateManyRouteQuotasDto) {
+  createMany(
+    @AuthUser() user: UserContext,
+    @Body() dto: CreateManyRouteQuotasDto,
+  ) {
     return this.service.createMany(user, dto);
   }
 

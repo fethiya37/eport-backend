@@ -41,7 +41,6 @@ let AssociationService = class AssociationService {
             throw new common_1.ForbiddenException('Only Admin/Superadmin');
         const assoc = await this.associations.create({
             name: dto.name,
-            phone_number: dto.phone_number ?? null,
             logo: dto.logo ?? null,
         });
         await this.activityLog.log(ctx, {
@@ -60,7 +59,6 @@ let AssociationService = class AssociationService {
             throw new common_1.NotFoundException('Association not found');
         const updated = await this.associations.update(id, {
             name: dto.name ?? existing.name,
-            phone_number: dto.phone_number !== undefined ? dto.phone_number : existing.phone_number,
             logo: dto.logo !== undefined ? dto.logo : existing.logo,
         });
         await this.activityLog.log(ctx, {
@@ -84,7 +82,6 @@ let AssociationService = class AssociationService {
             await tx.routeQuota.deleteMany({ where: { association_id: id } });
             await tx.vehicle.deleteMany({ where: { association_id: id } });
             await tx.driver.deleteMany({ where: { association_id: id } });
-            await tx.owner.deleteMany({ where: { association_id: id } });
             await tx.user.deleteMany({ where: { association_id: id } });
             await tx.association.delete({ where: { id } });
         });
@@ -94,7 +91,9 @@ let AssociationService = class AssociationService {
             entity: 'Association',
             entity_id: id,
         });
-        return { message: 'Association and all related records deleted successfully' };
+        return {
+            message: 'Association and all related records deleted successfully',
+        };
     }
 };
 exports.AssociationService = AssociationService;

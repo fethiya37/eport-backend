@@ -90,8 +90,10 @@ let DriverService = class DriverService {
         if (driverUserExists) {
             throw new common_1.BadRequestException('Driver with this phone number already exists');
         }
+        const temp_password = (0, password_1.generateStrongPassword)();
+        (0, password_1.assertStrongPassword)(temp_password, phone);
         const driver = await this.prisma.$transaction(async (tx) => {
-            const password_hash = await bcrypt.hash(phone, 10);
+            const password_hash = await bcrypt.hash(temp_password, 12);
             const user = await tx.user.create({
                 data: {
                     phone_number: phone,
@@ -100,6 +102,7 @@ let DriverService = class DriverService {
                     password_hash,
                     is_locked: false,
                     association_id: ctx.association_id,
+                    must_change_password: true,
                 },
             });
             const createdDriver = await this.drivers.create(ctx, {
@@ -121,7 +124,10 @@ let DriverService = class DriverService {
             entity: 'Driver',
             entity_id: driver.id,
         });
-        return driver;
+        return {
+            ...driver,
+            temp_password,
+        };
     }
     async findAll(ctx, filter) {
         return this.drivers.findAll(ctx, filter);

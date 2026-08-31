@@ -12,7 +12,6 @@ const schedule_1 = require("@nestjs/schedule");
 const auth_module_1 = require("./presentation/auth/auth.module");
 const user_module_1 = require("./presentation/user/user.module");
 const association_module_1 = require("./presentation/association/association.module");
-const owner_module_1 = require("./presentation/owner/owner.module");
 const vehicle_module_1 = require("./presentation/vehicle/vehicle.module");
 const driver_module_1 = require("./presentation/driver/driver.module");
 const core_1 = require("@nestjs/core");
@@ -37,7 +36,6 @@ exports.AppModule = AppModule = __decorate([
             auth_module_1.AuthModule,
             user_module_1.UserModule,
             association_module_1.AssociationModule,
-            owner_module_1.OwnerModule,
             vehicle_module_1.VehicleModule,
             driver_module_1.DriverModule,
             route_assignment_module_1.RouteAssignmentModule,

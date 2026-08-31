@@ -12,6 +12,7 @@ export declare class DriverService {
     private readonly activityLog;
     constructor(drivers: IDriverRepository, policyRepo: IAssociationPolicyRepository, prisma: PrismaService, activityLog: ActivityLogService);
     create(ctx: UserContext, dto: CreateDriverDto): Promise<{
+        temp_password: string;
         id: number;
         phone_number: string;
         association_id: number;

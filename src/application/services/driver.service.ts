@@ -68,9 +68,11 @@ export class DriverService {
       );
     }
 
+    const temp_password = generateStrongPassword();
+    assertStrongPassword(temp_password, phone);
+
     const driver = await this.prisma.$transaction(async (tx) => {
-      // NOTE: Using phone as password is weak. If you can, replace this with a random temp PIN + SMS.
-      const password_hash = await bcrypt.hash(phone, 10);
+      const password_hash = await bcrypt.hash(temp_password, 12);
 
       const user = await tx.user.create({
         data: {
@@ -80,6 +82,7 @@ export class DriverService {
           password_hash,
           is_locked: false,
           association_id: ctx.association_id!,
+          must_change_password: true,
         },
       });
 
@@ -109,7 +112,10 @@ export class DriverService {
       entity_id: driver.id,
     });
 
-    return driver;
+    return {
+      ...driver,
+      temp_password,
+    };
   }
 
   async findAll(ctx: UserContext, filter: DriverFilter) {
@@ -214,7 +220,6 @@ export class DriverService {
     if (!driver) throw new NotFoundException('Driver not found');
 
     const removed = await this.prisma.$transaction(async (tx) => {
-      // ✅ FIX ORDER: detach vehicles first to avoid FK issues
       await tx.vehicle.updateMany({
         where: { driver_id: id },
         data: { driver_id: null },

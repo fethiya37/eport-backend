@@ -20,11 +20,7 @@ let DriverModule = class DriverModule {
 exports.DriverModule = DriverModule;
 exports.DriverModule = DriverModule = __decorate([
     (0, common_1.Module)({
-        imports: [
-            activity_log_module_1.ActivityLogModule,
-            prisma_module_1.PrismaModule,
-            association_policy_module_1.AssociationPolicyModule,
-        ],
+        imports: [activity_log_module_1.ActivityLogModule, prisma_module_1.PrismaModule, association_policy_module_1.AssociationPolicyModule],
         controllers: [driver_controller_1.DriverController],
         providers: [
             driver_service_1.DriverService,

@@ -23,18 +23,21 @@ export type UpsertGroupWithRoutesArgs = {
 };
 
 export interface IRoutesRepository {
-  // Reads
-  listRouteGroups(includeRoutes: boolean): Promise<(RouteGroup & { routes?: Route[] })[]>;
+  listRouteGroups(
+    includeRoutes: boolean,
+  ): Promise<(RouteGroup & { routes?: Route[] })[]>;
   listRoutes(filter: RouteFilter): Promise<Route[]>;
   getRoute(id: number): Promise<Route | null>;
-  getRouteGroup(id: number, includeRoutes: boolean): Promise<(RouteGroup & { routes?: Route[] }) | null>;
+  getRouteGroup(
+    id: number,
+    includeRoutes: boolean,
+  ): Promise<(RouteGroup & { routes?: Route[] }) | null>;
 
-  // Writes
-  upsertGroupWithRoutes(args: UpsertGroupWithRoutesArgs): Promise<RouteGroup & { routes: Route[] }>;
+  upsertGroupWithRoutes(
+    args: UpsertGroupWithRoutesArgs,
+  ): Promise<RouteGroup & { routes: Route[] }>;
   updateSingleRoute(id: number, data: RouteUpsertInput): Promise<Route>;
   deleteGroup(id: number): Promise<void>;
 
-
-  /** ✅ NEW: cheap existence check by route id */
   existsRoute(id: number): Promise<boolean>;
 }

@@ -82,8 +82,7 @@ let BillingJobs = BillingJobs_1 = class BillingJobs {
                     rate = Number(rows[0].daily_fine_percent ?? 0) || 0;
                 }
             }
-            catch {
-            }
+            catch { }
             const base = v.is_weekly ? weeklyFee : monthlyFee;
             const add = Math.round((base * rate + Number.EPSILON) * 100) / 100;
             if (add <= 0)
@@ -91,7 +90,8 @@ let BillingJobs = BillingJobs_1 = class BillingJobs {
             await this.prisma.driver.update({
                 where: { id: v.driver.id },
                 data: {
-                    interest_accrued: (Number(v.driver.interest_accrued ?? 0) + add),
+                    interest_accrued: (Number(v.driver.interest_accrued ?? 0) +
+                        add),
                     last_accrual_date: todayEatDateUtc,
                     last_accrual_amount: add,
                 },

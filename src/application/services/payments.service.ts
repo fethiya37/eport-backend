@@ -25,13 +25,16 @@ import { PaymentMethod } from '@prisma/client';
 import { RouteAssignmentService } from './route-assignment.service';
 import { SmsGatewayService } from './sms-gateway.service';
 import { ActivityLogService } from './activity-log.service';
+import { formatSimpleEthiopianDateRange } from '../../common/utils/ethio-period.util';
 
 @Injectable()
 export class PaymentsService {
   constructor(
     @Inject(DRIVER_REPOSITORY) private readonly drivers: IDriverRepository,
-    @Inject(DRIVER_PAYMENT_REPOSITORY) private readonly payments: IDriverPaymentRepository,
-    @Inject(ASSOCIATION_POLICY_REPOSITORY) private readonly policy: IAssociationPolicyRepository,
+    @Inject(DRIVER_PAYMENT_REPOSITORY)
+    private readonly payments: IDriverPaymentRepository,
+    @Inject(ASSOCIATION_POLICY_REPOSITORY)
+    private readonly policy: IAssociationPolicyRepository,
     private readonly prisma: PrismaService,
     private readonly routeService: RouteAssignmentService,
     private readonly smsGateway: SmsGatewayService,
@@ -77,15 +80,25 @@ export class PaymentsService {
     return digits;
   }
 
-  private assertFeeConfig(p: { weekly_fee: number; monthly_fee: number; daily_fine_percent: number }) {
+  private assertFeeConfig(p: {
+    weekly_fee: number;
+    monthly_fee: number;
+    daily_fine_percent: number;
+  }) {
     if (!Number.isFinite(p.weekly_fee) || p.weekly_fee < 0) {
       throw new BadRequestException('Invalid association policy: weekly_fee');
     }
     if (!Number.isFinite(p.monthly_fee) || p.monthly_fee < 0) {
       throw new BadRequestException('Invalid association policy: monthly_fee');
     }
-    if (!Number.isFinite(p.daily_fine_percent) || p.daily_fine_percent < 0 || p.daily_fine_percent > 1) {
-      throw new BadRequestException('Invalid association policy: daily_fine_percent');
+    if (
+      !Number.isFinite(p.daily_fine_percent) ||
+      p.daily_fine_percent < 0 ||
+      p.daily_fine_percent > 1
+    ) {
+      throw new BadRequestException(
+        'Invalid association policy: daily_fine_percent',
+      );
     }
   }
 
@@ -126,7 +139,8 @@ export class PaymentsService {
     value?: string,
   ): 'CASH' | 'BANK' | 'MOBILE' | 'OTHER' {
     const v = (value ?? 'MOBILE').trim().toUpperCase();
-    if (v === 'CASH' || v === 'BANK' || v === 'MOBILE' || v === 'OTHER') return v;
+    if (v === 'CASH' || v === 'BANK' || v === 'MOBILE' || v === 'OTHER')
+      return v;
     throw new BadRequestException(
       'Invalid payment_method. Use one of: CASH | BANK | MOBILE | OTHER',
     );
@@ -137,7 +151,11 @@ export class PaymentsService {
     return p.length ? p : undefined;
   }
 
-  private async resolveDriver(ctx: UserContext, driver_id?: number, plate_number?: string) {
+  private async resolveDriver(
+    ctx: UserContext,
+    driver_id?: number,
+    plate_number?: string,
+  ) {
     if (!driver_id && !plate_number) {
       throw new BadRequestException('Provide driver_id or plate_number');
     }
@@ -156,7 +174,10 @@ export class PaymentsService {
         select: { id: true, association_id: true, driver_id: true },
       });
       if (!v) throw new NotFoundException('Vehicle not found');
-      if (!v.driver_id) throw new BadRequestException('No driver assigned to this plate_number');
+      if (!v.driver_id)
+        throw new BadRequestException(
+          'No driver assigned to this plate_number',
+        );
 
       d = await this.drivers.findById(ctx, v.driver_id);
       if (!d) throw new NotFoundException('Driver not found');
@@ -172,7 +193,8 @@ export class PaymentsService {
       where: { driver_id: d.id },
       select: { id: true, plate_number: true, is_weekly: true },
     });
-    if (!vehicle) throw new BadRequestException('Driver has no assigned vehicle');
+    if (!vehicle)
+      throw new BadRequestException('Driver has no assigned vehicle');
 
     d.vehicle_id = vehicle.id;
     d.vehicle_plate = vehicle.plate_number;
@@ -180,7 +202,10 @@ export class PaymentsService {
     return d;
   }
 
-  private assertPlanMatches(driverIsWeekly: boolean, feePlan: 'WEEKLY' | 'MONTHLY') {
+  private assertPlanMatches(
+    driverIsWeekly: boolean,
+    feePlan: 'WEEKLY' | 'MONTHLY',
+  ) {
     const driverPlan = driverIsWeekly ? 'WEEKLY' : 'MONTHLY';
     if (feePlan !== driverPlan) {
       throw new BadRequestException(
@@ -196,7 +221,9 @@ export class PaymentsService {
     prepayQty: number,
   ) {
     const days =
-      Math.floor(this.startOfDay(endGc).getTime() - this.startOfDay(startGc).getTime()) /
+      Math.floor(
+        this.startOfDay(endGc).getTime() - this.startOfDay(startGc).getTime(),
+      ) /
         86_400_000 +
       1;
     const expectedWeeks = isOverdue ? 1 + prepayQty : Math.max(1, prepayQty);
@@ -218,10 +245,14 @@ export class PaymentsService {
     const endGc = new Date(end);
 
     if (isNaN(startGc.getTime()) || isNaN(endGc.getTime())) {
-      throw new BadRequestException('covered_start_date/covered_end_date must be valid ISO 8601');
+      throw new BadRequestException(
+        'covered_start_date/covered_end_date must be valid ISO 8601',
+      );
     }
     if (startGc > endGc) {
-      throw new BadRequestException('covered_start_date must be <= covered_end_date');
+      throw new BadRequestException(
+        'covered_start_date must be <= covered_end_date',
+      );
     }
 
     if (feePlan === 'WEEKLY') {
@@ -238,11 +269,15 @@ export class PaymentsService {
     baseFee: number,
     interestAccrued: number,
   ) {
-    const interestSafe = Number.isFinite(interestAccrued) ? Math.max(0, interestAccrued) : 0;
+    const interestSafe = Number.isFinite(interestAccrued)
+      ? Math.max(0, interestAccrued)
+      : 0;
     const current = isOverdue ? baseFee : 0;
     const interest = isOverdue ? interestSafe : 0;
     const future = prepayQty * baseFee;
-    return Math.round((current + interest + future + Number.EPSILON) * 100) / 100;
+    return (
+      Math.round((current + interest + future + Number.EPSILON) * 100) / 100
+    );
   }
 
   private splitName(fullName?: string) {
@@ -250,6 +285,46 @@ export class PaymentsService {
     const firstName = parts[0] || 'Driver';
     const lastName = parts.slice(1).join(' ') || 'User';
     return { firstName, lastName };
+  }
+
+  private formatCoverageSms(data: any): string {
+    if (!data) {
+      return 'ምንም መረጃ የለም።';
+    }
+
+    if (
+      data.not_full_filled ||
+      !data.assignments ||
+      data.assignments.length === 0
+    ) {
+      const plate = data.plate_number || 'Unknown';
+      if (data.not_full_filled) {
+        return `${plate} Inactive`;
+      }
+      return `${plate} የተመደበ መስመር የለም።`;
+    }
+
+    const plate = data.plate_number;
+    const routes = data.assignments
+      .map((a: any, index: number, array: any[]) => {
+        const startDate = new Date(a.start_date_gc);
+        const endDate = new Date(a.end_date_gc);
+        const dateRange = formatSimpleEthiopianDateRange(startDate, endDate);
+        const routeText = `ከ${a.route.departure}→${a.route.arrival} ከ${dateRange}`;
+
+        if (index === 0) {
+          return `${plate} ${routeText}`;
+        }
+
+        if (index === array.length - 1) {
+          return `${routeText} ተመድበዋል`;
+        }
+
+        return routeText;
+      })
+      .join('\n');
+
+    return routes;
   }
 
   async applyPayment(ctx: UserContext, dto: PayDto) {
@@ -271,7 +346,8 @@ export class PaymentsService {
     );
 
     const fees = await this.getFees(d.association_id);
-    const baseFee = dto.fee_plan === 'WEEKLY' ? fees.weekly_fee : fees.monthly_fee;
+    const baseFee =
+      dto.fee_plan === 'WEEKLY' ? fees.weekly_fee : fees.monthly_fee;
 
     if (!Number.isFinite(baseFee) || baseFee < 0) {
       throw new BadRequestException('Invalid fee configuration');
@@ -292,7 +368,9 @@ export class PaymentsService {
     if (dto.amount !== undefined) {
       const provided = Math.round((dto.amount + Number.EPSILON) * 100) / 100;
       if (provided !== total) {
-        throw new BadRequestException(`Total mismatch. Expected ${total}, got ${provided}`);
+        throw new BadRequestException(
+          `Total mismatch. Expected ${total}, got ${provided}`,
+        );
       }
     }
 
@@ -309,13 +387,15 @@ export class PaymentsService {
           paid_at: new Date(),
           created_by_user_id: ctx.userId,
           payment_method: this.parsePaymentMethod(dto.payment_method),
-          plate_number: this.normalizePlate(dto.plate_number) ?? d.vehicle_plate ?? null,
+          plate_number:
+            this.normalizePlate(dto.plate_number) ?? d.vehicle_plate ?? null,
         },
         tx,
       );
 
       const vehicleId = d.vehicle_id;
-      if (!vehicleId) throw new BadRequestException('Driver has no assigned vehicle');
+      if (!vehicleId)
+        throw new BadRequestException('Driver has no assigned vehicle');
 
       const lastActive = await tx.routeAssignment.findFirst({
         where: { vehicle_id: vehicleId, payment_status: 'ACTIVE' },
@@ -353,19 +433,26 @@ export class PaymentsService {
       plate_number: this.normalizePlate(dto.plate_number) ?? d.vehicle_plate,
     });
 
+    const smsMessage = this.formatCoverageSms(coverage);
+
     if (!d.has_smartphone) {
-      const msg = this.formatCoverageSmsCompact(coverage);
       try {
-        await this.smsGateway.sendSms(this.toLocalEtMobile(d.phone_number), msg);
+        await this.smsGateway.sendSms(
+          this.toLocalEtMobile(d.phone_number),
+          smsMessage,
+        );
       } catch (e: any) {}
     }
 
     return {
       payment: {
-        plate_number: this.normalizePlate(dto.plate_number) ?? d.vehicle_plate ?? null,
+        plate_number:
+          this.normalizePlate(dto.plate_number) ?? d.vehicle_plate ?? null,
         fee_plan: dto.fee_plan,
         breakdown: {
-          interest: isOverdue ? Math.max(0, Number(d.interest_accrued ?? 0)) : 0,
+          interest: isOverdue
+            ? Math.max(0, Number(d.interest_accrued ?? 0))
+            : 0,
           current_fee: isOverdue ? baseFee : 0,
           future_fee: prepayQty * baseFee,
           total,
@@ -373,17 +460,6 @@ export class PaymentsService {
         coverage: { from: this.ymdEAT(startGc), to: this.ymdEAT(endGc) },
       },
     };
-  }
-
-  private formatCoverageSmsCompact(data: any): string {
-    if (!data.coverage_active) return `Plate: ${data.plate_number} inactive.`;
-    const assignments = data.assignments
-      .map(
-        (a: any) =>
-          `${a.route.departure}→${a.route.arrival} (${a.start_date_ec} → ${a.end_date_ec}) [${a.status}]`,
-      )
-      .join('\n');
-    return `Plate: ${data.plate_number}\n${assignments}`;
   }
 
   async listPayments(ctx: UserContext, filters: any) {
@@ -425,10 +501,16 @@ export class PaymentsService {
     if (ctx.user_type !== 'Association') {
       throw new ForbiddenException('Not allowed');
     }
-    if (!ctx.association_id) throw new ForbiddenException('Association context required');
+    if (!ctx.association_id)
+      throw new ForbiddenException('Association context required');
 
-    const totals = await this.payments.getTotalByAssociation(ctx.association_id);
-    return { total_amount: totals.total_amount, total_transactions: totals.count };
+    const totals = await this.payments.getTotalByAssociation(
+      ctx.association_id,
+    );
+    return {
+      total_amount: totals.total_amount,
+      total_transactions: totals.count,
+    };
   }
 
   private buildTxRefOnline(p: {
@@ -442,10 +524,18 @@ export class PaymentsService {
     amount: number;
   }) {
     const yymmdd = (d: string) => d.replace(/-/g, '').slice(2, 8);
-    const rand = Math.random().toString(36).replace(/[^a-z0-9]/g, '').slice(2, 10);
+    const rand = Math.random()
+      .toString(36)
+      .replace(/[^a-z0-9]/g, '')
+      .slice(2, 10);
     const plan = p.fee_plan === 'MONTHLY' ? 'M' : 'W';
     const q = Math.max(0, p.prepaid_qty ?? 0);
-    const mMap: Record<string, string> = { CASH: 'c', BANK: 'b', MOBILE: 'm', OTHER: 'o' };
+    const mMap: Record<string, string> = {
+      CASH: 'c',
+      BANK: 'b',
+      MOBILE: 'm',
+      OTHER: 'o',
+    };
     const m = (p.payment_method ?? 'MOBILE').toUpperCase();
     const mSeg = m === 'MOBILE' ? '' : `-m${mMap[m] ?? 'm'}`;
     const cents = Math.round((p.amount + Number.EPSILON) * 100);
@@ -470,7 +560,8 @@ export class PaymentsService {
 
   private parseTxRefOnline(txRef: string) {
     const parts = txRef.split('-');
-    const getVal = (k: string) => parts.find((s) => s.startsWith(k))?.slice(1) ?? '';
+    const getVal = (k: string) =>
+      parts.find((s) => s.startsWith(k))?.slice(1) ?? '';
     const aid = Number(getVal('A'));
     const did = Number(getVal('D'));
     const planChar = getVal('P');
@@ -523,7 +614,8 @@ export class PaymentsService {
     );
 
     const fees = await this.getFees(d.association_id);
-    const baseFee = dto.fee_plan === 'WEEKLY' ? fees.weekly_fee : fees.monthly_fee;
+    const baseFee =
+      dto.fee_plan === 'WEEKLY' ? fees.weekly_fee : fees.monthly_fee;
 
     const total = this.computeTotal(
       dto.fee_plan,
@@ -538,7 +630,9 @@ export class PaymentsService {
       select: { chapa_id: true },
     });
     if (!assocSub?.chapa_id) {
-      throw new BadRequestException('Association has no Chapa subaccount configured');
+      throw new BadRequestException(
+        'Association has no Chapa subaccount configured',
+      );
     }
 
     const txRef = this.buildTxRefOnline({
@@ -604,7 +698,8 @@ export class PaymentsService {
 
   async recordAfterChapaSuccess(txRef: string) {
     const verify = await this.verify(txRef);
-    const ok = verify?.status === 'success' && verify?.data?.status === 'success';
+    const ok =
+      verify?.status === 'success' && verify?.data?.status === 'success';
     if (!ok) {
       return { recorded: false, status: verify?.data?.status ?? 'pending' };
     }
@@ -624,7 +719,8 @@ export class PaymentsService {
     if (!driver) throw new NotFoundException('Driver not found');
 
     const fees = await this.getFees(driver.association_id);
-    const baseFee = parsed.fee_plan === 'WEEKLY' ? fees.weekly_fee : fees.monthly_fee;
+    const baseFee =
+      parsed.fee_plan === 'WEEKLY' ? fees.weekly_fee : fees.monthly_fee;
     const isOverdue = this.isOverdueEAT(driver.active_until_date ?? null);
     const prepayQty = Math.max(0, parsed.prepaid_qty ?? 0);
 
@@ -652,7 +748,13 @@ export class PaymentsService {
         },
       );
 
-      return { recorded: false, status: 'mismatch', expected, paid, tx_ref: txRef };
+      return {
+        recorded: false,
+        status: 'mismatch',
+        expected,
+        paid,
+        tx_ref: txRef,
+      };
     }
 
     const ctx: UserContext = {
@@ -683,9 +785,12 @@ export class PaymentsService {
 
   async verify(txRef: string) {
     const CHAPA_SECRET = process.env.CHAPA_SECRET!;
-    const res = await fetch(`https://api.chapa.co/v1/transaction/verify/${txRef}`, {
-      headers: { Authorization: `Bearer ${CHAPA_SECRET}` },
-    });
+    const res = await fetch(
+      `https://api.chapa.co/v1/transaction/verify/${txRef}`,
+      {
+        headers: { Authorization: `Bearer ${CHAPA_SECRET}` },
+      },
+    );
     const data = await res.json();
     if (!res.ok) throw new HttpException(data, res.status);
     return data;

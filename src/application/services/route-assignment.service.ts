@@ -12,7 +12,11 @@ import {
 } from '../../domain/repositories/route-assignment.repository';
 import { isAdminLike } from '../../common/auth/roles.util';
 import type { UserContext } from 'src/common/context/user-context';
-import { RouteAssignmentStatus, PaymentStatus, VehicleStatus } from '@prisma/client';
+import {
+  RouteAssignmentStatus,
+  PaymentStatus,
+  VehicleStatus,
+} from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { BulkUpsertAssignmentsDto } from '../../presentation/route-assignment/dto/bulk-upsert.dto';
 import { ApproveAssignmentsDto } from '../../presentation/route-assignment/dto/approve.dto';
@@ -47,7 +51,8 @@ export class RouteAssignmentService {
 
   private assertAssociationScope(ctx: UserContext, associationId: number) {
     if (isAdminLike(ctx.user_type)) return;
-    if (!ctx.association_id) throw new ForbiddenException('Association context required');
+    if (!ctx.association_id)
+      throw new ForbiddenException('Association context required');
     if (ctx.association_id !== associationId) {
       throw new ForbiddenException('You can only manage your association data');
     }
@@ -61,7 +66,9 @@ export class RouteAssignmentService {
     vehicle_id: number,
     association_id: number,
   ): Promise<boolean> {
-    const v = await this.prisma.vehicle.findUnique({ where: { id: vehicle_id } });
+    const v = await this.prisma.vehicle.findUnique({
+      where: { id: vehicle_id },
+    });
     return !!v && v.association_id === association_id;
   }
 
@@ -85,10 +92,11 @@ export class RouteAssignmentService {
 
   async bulkUpsert(ctx: UserContext, dto: BulkUpsertAssignmentsDto) {
     const association_id = isAdminLike(ctx.user_type)
-      ? dto.association_id ?? ctx.association_id ?? null
-      : ctx.association_id ?? null;
+      ? (dto.association_id ?? ctx.association_id ?? null)
+      : (ctx.association_id ?? null);
 
-    if (!association_id) throw new BadRequestException('association_id is required');
+    if (!association_id)
+      throw new BadRequestException('association_id is required');
 
     const now = new Date();
     const rows: RouteAssignmentUpsertRow[] = [];
@@ -96,13 +104,18 @@ export class RouteAssignmentService {
     for (const it of dto.items) {
       const start_date = this.parseGcDate(it.start_date as any);
       const end_date = this.parseGcDate(it.end_date as any);
-      if (start_date > end_date) throw new BadRequestException('start_date must be <= end_date');
+      if (start_date > end_date)
+        throw new BadRequestException('start_date must be <= end_date');
 
       if (!(await this.existsRoute(it.route_id))) {
         throw new BadRequestException(`Route ${it.route_id} not found`);
       }
-      if (!(await this.existsVehicleInAssociation(it.vehicle_id, association_id))) {
-        throw new BadRequestException(`Vehicle ${it.vehicle_id} not in association`);
+      if (
+        !(await this.existsVehicleInAssociation(it.vehicle_id, association_id))
+      ) {
+        throw new BadRequestException(
+          `Vehicle ${it.vehicle_id} not in association`,
+        );
       }
 
       const overlaps = await this.existsVehicleOverlap(
@@ -113,7 +126,9 @@ export class RouteAssignmentService {
         it.id,
       );
       if (overlaps) {
-        throw new BadRequestException(`Vehicle ${it.vehicle_id} has overlapping assignment`);
+        throw new BadRequestException(
+          `Vehicle ${it.vehicle_id} has overlapping assignment`,
+        );
       }
 
       const driver = await this.prisma.driver.findFirst({
@@ -167,7 +182,8 @@ export class RouteAssignmentService {
   }
 
   async approve(ctx: UserContext, dto: ApproveAssignmentsDto) {
-    if (!isAdminLike(ctx.user_type)) throw new ForbiddenException('Only Admin/Superadmin');
+    if (!isAdminLike(ctx.user_type))
+      throw new ForbiddenException('Only Admin/Superadmin');
     const updated = await this.repo.approveMany(dto.ids, ctx.userId);
 
     for (const id of dto.ids) {
@@ -186,7 +202,8 @@ export class RouteAssignmentService {
     const f = { ...filter };
 
     if (!isAdminLike(ctx.user_type)) {
-      if (!ctx.association_id) throw new ForbiddenException('Association context required');
+      if (!ctx.association_id)
+        throw new ForbiddenException('Association context required');
       f.association_id = ctx.association_id;
     }
 
@@ -233,13 +250,23 @@ export class RouteAssignmentService {
 
     this.assertAssociationScope(ctx, existing.association_id);
 
-    if (!isAdminLike(ctx.user_type) && existing.status === RouteAssignmentStatus.Approved) {
-      throw new ForbiddenException('Association users cannot update approved assignments');
+    if (
+      !isAdminLike(ctx.user_type) &&
+      existing.status === RouteAssignmentStatus.Approved
+    ) {
+      throw new ForbiddenException(
+        'Association users cannot update approved assignments',
+      );
     }
 
-    const start_date = dto.start_date ? this.parseGcDate(dto.start_date as any) : existing.start_date;
-    const end_date = dto.end_date ? this.parseGcDate(dto.end_date as any) : existing.end_date;
-    if (start_date > end_date) throw new BadRequestException('start_date must be <= end_date');
+    const start_date = dto.start_date
+      ? this.parseGcDate(dto.start_date as any)
+      : existing.start_date;
+    const end_date = dto.end_date
+      ? this.parseGcDate(dto.end_date as any)
+      : existing.end_date;
+    if (start_date > end_date)
+      throw new BadRequestException('start_date must be <= end_date');
 
     const vehicle = await this.prisma.vehicle.findUnique({
       where: { id: dto.vehicle_id ?? existing.vehicle_id },
@@ -247,7 +274,11 @@ export class RouteAssignmentService {
     });
     if (!vehicle) throw new NotFoundException('Vehicle not found');
 
-    if (!isAdminLike(ctx.user_type) && ctx.association_id && vehicle.association_id !== ctx.association_id) {
+    if (
+      !isAdminLike(ctx.user_type) &&
+      ctx.association_id &&
+      vehicle.association_id !== ctx.association_id
+    ) {
       throw new ForbiddenException('Vehicle not in your association');
     }
 
@@ -296,8 +327,13 @@ export class RouteAssignmentService {
 
     this.assertAssociationScope(ctx, existing.association_id);
 
-    if (!isAdminLike(ctx.user_type) && existing.status === RouteAssignmentStatus.Approved) {
-      throw new ForbiddenException('Association users cannot delete approved assignments');
+    if (
+      !isAdminLike(ctx.user_type) &&
+      existing.status === RouteAssignmentStatus.Approved
+    ) {
+      throw new ForbiddenException(
+        'Association users cannot delete approved assignments',
+      );
     }
 
     const removed = await this.repo.remove(id);
@@ -312,34 +348,33 @@ export class RouteAssignmentService {
     return removed;
   }
 
-  async visibleCoverage(ctx: UserContext, q: { plate_number?: string; driver_id?: number }) {
-    let vehicle:
-      | {
-          id: number;
-          association_id: number;
-          driver_id: number | null;
-          is_weekly: boolean;
-          plate_number: string;
-          status: VehicleStatus;
-        }
-      | null = null;
+  async visibleCoverage(
+    ctx: UserContext,
+    q: { plate_number?: string; driver_id?: number },
+  ) {
+    let vehicle: {
+      id: number;
+      association_id: number;
+      driver_id: number | null;
+      is_weekly: boolean;
+      plate_number: string;
+      status: VehicleStatus;
+    } | null = null;
 
-    let driver:
-      | {
-          id: number;
-          full_name: string;
-          phone_number: string;
-          active_until_date: Date | null;
-          association_id: number;
-          vehicle?: {
-            id: number;
-            association_id: number;
-            is_weekly: boolean;
-            plate_number: string;
-            status: VehicleStatus;
-          } | null;
-        }
-      | null = null;
+    let driver: {
+      id: number;
+      full_name: string;
+      phone_number: string;
+      active_until_date: Date | null;
+      association_id: number;
+      vehicle?: {
+        id: number;
+        association_id: number;
+        is_weekly: boolean;
+        plate_number: string;
+        status: VehicleStatus;
+      } | null;
+    } | null = null;
 
     if (q.plate_number) {
       vehicle = await this.prisma.vehicle.findUnique({
@@ -354,7 +389,8 @@ export class RouteAssignmentService {
         },
       });
       if (!vehicle) throw new NotFoundException('Vehicle not found');
-      if (!vehicle.driver_id) throw new BadRequestException('No driver assigned to this vehicle');
+      if (!vehicle.driver_id)
+        throw new BadRequestException('No driver assigned to this vehicle');
 
       driver = await this.prisma.driver.findUnique({
         where: { id: vehicle.driver_id },
@@ -387,7 +423,8 @@ export class RouteAssignmentService {
         },
       });
       if (!driver) throw new NotFoundException('Driver not found');
-      if (!driver.vehicle) throw new BadRequestException('No vehicle assigned to this driver');
+      if (!driver.vehicle)
+        throw new BadRequestException('No vehicle assigned to this driver');
 
       vehicle = {
         id: driver.vehicle.id,
@@ -398,28 +435,50 @@ export class RouteAssignmentService {
         status: driver.vehicle.status,
       };
     } else {
-      throw new BadRequestException('Either plate_number or driver_id is required');
+      throw new BadRequestException(
+        'Either plate_number or driver_id is required',
+      );
     }
 
     if (!driver) throw new NotFoundException('Driver not found');
 
     const today = startOfDay(new Date());
+
+    if (vehicle.status === VehicleStatus.MAINTENANCE) {
+      return {
+        not_full_filled: true,
+        maintenance: true,
+        plate_number: vehicle.plate_number,
+        driver_name: driver.full_name,
+        vehicle_status: 'MAINTENANCE',
+      };
+    }
+
     if (
       !driver.active_until_date ||
       startOfDay(driver.active_until_date) < today ||
       vehicle.status === VehicleStatus.INACTIVE
     ) {
-      return { not_full_filled: true };
+      return {
+        not_full_filled: true,
+        plate_number: vehicle.plate_number,
+        driver_name: driver.full_name,
+        vehicle_status: vehicle.status,
+      };
     }
 
-    const windowStart = vehicle.is_weekly ? startOfWeekMonday(today) : etMonthStart(today);
+    const windowStart = vehicle.is_weekly
+      ? startOfWeekMonday(today)
+      : etMonthStart(today);
     const windowEnd = endOfDay(driver.active_until_date);
 
     const assignments = await this.prisma.routeAssignment.findMany({
       where: {
         vehicle_id: vehicle.id,
         association_id: vehicle.association_id,
-        status: { in: [RouteAssignmentStatus.Pending, RouteAssignmentStatus.Approved] },
+        status: {
+          in: [RouteAssignmentStatus.Pending, RouteAssignmentStatus.Approved],
+        },
         payment_status: PaymentStatus.ACTIVE,
         start_date: { gte: windowStart },
         end_date: { lte: windowEnd },
@@ -430,10 +489,16 @@ export class RouteAssignmentService {
 
     if (assignments.length === 0) {
       return {
+        plate_number: vehicle.plate_number,
+        driver_name: driver.full_name,
+        driver_active_until: driver.active_until_date
+          .toISOString()
+          .slice(0, 10),
+        assignments: [],
+        vehicle_status: vehicle.status,
         message: `Route assignment doesn't exist for ${windowStart
           .toISOString()
           .slice(0, 10)} - ${windowEnd.toISOString().slice(0, 10)}`,
-        driver_active_until: driver.active_until_date.toISOString().slice(0, 10),
       };
     }
 
@@ -447,6 +512,7 @@ export class RouteAssignmentService {
       plate_number: vehicle.plate_number,
       driver_name: driver.full_name,
       driver_active_until: driver.active_until_date.toISOString().slice(0, 10),
+      vehicle_status: vehicle.status,
       assignments: assignments.map((r) => ({
         route: {
           id: r.route.id,

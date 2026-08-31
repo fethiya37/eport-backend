@@ -8,11 +8,7 @@ export type AssociationFilter = {
 };
 
 export interface IAssociationRepository {
-  create(data: {
-    name: string;
-    phone_number?: string | null;
-    logo?: string | null;
-  }): Promise<Association>;
+  create(data: { name: string; logo?: string | null }): Promise<Association>;
 
   findAll(filter?: AssociationFilter): Promise<Association[]>;
   findById(id: number): Promise<Association | null>;
@@ -20,7 +16,6 @@ export interface IAssociationRepository {
     id: number,
     data: Partial<{
       name: string;
-      phone_number: string | null;
       logo: string | null;
     }>,
   ): Promise<Association>;

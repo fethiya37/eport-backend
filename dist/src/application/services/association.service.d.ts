@@ -11,7 +11,6 @@ export declare class AssociationService {
     constructor(associations: IAssociationRepository, prisma: PrismaService, activityLog: ActivityLogService);
     publicList(filter?: AssociationFilter): Promise<{
         id: number;
-        phone_number: string | null;
         name: string;
         created_at: Date;
         updated_at: Date;
@@ -19,7 +18,6 @@ export declare class AssociationService {
     }[]>;
     publicGet(id: number): Promise<{
         id: number;
-        phone_number: string | null;
         name: string;
         created_at: Date;
         updated_at: Date;
@@ -27,7 +25,6 @@ export declare class AssociationService {
     }>;
     create(ctx: UserContext, dto: CreateAssociationDto): Promise<{
         id: number;
-        phone_number: string | null;
         name: string;
         created_at: Date;
         updated_at: Date;
@@ -35,7 +32,6 @@ export declare class AssociationService {
     }>;
     update(ctx: UserContext, id: number, dto: UpdateAssociationDto): Promise<{
         id: number;
-        phone_number: string | null;
         name: string;
         created_at: Date;
         updated_at: Date;

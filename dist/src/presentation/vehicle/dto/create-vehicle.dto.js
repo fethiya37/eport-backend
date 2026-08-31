@@ -17,7 +17,6 @@ const no_html_decorator_1 = require("../../../common/decorators/no-html.decorato
 class CreateVehicleDto {
     plate_number;
     libre_no;
-    owner_id;
     driver_id;
     make;
     model;
@@ -32,7 +31,9 @@ __decorate([
     (0, class_validator_1.IsNotEmpty)(),
     (0, class_validator_1.MaxLength)(20),
     (0, no_html_decorator_1.NoHtml)({ message: 'plate_number must not include HTML or script tags' }),
-    (0, class_validator_1.Matches)(/^[A-Za-z0-9-]+$/u, { message: 'plate_number contains invalid characters' }),
+    (0, class_validator_1.Matches)(/^[A-Za-z0-9-]+$/u, {
+        message: 'plate_number contains invalid characters',
+    }),
     __metadata("design:type", String)
 ], CreateVehicleDto.prototype, "plate_number", void 0);
 __decorate([
@@ -41,18 +42,16 @@ __decorate([
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.MaxLength)(30),
     (0, no_html_decorator_1.NoHtml)({ message: 'libre_no must not include HTML or script tags' }),
-    (0, class_validator_1.Matches)(/^[A-Za-z0-9-]+$/u, { message: 'libre_no contains invalid characters' }),
+    (0, class_validator_1.Matches)(/^[A-Za-z0-9-]+$/u, {
+        message: 'libre_no contains invalid characters',
+    }),
     __metadata("design:type", Object)
 ], CreateVehicleDto.prototype, "libre_no", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 10, description: 'Owner ID in your association' }),
-    (0, class_transformer_1.Type)(() => Number),
-    (0, class_validator_1.IsInt)(),
-    (0, class_validator_1.Min)(1),
-    __metadata("design:type", Number)
-], CreateVehicleDto.prototype, "owner_id", void 0);
-__decorate([
-    (0, swagger_1.ApiPropertyOptional)({ example: 22, description: 'Driver ID assigned to this vehicle' }),
+    (0, swagger_1.ApiPropertyOptional)({
+        example: 22,
+        description: 'Driver ID assigned to this vehicle',
+    }),
     (0, class_validator_1.IsOptional)(),
     (0, class_transformer_1.Type)(() => Number),
     (0, class_validator_1.IsInt)(),
@@ -92,7 +91,10 @@ __decorate([
     __metadata("design:type", Object)
 ], CreateVehicleDto.prototype, "capacity", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ example: true, description: 'Whether the vehicle is on a weekly plan' }),
+    (0, swagger_1.ApiPropertyOptional)({
+        example: true,
+        description: 'Whether the vehicle is on a weekly plan',
+    }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)

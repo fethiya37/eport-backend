@@ -3,7 +3,6 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { AuthModule } from './presentation/auth/auth.module';
 import { UserModule } from './presentation/user/user.module';
 import { AssociationModule } from './presentation/association/association.module';
-import { OwnerModule } from './presentation/owner/owner.module';
 import { VehicleModule } from './presentation/vehicle/vehicle.module';
 import { DriverModule } from './presentation/driver/driver.module';
 import { APP_GUARD } from '@nestjs/core';
@@ -25,7 +24,6 @@ import { ActivityLogModule } from './presentation/activity-log/activity-log.modu
     AuthModule,
     UserModule,
     AssociationModule,
-    OwnerModule,
     VehicleModule,
     DriverModule,
     RouteAssignmentModule,
@@ -37,7 +35,7 @@ import { ActivityLogModule } from './presentation/activity-log/activity-log.modu
     JobsModule,
     SmsModule,
     ChapaSubaccountModule,
-     ActivityLogModule,
+    ActivityLogModule,
   ],
   controllers: [HealthController],
   providers: [
@@ -45,4 +43,4 @@ import { ActivityLogModule } from './presentation/activity-log/activity-log.modu
     { provide: APP_GUARD, useClass: RolesGuard },
   ],
 })
-export class AppModule { }
+export class AppModule {}

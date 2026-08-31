@@ -14,10 +14,14 @@ import {
 } from '@prisma/client';
 
 @Injectable()
-export class PrismaRouteAssignmentRepository implements IRouteAssignmentRepository {
-  constructor(private readonly prisma: PrismaService) { }
+export class PrismaRouteAssignmentRepository
+  implements IRouteAssignmentRepository
+{
+  constructor(private readonly prisma: PrismaService) {}
 
-  async upsertMany(data: RouteAssignmentUpsertRow[]): Promise<RouteAssignment[]> {
+  async upsertMany(
+    data: RouteAssignmentUpsertRow[],
+  ): Promise<RouteAssignment[]> {
     return this.prisma.$transaction(async (tx) => {
       const results: RouteAssignment[] = [];
       for (const row of data) {
@@ -37,7 +41,7 @@ export class PrismaRouteAssignmentRepository implements IRouteAssignmentReposito
               approved_at: row.approved_at ?? null,
               route_quota_id: row.route_quota_id ?? null,
               history_status: row.history_status ?? undefined,
-              payment_status: row.payment_status, // ✅ NEW
+              payment_status: row.payment_status,
             },
           });
           results.push(updated);
@@ -56,7 +60,7 @@ export class PrismaRouteAssignmentRepository implements IRouteAssignmentReposito
               approved_at: row.approved_at ?? null,
               route_quota_id: row.route_quota_id ?? null,
               history_status: row.history_status ?? undefined,
-              payment_status: row.payment_status, // ✅ NEW
+              payment_status: row.payment_status,
             },
           });
           results.push(created);
@@ -78,24 +82,38 @@ export class PrismaRouteAssignmentRepository implements IRouteAssignmentReposito
     return r.count;
   }
 
-  async find(filter: RouteAssignmentFindFilter): Promise<RouteAssignmentWithRelations[]> {
+  async find(
+    filter: RouteAssignmentFindFilter,
+  ): Promise<RouteAssignmentWithRelations[]> {
     const where: Prisma.RouteAssignmentWhereInput = {
-      ...(filter.association_id ? { association_id: filter.association_id } : {}),
+      ...(filter.association_id
+        ? { association_id: filter.association_id }
+        : {}),
       ...(filter.route_id ? { route_id: filter.route_id } : {}),
       ...(filter.status ? { status: filter.status } : {}),
-      ...(typeof filter.is_weekly === 'boolean' ? { is_weekly: filter.is_weekly } : {}),
+      ...(typeof filter.is_weekly === 'boolean'
+        ? { is_weekly: filter.is_weekly }
+        : {}),
       ...(filter.vehicle_id ? { vehicle_id: filter.vehicle_id } : {}),
-      ...(filter.payment_status ? { payment_status: filter.payment_status } : {}),
-      ...(filter.route_quota_id ? { route_quota_id: filter.route_quota_id } : {}),
+      ...(filter.payment_status
+        ? { payment_status: filter.payment_status }
+        : {}),
+      ...(filter.route_quota_id
+        ? { route_quota_id: filter.route_quota_id }
+        : {}),
       ...(filter.date_from || filter.date_to
         ? {
-          NOT: {
-            OR: [
-              ...(filter.date_from ? [{ end_date: { lt: filter.date_from } }] : []),
-              ...(filter.date_to ? [{ start_date: { gt: filter.date_to } }] : []),
-            ],
-          },
-        }
+            NOT: {
+              OR: [
+                ...(filter.date_from
+                  ? [{ end_date: { lt: filter.date_from } }]
+                  : []),
+                ...(filter.date_to
+                  ? [{ start_date: { gt: filter.date_to } }]
+                  : []),
+              ],
+            },
+          }
         : {}),
     };
 
@@ -115,11 +133,10 @@ export class PrismaRouteAssignmentRepository implements IRouteAssignmentReposito
         route: { select: { id: true, departure: true, arrival: true } },
         assigned_by: { select: { id: true, name: true } },
         approved_by: { select: { id: true, name: true } },
-        association: { select: { id: true, name: true } }, // ✅ Added
+        association: { select: { id: true, name: true } },
       },
     });
   }
-
 
   findByIds(ids: number[]): Promise<RouteAssignment[]> {
     if (!ids.length) return Promise.resolve([]);

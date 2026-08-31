@@ -6,11 +6,10 @@ import {
   PaymentStatus,
 } from '@prisma/client';
 
-export const ROUTE_ASSIGNMENT_REPOSITORY = Symbol('ROUTE_ASSIGNMENT_REPOSITORY');
+export const ROUTE_ASSIGNMENT_REPOSITORY = Symbol(
+  'ROUTE_ASSIGNMENT_REPOSITORY',
+);
 
-// -----------------------------
-// Types
-// -----------------------------
 export type RouteAssignmentUpsertRow = {
   id?: number;
   route_id: number;
@@ -25,7 +24,7 @@ export type RouteAssignmentUpsertRow = {
   approved_at?: Date | null;
   route_quota_id?: number | null;
   history_status?: RouteAssignmentHistoryStatus | null;
-  payment_status: PaymentStatus; // ✅ NEW
+  payment_status: PaymentStatus;
 };
 
 export type RouteAssignmentFindFilter = {
@@ -37,12 +36,9 @@ export type RouteAssignmentFindFilter = {
   date_to?: Date;
   vehicle_id?: number;
   payment_status?: PaymentStatus;
-  route_quota_id?: number; // ✅ NEW
+  route_quota_id?: number;
 };
 
-// -----------------------------
-// Enriched type with relations
-// -----------------------------
 export type RouteAssignmentWithRelations = RouteAssignment & {
   vehicle: {
     id: number;
@@ -60,16 +56,15 @@ export type RouteAssignmentWithRelations = RouteAssignment & {
   };
   assigned_by: { id: number; name: string | null };
   approved_by: { id: number; name: string | null } | null;
-  association: { id: number; name: string }; // ✅ Added
+  association: { id: number; name: string };
 };
 
-// -----------------------------
-// Repository interface
-// -----------------------------
 export interface IRouteAssignmentRepository {
   upsertMany(data: RouteAssignmentUpsertRow[]): Promise<RouteAssignment[]>;
   approveMany(ids: number[], approver_user_id: number): Promise<number>;
-  find(filter: RouteAssignmentFindFilter): Promise<RouteAssignmentWithRelations[]>; // ✅ updated
+  find(
+    filter: RouteAssignmentFindFilter,
+  ): Promise<RouteAssignmentWithRelations[]>;
   findByIds(ids: number[]): Promise<RouteAssignment[]>;
 
   getQuotaById(id: number): Promise<RouteQuota | null>;

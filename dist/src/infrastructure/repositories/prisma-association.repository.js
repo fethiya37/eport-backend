@@ -21,7 +21,6 @@ let PrismaAssociationRepository = class PrismaAssociationRepository {
         return this.prisma.association.create({
             data: {
                 name: data.name,
-                phone_number: data.phone_number ?? null,
                 logo: data.logo ?? null,
             },
         });

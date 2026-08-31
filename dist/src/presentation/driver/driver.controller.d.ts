@@ -59,6 +59,7 @@ export declare class DriverController {
         last_accrual_amount: import("@prisma/client/runtime/library").Decimal | null;
     }>;
     create(user: UserContext, dto: CreateDriverDto): Promise<{
+        temp_password: string;
         id: number;
         phone_number: string;
         association_id: number;

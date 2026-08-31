@@ -149,7 +149,6 @@ let VehicleService = class VehicleService {
         const created = await this.vehicles.create(ctx, {
             plate_number: dto.plate_number.trim(),
             libre_no: dto.libre_no ? dto.libre_no.trim() : null,
-            owner_id: dto.owner_id,
             association_id: ctx.association_id,
             driver_id: dto.driver_id ?? null,
             make: dto.make ? dto.make.trim() : null,
@@ -180,9 +179,10 @@ let VehicleService = class VehicleService {
         if (!existing)
             throw new common_1.NotFoundException('Vehicle not found');
         const updated = await this.vehicles.update(ctx, id, {
-            plate_number: dto.plate_number ? dto.plate_number.trim() : dto.plate_number,
+            plate_number: dto.plate_number
+                ? dto.plate_number.trim()
+                : dto.plate_number,
             libre_no: dto.libre_no ? dto.libre_no.trim() : dto.libre_no,
-            owner_id: dto.owner_id,
             driver_id: dto.driver_id ?? existing.driver_id,
             make: dto.make ? dto.make.trim() : dto.make,
             model: dto.model ? dto.model.trim() : dto.model,
@@ -323,7 +323,9 @@ let VehicleService = class VehicleService {
                 : null,
             interest_accrued: driver.interest_accrued ?? 0,
             policy: {
-                plan_fee: Boolean(vehicle.is_weekly) ? policy.weekly_fee : policy.monthly_fee,
+                plan_fee: Boolean(vehicle.is_weekly)
+                    ? policy.weekly_fee
+                    : policy.monthly_fee,
                 daily_fine_percent: policy.daily_fine_percent,
             },
         };

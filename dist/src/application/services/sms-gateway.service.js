@@ -19,26 +19,63 @@ let SmsGatewayService = class SmsGatewayService {
     apiKey = process.env.AFROMSG_API_KEY;
     accountId = process.env.AFROMSG_ACCOUNT_ID;
     senderName = process.env.AFROMSG_SENDER_NAME;
+    maxRetries = 3;
+    retryDelay = 1000;
     constructor(http) {
         this.http = http;
     }
     async sendSms(to, message) {
+        if (!to || !message) {
+            throw new Error('Phone number and message are required');
+        }
+        const formattedPhone = this.formatPhoneNumber(to);
         const payload = {
             from: this.accountId,
             sender: this.senderName,
-            to,
+            to: formattedPhone,
             message,
         };
-        try {
-            const res = await (0, rxjs_1.firstValueFrom)(this.http.post(this.apiUrl, payload, {
-                headers: { Authorization: `Bearer ${this.apiKey}` },
-            }));
-            return res.data;
+        let lastError = null;
+        for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
+            try {
+                const res = await (0, rxjs_1.firstValueFrom)(this.http.post(this.apiUrl, payload, {
+                    headers: { Authorization: `Bearer ${this.apiKey}` },
+                    timeout: 10000,
+                }));
+                return res.data;
+            }
+            catch (err) {
+                const error = err;
+                lastError = error;
+                if (error.response?.status === 429) {
+                    const waitTime = this.retryDelay * attempt * 2;
+                    await this.sleep(waitTime);
+                    continue;
+                }
+                if (attempt < this.maxRetries) {
+                    await this.sleep(this.retryDelay * attempt);
+                    continue;
+                }
+            }
         }
-        catch (err) {
-            console.error('❌ SMS send failed:', err.response?.data || err.message);
-            throw err;
+        const errorMessage = lastError?.response?.data?.message ||
+            lastError?.response?.data?.error ||
+            lastError?.message ||
+            'Failed to send SMS';
+        throw new Error(errorMessage);
+    }
+    formatPhoneNumber(phone) {
+        const digits = phone.replace(/\D/g, '');
+        if (digits.startsWith('251')) {
+            return digits.slice(3);
         }
+        if (digits.startsWith('0')) {
+            return digits.slice(1);
+        }
+        return digits;
+    }
+    sleep(ms) {
+        return new Promise((resolve) => setTimeout(resolve, ms));
     }
 };
 exports.SmsGatewayService = SmsGatewayService;

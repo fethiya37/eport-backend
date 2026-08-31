@@ -1,4 +1,3 @@
-// src/presentation/driver/driver.module.ts
 import { Module } from '@nestjs/common';
 import { DriverController } from './driver.controller';
 import { DriverService } from '../../application/services/driver.service';
@@ -10,11 +9,7 @@ import { AssociationPolicyModule } from 'src/presentation/association-policy/ass
 import { ActivityLogModule } from '../activity-log/activity-log.module';
 
 @Module({
-  imports: [
-    ActivityLogModule,
-    PrismaModule,
-    AssociationPolicyModule, 
-  ],
+  imports: [ActivityLogModule, PrismaModule, AssociationPolicyModule],
   controllers: [DriverController],
   providers: [
     DriverService,

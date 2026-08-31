@@ -15,7 +15,6 @@ const class_validator_1 = require("class-validator");
 const no_html_decorator_1 = require("../../../common/decorators/no-html.decorator");
 class UpdateAssociationDto {
     name;
-    phone_number;
     logo;
 }
 exports.UpdateAssociationDto = UpdateAssociationDto;
@@ -27,17 +26,6 @@ __decorate([
     (0, no_html_decorator_1.NoHtml)({ message: 'name must not include HTML or script tags' }),
     __metadata("design:type", String)
 ], UpdateAssociationDto.prototype, "name", void 0);
-__decorate([
-    (0, swagger_1.ApiPropertyOptional)({ example: '+251922233344' }),
-    (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsString)(),
-    (0, class_validator_1.MaxLength)(20),
-    (0, no_html_decorator_1.NoHtml)({ message: 'phone_number must not include HTML or script tags' }),
-    (0, class_validator_1.Matches)(/^\+?[0-9]{7,20}$/u, {
-        message: 'phone_number must be a valid phone number',
-    }),
-    __metadata("design:type", Object)
-], UpdateAssociationDto.prototype, "phone_number", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ example: 'https://cdn.example.com/new-logo.png' }),
     (0, class_validator_1.IsOptional)(),

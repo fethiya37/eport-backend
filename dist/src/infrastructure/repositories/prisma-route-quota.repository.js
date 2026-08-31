@@ -47,7 +47,9 @@ let PrismaRouteQuotaRepository = class PrismaRouteQuotaRepository {
     find(filter) {
         return this.prisma.routeQuota.findMany({
             where: {
-                ...(filter.association_id ? { association_id: filter.association_id } : {}),
+                ...(filter.association_id
+                    ? { association_id: filter.association_id }
+                    : {}),
                 ...(filter.route_id ? { route_id: filter.route_id } : {}),
             },
             orderBy: { id: 'asc' },

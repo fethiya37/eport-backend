@@ -24,8 +24,6 @@ function ymdToUtcDate(ymd: string): Date {
   return new Date(Date.UTC(y, m - 1, d));
 }
 
-
-
 /** Compare two dates (DB DATEs or JS Dates) by YYYY-MM-DD in UTC */
 function ymdUTC(d: Date | null | undefined): string | null {
   if (!d) return null;
@@ -33,21 +31,19 @@ function ymdUTC(d: Date | null | undefined): string | null {
 }
 
 /** Is overdue as of EAT "today"? */
-function isOverdueEat(activeUntil?: Date | null, todayEatYmd?: string): boolean {
+function isOverdueEat(
+  activeUntil?: Date | null,
+  todayEatYmd?: string,
+): boolean {
   const today = todayEatYmd ?? eatYmdNow();
   const au = activeUntil ? ymdUTC(activeUntil) : null;
   return !au || au < today;
 }
 
-
-
-
-
-
 @Injectable()
 export class BillingJobs {
   private readonly logger = new Logger(BillingJobs.name);
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   // --------------------------------------------------------------------------
   // DAILY FINE — runs every day 00:05 in EAT (UTC+03)
@@ -81,7 +77,6 @@ export class BillingJobs {
       if (!v.driver) continue;
       if (!isOverdueEat(v.driver.active_until_date, todayEat)) continue;
 
-      // Association policy
       let weeklyFee = 0,
         monthlyFee = 0,
         rate = 0;
@@ -98,9 +93,7 @@ export class BillingJobs {
           monthlyFee = Number(rows[0].monthly_fee ?? 0) || 0;
           rate = Number(rows[0].daily_fine_percent ?? 0) || 0;
         }
-      } catch {
-        // ignore
-      }
+      } catch {}
 
       const base = v.is_weekly ? weeklyFee : monthlyFee;
       const add = Math.round((base * rate + Number.EPSILON) * 100) / 100;
@@ -109,7 +102,8 @@ export class BillingJobs {
       await this.prisma.driver.update({
         where: { id: v.driver.id },
         data: {
-          interest_accrued: (Number(v.driver.interest_accrued ?? 0) + add) as any,
+          interest_accrued: (Number(v.driver.interest_accrued ?? 0) +
+            add) as any,
           last_accrual_date: todayEatDateUtc,
           last_accrual_amount: add as any,
         },

@@ -1,13 +1,12 @@
 import { Module } from '@nestjs/common';
 import { HttpModule } from '@nestjs/axios';
-import { SmsGatewayService } from 'src/application/services/sms-gateway.service';
-import { RouteAssignmentModule } from '../route-assignment/route-assignment.module';
-import { SmsController } from './sms.controller';
+import { SmsGatewayService } from '../../application/services/sms-gateway.service';
+import { SmsController } from '../../presentation/sms/sms.controller';
 
 @Module({
-  imports: [HttpModule, RouteAssignmentModule],
+  imports: [HttpModule],
+  controllers: [SmsController],
   providers: [SmsGatewayService],
   exports: [SmsGatewayService],
-  controllers: [SmsController],
 })
 export class SmsModule {}

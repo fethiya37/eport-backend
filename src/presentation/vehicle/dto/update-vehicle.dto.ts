@@ -19,7 +19,9 @@ export class UpdateVehicleDto {
   @IsString()
   @MaxLength(20)
   @NoHtml({ message: 'plate_number must not include HTML or script tags' })
-  @Matches(/^[A-Za-z0-9-]+$/u, { message: 'plate_number contains invalid characters' })
+  @Matches(/^[A-Za-z0-9-]+$/u, {
+    message: 'plate_number contains invalid characters',
+  })
   plate_number?: string | null;
 
   @ApiPropertyOptional({ example: 'LIBRE-1122' })
@@ -27,17 +29,15 @@ export class UpdateVehicleDto {
   @IsString()
   @MaxLength(30)
   @NoHtml({ message: 'libre_no must not include HTML or script tags' })
-  @Matches(/^[A-Za-z0-9-]+$/u, { message: 'libre_no contains invalid characters' })
+  @Matches(/^[A-Za-z0-9-]+$/u, {
+    message: 'libre_no contains invalid characters',
+  })
   libre_no?: string | null;
 
-  @ApiPropertyOptional({ example: 11 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  owner_id?: number;
-
-  @ApiPropertyOptional({ example: 22, description: 'Driver ID assigned to this vehicle' })
+  @ApiPropertyOptional({
+    example: 22,
+    description: 'Driver ID assigned to this vehicle',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
@@ -77,7 +77,10 @@ export class UpdateVehicleDto {
   @IsEnum(VehicleStatus)
   vehicle_status?: VehicleStatus;
 
-  @ApiPropertyOptional({ example: true, description: 'Whether the vehicle is on a weekly plan' })
+  @ApiPropertyOptional({
+    example: true,
+    description: 'Whether the vehicle is on a weekly plan',
+  })
   @IsOptional()
   @IsBoolean()
   is_weekly?: boolean;

@@ -5,7 +5,6 @@ export type VehicleFilter = {
     id?: number;
     plate_number?: string;
     status?: VehicleStatus;
-    owner_id?: number;
     driver_id?: number;
     make?: string;
     model?: string;
@@ -16,7 +15,6 @@ export interface IVehicleRepository {
     create(ctx: UserContext, data: {
         plate_number: string;
         libre_no?: string | null;
-        owner_id: number;
         association_id: number;
         driver_id?: number | null;
         make?: string | null;
@@ -31,7 +29,6 @@ export interface IVehicleRepository {
     update(ctx: UserContext, id: number, data: Partial<{
         plate_number: string | null;
         libre_no: string | null;
-        owner_id: number;
         driver_id: number | null;
         make: string | null;
         model: string | null;

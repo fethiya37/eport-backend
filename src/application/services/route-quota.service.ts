@@ -132,7 +132,6 @@ export class RouteQuotaService {
   }
 
   find(ctx: UserContext, filter: RouteQuotaFilterDto) {
-    // ✅ SECURITY FIX: non-admin must always be association-scoped (and must have association context)
     if (!isAdminLike(ctx.user_type)) {
       const association_id = this.requireAssociationContext(ctx);
       filter.association_id = association_id;

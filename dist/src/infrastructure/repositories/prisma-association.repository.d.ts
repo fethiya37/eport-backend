@@ -6,7 +6,6 @@ export declare class PrismaAssociationRepository implements IAssociationReposito
     constructor(prisma: PrismaService);
     create(data: {
         name: string;
-        phone_number?: string | null;
         logo?: string | null;
     }): Promise<Association>;
     findAll(filter?: AssociationFilter): Promise<Association[]>;

@@ -21,6 +21,7 @@ const prisma_service_1 = require("../../../prisma/prisma.service");
 const route_assignment_service_1 = require("./route-assignment.service");
 const sms_gateway_service_1 = require("./sms-gateway.service");
 const activity_log_service_1 = require("./activity-log.service");
+const ethio_period_util_1 = require("../../common/utils/ethio-period.util");
 let PaymentsService = class PaymentsService {
     drivers;
     payments;
@@ -80,7 +81,9 @@ let PaymentsService = class PaymentsService {
         if (!Number.isFinite(p.monthly_fee) || p.monthly_fee < 0) {
             throw new common_1.BadRequestException('Invalid association policy: monthly_fee');
         }
-        if (!Number.isFinite(p.daily_fine_percent) || p.daily_fine_percent < 0 || p.daily_fine_percent > 1) {
+        if (!Number.isFinite(p.daily_fine_percent) ||
+            p.daily_fine_percent < 0 ||
+            p.daily_fine_percent > 1) {
             throw new common_1.BadRequestException('Invalid association policy: daily_fine_percent');
         }
     }
@@ -195,17 +198,50 @@ let PaymentsService = class PaymentsService {
         return { startGc, endGc };
     }
     computeTotal(feePlan, isOverdue, prepayQty, baseFee, interestAccrued) {
-        const interestSafe = Number.isFinite(interestAccrued) ? Math.max(0, interestAccrued) : 0;
+        const interestSafe = Number.isFinite(interestAccrued)
+            ? Math.max(0, interestAccrued)
+            : 0;
         const current = isOverdue ? baseFee : 0;
         const interest = isOverdue ? interestSafe : 0;
         const future = prepayQty * baseFee;
-        return Math.round((current + interest + future + Number.EPSILON) * 100) / 100;
+        return (Math.round((current + interest + future + Number.EPSILON) * 100) / 100);
     }
     splitName(fullName) {
         const parts = (fullName ?? 'Driver User').trim().split(/\s+/);
         const firstName = parts[0] || 'Driver';
         const lastName = parts.slice(1).join(' ') || 'User';
         return { firstName, lastName };
+    }
+    formatCoverageSms(data) {
+        if (!data) {
+            return 'ምንም መረጃ የለም።';
+        }
+        if (data.not_full_filled ||
+            !data.assignments ||
+            data.assignments.length === 0) {
+            const plate = data.plate_number || 'Unknown';
+            if (data.not_full_filled) {
+                return `${plate} Inactive`;
+            }
+            return `${plate} የተመደበ መስመር የለም።`;
+        }
+        const plate = data.plate_number;
+        const routes = data.assignments
+            .map((a, index, array) => {
+            const startDate = new Date(a.start_date_gc);
+            const endDate = new Date(a.end_date_gc);
+            const dateRange = (0, ethio_period_util_1.formatSimpleEthiopianDateRange)(startDate, endDate);
+            const routeText = `ከ${a.route.departure}→${a.route.arrival} ከ${dateRange}`;
+            if (index === 0) {
+                return `${plate} ${routeText}`;
+            }
+            if (index === array.length - 1) {
+                return `${routeText} ተመድበዋል`;
+            }
+            return routeText;
+        })
+            .join('\n');
+        return routes;
     }
     async applyPayment(ctx, dto) {
         this.assertPaymentsActor(ctx);
@@ -276,10 +312,10 @@ let PaymentsService = class PaymentsService {
         const coverage = await this.routeService.visibleCoverage(ctx, {
             plate_number: this.normalizePlate(dto.plate_number) ?? d.vehicle_plate,
         });
+        const smsMessage = this.formatCoverageSms(coverage);
         if (!d.has_smartphone) {
-            const msg = this.formatCoverageSmsCompact(coverage);
             try {
-                await this.smsGateway.sendSms(this.toLocalEtMobile(d.phone_number), msg);
+                await this.smsGateway.sendSms(this.toLocalEtMobile(d.phone_number), smsMessage);
             }
             catch (e) { }
         }
@@ -288,7 +324,9 @@ let PaymentsService = class PaymentsService {
                 plate_number: this.normalizePlate(dto.plate_number) ?? d.vehicle_plate ?? null,
                 fee_plan: dto.fee_plan,
                 breakdown: {
-                    interest: isOverdue ? Math.max(0, Number(d.interest_accrued ?? 0)) : 0,
+                    interest: isOverdue
+                        ? Math.max(0, Number(d.interest_accrued ?? 0))
+                        : 0,
                     current_fee: isOverdue ? baseFee : 0,
                     future_fee: prepayQty * baseFee,
                     total,
@@ -296,14 +334,6 @@ let PaymentsService = class PaymentsService {
                 coverage: { from: this.ymdEAT(startGc), to: this.ymdEAT(endGc) },
             },
         };
-    }
-    formatCoverageSmsCompact(data) {
-        if (!data.coverage_active)
-            return `Plate: ${data.plate_number} inactive.`;
-        const assignments = data.assignments
-            .map((a) => `${a.route.departure}→${a.route.arrival} (${a.start_date_ec} → ${a.end_date_ec}) [${a.status}]`)
-            .join('\n');
-        return `Plate: ${data.plate_number}\n${assignments}`;
     }
     async listPayments(ctx, filters) {
         this.assertPaymentsActor(ctx);
@@ -341,14 +371,25 @@ let PaymentsService = class PaymentsService {
         if (!ctx.association_id)
             throw new common_1.ForbiddenException('Association context required');
         const totals = await this.payments.getTotalByAssociation(ctx.association_id);
-        return { total_amount: totals.total_amount, total_transactions: totals.count };
+        return {
+            total_amount: totals.total_amount,
+            total_transactions: totals.count,
+        };
     }
     buildTxRefOnline(p) {
         const yymmdd = (d) => d.replace(/-/g, '').slice(2, 8);
-        const rand = Math.random().toString(36).replace(/[^a-z0-9]/g, '').slice(2, 10);
+        const rand = Math.random()
+            .toString(36)
+            .replace(/[^a-z0-9]/g, '')
+            .slice(2, 10);
         const plan = p.fee_plan === 'MONTHLY' ? 'M' : 'W';
         const q = Math.max(0, p.prepaid_qty ?? 0);
-        const mMap = { CASH: 'c', BANK: 'b', MOBILE: 'm', OTHER: 'o' };
+        const mMap = {
+            CASH: 'c',
+            BANK: 'b',
+            MOBILE: 'm',
+            OTHER: 'o',
+        };
         const m = (p.payment_method ?? 'MOBILE').toUpperCase();
         const mSeg = m === 'MOBILE' ? '' : `-m${mMap[m] ?? 'm'}`;
         const cents = Math.round((p.amount + Number.EPSILON) * 100);
@@ -510,7 +551,13 @@ let PaymentsService = class PaymentsService {
                 entity: 'Driver',
                 entity_id: driver.id,
             });
-            return { recorded: false, status: 'mismatch', expected, paid, tx_ref: txRef };
+            return {
+                recorded: false,
+                status: 'mismatch',
+                expected,
+                paid,
+                tx_ref: txRef,
+            };
         }
         const ctx = {
             userId: driver.user_id,

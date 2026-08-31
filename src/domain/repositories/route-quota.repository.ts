@@ -15,10 +15,12 @@ export type RouteQuotaCreateRow = {
 export interface IRouteQuotaRepository {
   create(data: RouteQuotaCreateRow): Promise<RouteQuota>;
 
-  // 👇 bulk create
   createMany(rows: RouteQuotaCreateRow[]): Promise<RouteQuota[]>;
 
-  find(filter: { association_id?: number; route_id?: number }): Promise<RouteQuota[]>;
+  find(filter: {
+    association_id?: number;
+    route_id?: number;
+  }): Promise<RouteQuota[]>;
 
   update(
     id: number,
@@ -28,7 +30,7 @@ export interface IRouteQuotaRepository {
       no_vehicles: number;
       remaining_vehicles: number;
       status: RouteQuotaStatus;
-    }>
+    }>,
   ): Promise<RouteQuota>;
 
   findById(id: number): Promise<RouteQuota | null>;

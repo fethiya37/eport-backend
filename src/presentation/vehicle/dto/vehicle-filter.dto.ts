@@ -33,20 +33,15 @@ export class VehicleFilterDto {
   @IsString()
   @MaxLength(20)
   @NoHtml({ message: 'plate_number must not include HTML or script tags' })
-  @Matches(/^[A-Za-z0-9-]+$/u, { message: 'plate_number contains invalid characters' })
+  @Matches(/^[A-Za-z0-9-]+$/u, {
+    message: 'plate_number contains invalid characters',
+  })
   plate_number?: string;
 
   @ApiPropertyOptional({ enum: VehicleStatus })
   @IsOptional()
   @IsEnum(VehicleStatus)
   status?: VehicleStatus;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  owner_id?: number;
 
   @ApiPropertyOptional()
   @IsOptional()

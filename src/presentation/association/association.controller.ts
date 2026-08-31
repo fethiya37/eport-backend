@@ -59,10 +59,7 @@ export class AssociationController {
   @ApiBearerAuth()
   @Delete(':id')
   @Roles('Admin', 'Superadmin')
-  delete(
-    @AuthUser() user: UserContext,
-    @Param('id', ParseIntPipe) id: number,
-  ) {
+  delete(@AuthUser() user: UserContext, @Param('id', ParseIntPipe) id: number) {
     return this.service.delete(user, id);
   }
 }

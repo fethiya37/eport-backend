@@ -102,25 +102,40 @@ export declare class RouteAssignmentController {
     }>;
     visibleCoverage(user: UserContext, q: VisibleCoverageQueryDto): Promise<{
         not_full_filled: boolean;
-        message?: undefined;
+        maintenance: boolean;
+        plate_number: string;
+        driver_name: string;
+        vehicle_status: string;
         driver_active_until?: undefined;
-        association_name?: undefined;
-        plate_number?: undefined;
-        driver_name?: undefined;
         assignments?: undefined;
+        message?: undefined;
+        association_name?: undefined;
     } | {
-        message: string;
-        driver_active_until: string;
-        not_full_filled?: undefined;
-        association_name?: undefined;
-        plate_number?: undefined;
-        driver_name?: undefined;
+        not_full_filled: boolean;
+        plate_number: string;
+        driver_name: string;
+        vehicle_status: "ACTIVE" | "INACTIVE";
+        maintenance?: undefined;
+        driver_active_until?: undefined;
         assignments?: undefined;
+        message?: undefined;
+        association_name?: undefined;
+    } | {
+        plate_number: string;
+        driver_name: string;
+        driver_active_until: string;
+        assignments: never[];
+        vehicle_status: "ACTIVE";
+        message: string;
+        not_full_filled?: undefined;
+        maintenance?: undefined;
+        association_name?: undefined;
     } | {
         association_name: string;
         plate_number: string;
         driver_name: string;
         driver_active_until: string;
+        vehicle_status: "ACTIVE";
         assignments: {
             route: {
                 id: number;
@@ -132,6 +147,7 @@ export declare class RouteAssignmentController {
             status: import("@prisma/client").$Enums.RouteAssignmentStatus;
         }[];
         not_full_filled?: undefined;
+        maintenance?: undefined;
         message?: undefined;
     }>;
 }

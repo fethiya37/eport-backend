@@ -50,7 +50,10 @@ export class VehicleController {
 
   @Get(':id')
   @Roles('Admin', 'Superadmin', 'Association')
-  findOne(@AuthUser() user: UserContext, @Param('id', ParseIntPipe) id: number) {
+  findOne(
+    @AuthUser() user: UserContext,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
     return this.service.findOne(user, id);
   }
 
@@ -60,7 +63,6 @@ export class VehicleController {
     return this.service.create(user, dto);
   }
 
-  // ✅ Admin/Superadmin can update vehicle
   @Patch(':id')
   @Roles('Admin', 'Superadmin', 'Association')
   update(
@@ -71,7 +73,6 @@ export class VehicleController {
     return this.service.update(user, id, dto);
   }
 
-  // ✅ keep existing logic (service already blocks Admin delete)
   @Delete(':id')
   @Roles('Association')
   remove(@AuthUser() user: UserContext, @Param('id', ParseIntPipe) id: number) {

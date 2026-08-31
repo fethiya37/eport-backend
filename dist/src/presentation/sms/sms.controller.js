@@ -14,32 +14,40 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SmsController = void 0;
 const common_1 = require("@nestjs/common");
+const swagger_1 = require("@nestjs/swagger");
+const jwt_guard_1 = require("../../infrastructure/auth/jwt.guard");
+const roles_decorator_1 = require("../../common/decorators/roles.decorator");
+const auth_user_decorator_1 = require("../../common/decorators/auth-user.decorator");
 const sms_gateway_service_1 = require("../../application/services/sms-gateway.service");
-const public_decorator_1 = require("../../common/decorators/public.decorator");
+const send_sms_dto_1 = require("./dto/send-sms.dto");
 let SmsController = class SmsController {
-    smsGateway;
-    constructor(smsGateway) {
-        this.smsGateway = smsGateway;
+    smsService;
+    constructor(smsService) {
+        this.smsService = smsService;
     }
-    async sendTestSms(to, message) {
-        if (!to || !message) {
-            throw new common_1.BadRequestException('Both "to" and "message" are required');
-        }
-        const result = await this.smsGateway.sendSms(to, message);
-        return { success: true, result };
+    async sendSms(user, dto) {
+        const result = await this.smsService.sendSms(dto.to, dto.message);
+        return {
+            success: true,
+            message: 'SMS sent successfully',
+            data: result,
+        };
     }
 };
 exports.SmsController = SmsController;
 __decorate([
-    (0, common_1.Post)('test'),
-    (0, public_decorator_1.Public)(),
-    __param(0, (0, common_1.Body)('to')),
-    __param(1, (0, common_1.Body)('message')),
+    (0, common_1.Post)('send'),
+    (0, roles_decorator_1.Roles)('Admin', 'Superadmin', 'Association'),
+    __param(0, (0, auth_user_decorator_1.AuthUser)()),
+    __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:paramtypes", [Object, send_sms_dto_1.SendSmsDto]),
     __metadata("design:returntype", Promise)
-], SmsController.prototype, "sendTestSms", null);
+], SmsController.prototype, "sendSms", null);
 exports.SmsController = SmsController = __decorate([
+    (0, swagger_1.ApiTags)('sms'),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, common_1.UseGuards)(jwt_guard_1.JwtAuthGuard),
     (0, common_1.Controller)('sms'),
     __metadata("design:paramtypes", [sms_gateway_service_1.SmsGatewayService])
 ], SmsController);

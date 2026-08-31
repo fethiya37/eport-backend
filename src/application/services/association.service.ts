@@ -41,7 +41,6 @@ export class AssociationService {
 
     const assoc = await this.associations.create({
       name: dto.name,
-      phone_number: dto.phone_number ?? null,
       logo: dto.logo ?? null,
     });
 
@@ -64,8 +63,6 @@ export class AssociationService {
 
     const updated = await this.associations.update(id, {
       name: dto.name ?? existing.name,
-      phone_number:
-        dto.phone_number !== undefined ? dto.phone_number : existing.phone_number,
       logo: dto.logo !== undefined ? dto.logo : existing.logo,
     });
 
@@ -93,7 +90,6 @@ export class AssociationService {
       await tx.routeQuota.deleteMany({ where: { association_id: id } });
       await tx.vehicle.deleteMany({ where: { association_id: id } });
       await tx.driver.deleteMany({ where: { association_id: id } });
-      await tx.owner.deleteMany({ where: { association_id: id } });
       await tx.user.deleteMany({ where: { association_id: id } });
       await tx.association.delete({ where: { id } });
     });
@@ -105,6 +101,8 @@ export class AssociationService {
       entity_id: id,
     });
 
-    return { message: 'Association and all related records deleted successfully' };
+    return {
+      message: 'Association and all related records deleted successfully',
+    };
   }
 }

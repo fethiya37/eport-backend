@@ -19,7 +19,7 @@ export class PrismaRouteQuotaRepository implements IRouteQuotaRepository {
         end_date: data.end_date,
         no_vehicles: data.no_vehicles,
         remaining_vehicles: data.remaining_vehicles ?? data.no_vehicles,
-        status: data.status ?? RouteQuotaStatus.Pending, // ✅ enum
+        status: data.status ?? RouteQuotaStatus.Pending,
       },
     });
   }
@@ -35,17 +35,22 @@ export class PrismaRouteQuotaRepository implements IRouteQuotaRepository {
             end_date: r.end_date,
             no_vehicles: r.no_vehicles,
             remaining_vehicles: r.remaining_vehicles ?? r.no_vehicles,
-            status: r.status ?? RouteQuotaStatus.Pending, // ✅ enum
+            status: r.status ?? RouteQuotaStatus.Pending,
           },
         }),
       ),
     );
   }
 
-  find(filter: { association_id?: number; route_id?: number }): Promise<RouteQuota[]> {
+  find(filter: {
+    association_id?: number;
+    route_id?: number;
+  }): Promise<RouteQuota[]> {
     return this.prisma.routeQuota.findMany({
       where: {
-        ...(filter.association_id ? { association_id: filter.association_id } : {}),
+        ...(filter.association_id
+          ? { association_id: filter.association_id }
+          : {}),
         ...(filter.route_id ? { route_id: filter.route_id } : {}),
       },
       orderBy: { id: 'asc' },
@@ -59,7 +64,7 @@ export class PrismaRouteQuotaRepository implements IRouteQuotaRepository {
       end_date: Date;
       no_vehicles: number;
       remaining_vehicles: number;
-      status: RouteQuotaStatus; // ✅ enum type
+      status: RouteQuotaStatus;
     }>,
   ): Promise<RouteQuota> {
     return this.prisma.routeQuota.update({

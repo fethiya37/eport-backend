@@ -8,7 +8,6 @@ export declare class AssociationController {
     constructor(service: AssociationService);
     publicList(filter: AssociationFilterDto): Promise<{
         id: number;
-        phone_number: string | null;
         name: string;
         created_at: Date;
         updated_at: Date;
@@ -16,7 +15,6 @@ export declare class AssociationController {
     }[]>;
     publicGet(id: number): Promise<{
         id: number;
-        phone_number: string | null;
         name: string;
         created_at: Date;
         updated_at: Date;
@@ -24,7 +22,6 @@ export declare class AssociationController {
     }>;
     create(user: UserContext, dto: CreateAssociationDto): Promise<{
         id: number;
-        phone_number: string | null;
         name: string;
         created_at: Date;
         updated_at: Date;
@@ -32,7 +29,6 @@ export declare class AssociationController {
     }>;
     update(user: UserContext, id: number, dto: UpdateAssociationDto): Promise<{
         id: number;
-        phone_number: string | null;
         name: string;
         created_at: Date;
         updated_at: Date;

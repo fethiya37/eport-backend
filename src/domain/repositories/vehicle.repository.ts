@@ -7,12 +7,11 @@ export type VehicleFilter = {
   id?: number;
   plate_number?: string;
   status?: VehicleStatus;
-  owner_id?: number;
-  driver_id?: number;          // ✅ filter by driver
+  driver_id?: number;
   make?: string;
   model?: string;
   color?: string;
-  association_id?: number;     // Admin/Superadmin can query
+  association_id?: number;
 };
 
 export interface IVehicleRepository {
@@ -21,15 +20,14 @@ export interface IVehicleRepository {
     data: {
       plate_number: string;
       libre_no?: string | null;
-      owner_id: number;
       association_id: number;
-      driver_id?: number | null;       // ✅ optional
+      driver_id?: number | null;
       make?: string | null;
       model?: string | null;
       color?: string | null;
       capacity?: number | null;
-      is_weekly: boolean;              // ✅ added
-    }
+      is_weekly: boolean;
+    },
   ): Promise<Vehicle>;
 
   findAll(ctx: UserContext, filter?: VehicleFilter): Promise<Vehicle[]>;
@@ -42,22 +40,25 @@ export interface IVehicleRepository {
     data: Partial<{
       plate_number: string | null;
       libre_no: string | null;
-      owner_id: number;
       driver_id: number | null;
       make: string | null;
       model: string | null;
       color: string | null;
       capacity: number | null;
       status: VehicleStatus;
-      is_weekly: boolean;              // ✅ added
-    }>
+      is_weekly: boolean;
+    }>,
   ): Promise<Vehicle>;
 
   findAvailableForQuotaOrDirect(
     ctx: UserContext,
-    input: { association_id?: number; is_weekly: boolean; start_date: Date; mode: 'quota' | 'direct' }
+    input: {
+      association_id?: number;
+      is_weekly: boolean;
+      start_date: Date;
+      mode: 'quota' | 'direct';
+    },
   ): Promise<{ count: number; vehicles?: Vehicle[] }>;
 
-  remove(ctx: UserContext, id: number): Promise<Vehicle>;   // ✅ NEW
-
+  remove(ctx: UserContext, id: number): Promise<Vehicle>;
 }

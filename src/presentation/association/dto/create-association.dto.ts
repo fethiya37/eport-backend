@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, MaxLength, Matches, IsUrl } from 'class-validator';
+import { IsOptional, IsString, MaxLength, IsUrl } from 'class-validator';
 import { NoHtml } from '../../../common/decorators/no-html.decorator';
 
 export class CreateAssociationDto {
@@ -8,14 +8,6 @@ export class CreateAssociationDto {
   @MaxLength(100)
   @NoHtml({ message: 'name must not include HTML/JS tags' })
   name!: string;
-
-  @ApiPropertyOptional({ example: '+251911223344' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(20)
-  @NoHtml({ message: 'phone_number must not include HTML/JS tags' })
-  @Matches(/^\+?[0-9]{7,20}$/u, { message: 'phone_number must be a valid phone number' })
-  phone_number?: string | null;
 
   @ApiPropertyOptional({ example: 'https://cdn.example.com/logo.png' })
   @IsOptional()

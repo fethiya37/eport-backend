@@ -1,4 +1,3 @@
-// ---------- Generator & Datasource ----------
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,7 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ---------- Enums ----------
 enum UserType {
   Superadmin
   Admin
@@ -121,13 +119,11 @@ model RevokedToken {
 model Association {
   id           Int      @id @default(autoincrement())
   name         String   @db.VarChar(100)
-  phone_number String?  @db.VarChar(20)
   logo         String?  @db.VarChar(255)
   created_at   DateTime @default(now())
   updated_at   DateTime @updatedAt
 
   users             User[]
-  owners            Owner[]
   drivers           Driver[]
   vehicles          Vehicle[]
   route_quotas      RouteQuota[]
@@ -140,29 +136,10 @@ model Association {
   subaccount AssociationSubaccount?
 
   @@index([name])
-  @@index([phone_number])
   @@index([created_at])
   @@map("associations")
 }
 
-model Owner {
-  id             Int      @id @default(autoincrement())
-  association_id Int
-  full_name      String   @db.VarChar(100)
-  phone_number   String   @db.VarChar(20)
-  created_at     DateTime @default(now())
-  updated_at     DateTime @updatedAt
-
-  association Association @relation(fields: [association_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  vehicles    Vehicle[]
-
-  @@unique([association_id, phone_number])
-  @@index([association_id, full_name])
-  @@index([association_id])
-  @@index([phone_number])
-  @@index([full_name])
-  @@map("owners")
-}
 
 model Driver {
   id             Int          @id @default(autoincrement())
@@ -208,7 +185,6 @@ model Vehicle {
   id             Int           @id @default(autoincrement())
   plate_number   String        @unique @db.VarChar(20)
   libre_no       String?
-  owner_id       Int
   association_id Int
   driver_id      Int?          @unique
   make           String?
@@ -221,7 +197,6 @@ model Vehicle {
   updated_at     DateTime      @updatedAt
   deleted_at     DateTime?
 
-  owner       Owner       @relation(fields: [owner_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
   association Association @relation(fields: [association_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
   driver      Driver?     @relation("DriverVehicle", fields: [driver_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
@@ -229,11 +204,9 @@ model Vehicle {
 
   @@index([association_id, status])
   @@index([driver_id])
-  @@index([owner_id])
   @@index([plate_number])
   @@index([status])
   @@index([association_id])
-  @@index([owner_id, association_id])
   @@index([driver_id, association_id])
   @@index([status, association_id])
   @@index([libre_no])

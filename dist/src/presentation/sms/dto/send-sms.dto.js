@@ -9,30 +9,28 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CreateOwnerDto = void 0;
+exports.SendSmsDto = void 0;
 const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
-const no_html_decorator_1 = require("../../../common/decorators/no-html.decorator");
-class CreateOwnerDto {
-    full_name;
-    phone_number;
+class SendSmsDto {
+    to;
+    message;
 }
-exports.CreateOwnerDto = CreateOwnerDto;
-__decorate([
-    (0, swagger_1.ApiProperty)({ example: 'Abebe Kebede' }),
-    (0, class_validator_1.IsString)(),
-    (0, class_validator_1.IsNotEmpty)(),
-    (0, class_validator_1.MaxLength)(100),
-    (0, no_html_decorator_1.NoHtml)({ message: 'full_name must not include HTML or script tags' }),
-    __metadata("design:type", String)
-], CreateOwnerDto.prototype, "full_name", void 0);
+exports.SendSmsDto = SendSmsDto;
 __decorate([
     (0, swagger_1.ApiProperty)({ example: '+251912345678' }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
-    (0, class_validator_1.MaxLength)(13),
-    (0, no_html_decorator_1.NoHtml)({ message: 'phone_number must not include HTML or script tags' }),
-    (0, class_validator_1.Matches)(/^\+2519\d{8}$/u, { message: 'phone_number must be in +2519XXXXXXXX format' }),
+    (0, class_validator_1.Matches)(/^\+251[79]\d{8}$/, {
+        message: 'Invalid Ethiopian phone number format',
+    }),
     __metadata("design:type", String)
-], CreateOwnerDto.prototype, "phone_number", void 0);
-//# sourceMappingURL=create-owner.dto.js.map
+], SendSmsDto.prototype, "to", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: 'Your password is: TempPass123' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
+    (0, class_validator_1.MaxLength)(160, { message: 'Message must not exceed 160 characters' }),
+    __metadata("design:type", String)
+], SendSmsDto.prototype, "message", void 0);
+//# sourceMappingURL=send-sms.dto.js.map

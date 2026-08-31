@@ -20,7 +20,6 @@ class VehicleFilterDto {
     id;
     plate_number;
     status;
-    owner_id;
     driver_id;
     make;
     model;
@@ -50,7 +49,9 @@ __decorate([
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.MaxLength)(20),
     (0, no_html_decorator_1.NoHtml)({ message: 'plate_number must not include HTML or script tags' }),
-    (0, class_validator_1.Matches)(/^[A-Za-z0-9-]+$/u, { message: 'plate_number contains invalid characters' }),
+    (0, class_validator_1.Matches)(/^[A-Za-z0-9-]+$/u, {
+        message: 'plate_number contains invalid characters',
+    }),
     __metadata("design:type", String)
 ], VehicleFilterDto.prototype, "plate_number", void 0);
 __decorate([
@@ -59,14 +60,6 @@ __decorate([
     (0, class_validator_1.IsEnum)(client_1.VehicleStatus),
     __metadata("design:type", String)
 ], VehicleFilterDto.prototype, "status", void 0);
-__decorate([
-    (0, swagger_1.ApiPropertyOptional)(),
-    (0, class_validator_1.IsOptional)(),
-    (0, class_transformer_1.Type)(() => Number),
-    (0, class_validator_1.IsInt)(),
-    (0, class_validator_1.Min)(1),
-    __metadata("design:type", Number)
-], VehicleFilterDto.prototype, "owner_id", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)(),
     (0, class_validator_1.IsOptional)(),

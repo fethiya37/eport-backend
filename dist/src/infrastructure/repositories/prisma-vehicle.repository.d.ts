@@ -9,7 +9,6 @@ export declare class PrismaVehicleRepository implements IVehicleRepository {
     create(ctx: UserContext, data: {
         plate_number: string;
         libre_no?: string | null;
-        owner_id: number;
         association_id: number;
         driver_id?: number | null;
         make?: string | null;
@@ -24,7 +23,6 @@ export declare class PrismaVehicleRepository implements IVehicleRepository {
     update(ctx: UserContext, id: number, data: Partial<{
         plate_number: string | null;
         libre_no: string | null;
-        owner_id: number;
         driver_id: number | null;
         make: string | null;
         model: string | null;

@@ -4,7 +4,6 @@ export declare class VehicleFilterDto {
     id?: number;
     plate_number?: string;
     status?: VehicleStatus;
-    owner_id?: number;
     driver_id?: number;
     make?: string;
     model?: string;
