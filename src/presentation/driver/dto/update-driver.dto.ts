@@ -27,7 +27,9 @@ export class UpdateDriverDto {
   @IsString()
   @MaxLength(13)
   @NoHtml({ message: 'phone_number must not include HTML or script tags' })
-  @Matches(/^\+2519\d{8}$/u, { message: 'phone_number must be in +2519XXXXXXXX format' })
+  @Matches(/^\+251\d{9}$/u, {
+    message: 'phone_number must be +251 followed by exactly 9 digits',
+  })
   phone_number?: string;
 
   @ApiPropertyOptional({ example: 'D-654321' })
@@ -35,7 +37,9 @@ export class UpdateDriverDto {
   @IsString()
   @MaxLength(30)
   @NoHtml({ message: 'license_no must not include HTML or script tags' })
-  @Matches(/^[A-Za-z0-9-]+$/u, { message: 'license_no contains invalid characters' })
+  @Matches(/^[A-Za-z0-9-]+$/u, {
+    message: 'license_no contains invalid characters',
+  })
   license_no?: string | null;
 
   @ApiPropertyOptional({ example: '2031-01-01' })
@@ -53,12 +57,18 @@ export class UpdateDriverDto {
   @IsBoolean()
   has_smartphone?: boolean;
 
-  @ApiPropertyOptional({ example: '2032-06-30', description: 'Active/paid through (YYYY-MM-DD)' })
+  @ApiPropertyOptional({
+    example: '2032-06-30',
+    description: 'Active/paid through (YYYY-MM-DD)',
+  })
   @IsOptional()
   @IsDateString()
   active_until_date?: string | null;
 
-  @ApiPropertyOptional({ example: 125.5, description: 'Total interest accrued (Decimal(10,2))' })
+  @ApiPropertyOptional({
+    example: 125.5,
+    description: 'Total interest accrued (Decimal(10,2))',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsNumber({ allowNaN: false, allowInfinity: false })

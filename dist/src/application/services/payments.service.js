@@ -55,16 +55,20 @@ let PaymentsService = class PaymentsService {
         const day = this.pad2(eat.getUTCDate());
         return `${y}-${m}-${day}`;
     }
-    todayEatYmd() {
-        return this.ymdEAT(new Date());
-    }
-    isOverdueEAT(activeUntil) {
-        if (!activeUntil)
-            return true;
-        return this.ymdEAT(activeUntil) < this.todayEatYmd();
-    }
     startOfDay(d) {
         return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    }
+    startOfWeekMonday(d) {
+        const dt = this.startOfDay(d);
+        const dow = dt.getDay();
+        const diff = dow === 0 ? -6 : 1 - dow;
+        dt.setDate(dt.getDate() + diff);
+        return dt;
+    }
+    startOfEcMonth(d) {
+        const eth = (0, ethio_period_util_1.gregorianToEthiopian)(d);
+        const gc = (0, ethio_period_util_1.ethiopianToGregorian)(eth.year, eth.month, 1);
+        return this.startOfDay(gc);
     }
     toLocalEtMobile(phone) {
         if (!phone)
@@ -174,16 +178,68 @@ let PaymentsService = class PaymentsService {
             throw new common_1.BadRequestException(`Plan mismatch: driver is ${driverPlan}, but payload says ${feePlan}.`);
         }
     }
-    assertWeeklyWindow(startGc, endGc, isOverdue, prepayQty) {
-        const days = Math.floor(this.startOfDay(endGc).getTime() - this.startOfDay(startGc).getTime()) /
-            86_400_000 +
-            1;
-        const expectedWeeks = isOverdue ? 1 + prepayQty : Math.max(1, prepayQty);
+    countOverduePeriods(feePlan, activeUntil) {
+        const today = this.startOfDay(new Date());
+        if (!activeUntil)
+            return 1;
+        const anchor = this.startOfDay(activeUntil);
+        if (anchor >= today)
+            return 0;
+        if (feePlan === 'WEEKLY') {
+            const currentMonday = this.startOfWeekMonday(today);
+            const anchorMonday = this.startOfWeekMonday(anchor);
+            const diffDays = Math.round((currentMonday.getTime() - anchorMonday.getTime()) / 86_400_000);
+            return Math.max(1, Math.ceil(diffDays / 7));
+        }
+        else {
+            const ethAnchor = (0, ethio_period_util_1.gregorianToEthiopian)(anchor);
+            const ethToday = (0, ethio_period_util_1.gregorianToEthiopian)(today);
+            const monthsDiff = (ethToday.year - ethAnchor.year) * 12 +
+                (ethToday.month - ethAnchor.month);
+            return Math.max(1, monthsDiff);
+        }
+    }
+    assertWeeklyWindow(startGc, endGc, overdueN, prepayQty) {
+        const days = Math.floor((this.startOfDay(endGc).getTime() -
+            this.startOfDay(startGc).getTime()) /
+            86_400_000) + 1;
+        const totalPeriods = overdueN + prepayQty;
+        const expectedWeeks = totalPeriods <= 0 ? 1 : totalPeriods;
         if (days % 7 !== 0 || days / 7 !== expectedWeeks) {
             throw new common_1.BadRequestException(`Weekly coverage length must equal ${expectedWeeks} week(s) = ${expectedWeeks * 7} days.`);
         }
     }
-    parseAndValidateWindow(feePlan, start, end, isOverdue, prepayQty) {
+    assertMonthlyWindow(startGc, endGc, overdueN, prepayQty) {
+        const totalMonths = overdueN + prepayQty;
+        const monthsToShow = totalMonths <= 0 ? 1 : totalMonths;
+        const startEth = (0, ethio_period_util_1.gregorianToEthiopian)(startGc);
+        const endEth = (0, ethio_period_util_1.gregorianToEthiopian)(endGc);
+        let expYear = startEth.year;
+        let expMonth = startEth.month + monthsToShow - 1;
+        if (expMonth > 12) {
+            expYear += Math.floor((expMonth - 1) / 12);
+            expMonth = ((expMonth - 1) % 12) + 1;
+        }
+        if (endEth.year !== expYear || endEth.month !== expMonth) {
+            throw new common_1.BadRequestException(`Monthly coverage must span ${monthsToShow} EC month(s) from ${startEth.year}-${startEth.month}.`);
+        }
+    }
+    assertCoverageStartMatchesAnchor(feePlan, startGc, activeUntil) {
+        const expected = activeUntil
+            ? (() => {
+                const d = this.startOfDay(activeUntil);
+                d.setDate(d.getDate() + 1);
+                return d;
+            })()
+            : feePlan === 'WEEKLY'
+                ? this.startOfWeekMonday(new Date())
+                : this.startOfEcMonth(new Date());
+        const provided = this.startOfDay(startGc);
+        if (provided.getTime() !== expected.getTime()) {
+            throw new common_1.BadRequestException(`covered_start_date must equal ${this.ymdEAT(expected)} (active_until_date + 1 or current period start).`);
+        }
+    }
+    parseAndValidateWindow(feePlan, start, end, overdueN, prepayQty) {
         const startGc = new Date(start);
         const endGc = new Date(end);
         if (isNaN(startGc.getTime()) || isNaN(endGc.getTime())) {
@@ -193,18 +249,22 @@ let PaymentsService = class PaymentsService {
             throw new common_1.BadRequestException('covered_start_date must be <= covered_end_date');
         }
         if (feePlan === 'WEEKLY') {
-            this.assertWeeklyWindow(startGc, endGc, isOverdue, prepayQty);
+            this.assertWeeklyWindow(startGc, endGc, overdueN, prepayQty);
+        }
+        else {
+            this.assertMonthlyWindow(startGc, endGc, overdueN, prepayQty);
         }
         return { startGc, endGc };
     }
-    computeTotal(feePlan, isOverdue, prepayQty, baseFee, interestAccrued) {
+    computeTotal(feePlan, overdueN, prepayQty, baseFee, interestAccrued) {
         const interestSafe = Number.isFinite(interestAccrued)
             ? Math.max(0, interestAccrued)
             : 0;
-        const current = isOverdue ? baseFee : 0;
-        const interest = isOverdue ? interestSafe : 0;
+        const hasOverdue = overdueN > 0;
+        const overdueFee = hasOverdue ? overdueN * baseFee : 0;
+        const interest = hasOverdue ? interestSafe : 0;
         const future = prepayQty * baseFee;
-        return (Math.round((current + interest + future + Number.EPSILON) * 100) / 100);
+        return (Math.round((overdueFee + interest + future + Number.EPSILON) * 100) / 100);
     }
     splitName(fullName) {
         const parts = (fullName ?? 'Driver User').trim().split(/\s+/);
@@ -213,20 +273,14 @@ let PaymentsService = class PaymentsService {
         return { firstName, lastName };
     }
     formatCoverageSms(data) {
-        if (!data) {
-            return 'ምንም መረጃ የለም።';
-        }
-        if (data.not_full_filled ||
-            !data.assignments ||
-            data.assignments.length === 0) {
-            const plate = data.plate_number || 'Unknown';
-            if (data.not_full_filled) {
-                return `${plate} Inactive`;
-            }
-            return `${plate} የተመደበ መስመር የለም።`;
+        if (!data)
+            return null;
+        const hasRoutes = !data.not_full_filled && data.assignments && data.assignments.length > 0;
+        if (!hasRoutes) {
+            return null;
         }
         const plate = data.plate_number;
-        const routes = data.assignments
+        return data.assignments
             .map((a, index, array) => {
             const startDate = new Date(a.start_date_gc);
             const endDate = new Date(a.end_date_gc);
@@ -241,21 +295,22 @@ let PaymentsService = class PaymentsService {
             return routeText;
         })
             .join('\n');
-        return routes;
     }
     async applyPayment(ctx, dto) {
         this.assertPaymentsActor(ctx);
         const d = await this.resolveDriver(ctx, dto.driver_id, dto.plate_number);
         this.assertPlanMatches(d.is_weekly, dto.fee_plan);
         const prepayQty = Math.max(0, dto.prepaid_qty ?? 0);
-        const isOverdue = this.isOverdueEAT(d.active_until_date ?? null);
-        const { startGc, endGc } = this.parseAndValidateWindow(dto.fee_plan, dto.covered_start_date, dto.covered_end_date, isOverdue, prepayQty);
+        const activeUntil = d.active_until_date ?? null;
+        const overdueN = this.countOverduePeriods(dto.fee_plan, activeUntil);
+        const { startGc, endGc } = this.parseAndValidateWindow(dto.fee_plan, dto.covered_start_date, dto.covered_end_date, overdueN, prepayQty);
+        this.assertCoverageStartMatchesAnchor(dto.fee_plan, startGc, activeUntil);
         const fees = await this.getFees(d.association_id);
         const baseFee = dto.fee_plan === 'WEEKLY' ? fees.weekly_fee : fees.monthly_fee;
         if (!Number.isFinite(baseFee) || baseFee < 0) {
             throw new common_1.BadRequestException('Invalid fee configuration');
         }
-        const total = this.computeTotal(dto.fee_plan, isOverdue, prepayQty, baseFee, Number(d.interest_accrued ?? 0));
+        const total = this.computeTotal(dto.fee_plan, overdueN, prepayQty, baseFee, Number(d.interest_accrued ?? 0));
         if (!Number.isFinite(total) || total < 0) {
             throw new common_1.BadRequestException('Invalid computed total');
         }
@@ -312,22 +367,23 @@ let PaymentsService = class PaymentsService {
         const coverage = await this.routeService.visibleCoverage(ctx, {
             plate_number: this.normalizePlate(dto.plate_number) ?? d.vehicle_plate,
         });
-        const smsMessage = this.formatCoverageSms(coverage);
         if (!d.has_smartphone) {
-            try {
-                await this.smsGateway.sendSms(this.toLocalEtMobile(d.phone_number), smsMessage);
+            const smsMessage = this.formatCoverageSms(coverage);
+            if (smsMessage) {
+                try {
+                    await this.smsGateway.sendSms(this.toLocalEtMobile(d.phone_number), smsMessage);
+                }
+                catch (e) { }
             }
-            catch (e) { }
         }
         return {
             payment: {
                 plate_number: this.normalizePlate(dto.plate_number) ?? d.vehicle_plate ?? null,
                 fee_plan: dto.fee_plan,
                 breakdown: {
-                    interest: isOverdue
-                        ? Math.max(0, Number(d.interest_accrued ?? 0))
-                        : 0,
-                    current_fee: isOverdue ? baseFee : 0,
+                    overdue_periods: overdueN,
+                    overdue_fee: overdueN * baseFee,
+                    interest: overdueN > 0 ? Math.max(0, Number(d.interest_accrued ?? 0)) : 0,
                     future_fee: prepayQty * baseFee,
                     total,
                 },
@@ -449,11 +505,13 @@ let PaymentsService = class PaymentsService {
         const d = await this.resolveDriver(ctx, dto.driver_id, dto.plate_number);
         this.assertPlanMatches(d.is_weekly, dto.fee_plan);
         const prepayQty = Math.max(0, dto.prepaid_qty ?? 0);
-        const isOverdue = this.isOverdueEAT(d.active_until_date ?? null);
-        this.parseAndValidateWindow(dto.fee_plan, dto.covered_start_date, dto.covered_end_date, isOverdue, prepayQty);
+        const activeUntil = d.active_until_date ?? null;
+        const overdueN = this.countOverduePeriods(dto.fee_plan, activeUntil);
+        this.parseAndValidateWindow(dto.fee_plan, dto.covered_start_date, dto.covered_end_date, overdueN, prepayQty);
+        this.assertCoverageStartMatchesAnchor(dto.fee_plan, new Date(dto.covered_start_date), activeUntil);
         const fees = await this.getFees(d.association_id);
         const baseFee = dto.fee_plan === 'WEEKLY' ? fees.weekly_fee : fees.monthly_fee;
-        const total = this.computeTotal(dto.fee_plan, isOverdue, prepayQty, baseFee, Number(d.interest_accrued ?? 0));
+        const total = this.computeTotal(dto.fee_plan, overdueN, prepayQty, baseFee, Number(d.interest_accrued ?? 0));
         const assocSub = await this.prisma.associationSubaccount.findUnique({
             where: { association_id: d.association_id },
             select: { chapa_id: true },
@@ -534,11 +592,13 @@ let PaymentsService = class PaymentsService {
         });
         if (!driver)
             throw new common_1.NotFoundException('Driver not found');
+        const anchor = new Date(parsed.covered_start_date);
+        anchor.setDate(anchor.getDate() - 1);
         const fees = await this.getFees(driver.association_id);
         const baseFee = parsed.fee_plan === 'WEEKLY' ? fees.weekly_fee : fees.monthly_fee;
-        const isOverdue = this.isOverdueEAT(driver.active_until_date ?? null);
+        const overdueN = this.countOverduePeriods(parsed.fee_plan, anchor);
         const prepayQty = Math.max(0, parsed.prepaid_qty ?? 0);
-        const expected = this.computeTotal(parsed.fee_plan, isOverdue, prepayQty, baseFee, Number(driver.interest_accrued ?? 0));
+        const expected = this.computeTotal(parsed.fee_plan, overdueN, prepayQty, baseFee, Number(driver.interest_accrued ?? 0));
         const paid = Number(verify.data.amount);
         if (paid !== expected) {
             await this.activityLog.log({

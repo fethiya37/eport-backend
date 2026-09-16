@@ -25,7 +25,11 @@ import { PaymentMethod } from '@prisma/client';
 import { RouteAssignmentService } from './route-assignment.service';
 import { SmsGatewayService } from './sms-gateway.service';
 import { ActivityLogService } from './activity-log.service';
-import { formatSimpleEthiopianDateRange } from '../../common/utils/ethio-period.util';
+import {
+  formatSimpleEthiopianDateRange,
+  gregorianToEthiopian,
+  ethiopianToGregorian,
+} from '../../common/utils/ethio-period.util';
 
 @Injectable()
 export class PaymentsService {
@@ -60,17 +64,22 @@ export class PaymentsService {
     return `${y}-${m}-${day}`;
   }
 
-  private todayEatYmd(): string {
-    return this.ymdEAT(new Date());
-  }
-
-  private isOverdueEAT(activeUntil?: Date | null): boolean {
-    if (!activeUntil) return true;
-    return this.ymdEAT(activeUntil) < this.todayEatYmd();
-  }
-
   private startOfDay(d: Date): Date {
     return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  }
+
+  private startOfWeekMonday(d: Date): Date {
+    const dt = this.startOfDay(d);
+    const dow = dt.getDay();
+    const diff = dow === 0 ? -6 : 1 - dow;
+    dt.setDate(dt.getDate() + diff);
+    return dt;
+  }
+
+  private startOfEcMonth(d: Date): Date {
+    const eth = gregorianToEthiopian(d);
+    const gc = ethiopianToGregorian(eth.year, eth.month, 1);
+    return this.startOfDay(gc);
   }
 
   private toLocalEtMobile(phone?: string): string {
@@ -214,22 +223,99 @@ export class PaymentsService {
     }
   }
 
+  private countOverduePeriods(
+    feePlan: 'WEEKLY' | 'MONTHLY',
+    activeUntil: Date | null,
+  ): number {
+    const today = this.startOfDay(new Date());
+    if (!activeUntil) return 1;
+
+    const anchor = this.startOfDay(activeUntil);
+    if (anchor >= today) return 0;
+
+    if (feePlan === 'WEEKLY') {
+      const currentMonday = this.startOfWeekMonday(today);
+      const anchorMonday = this.startOfWeekMonday(anchor);
+      const diffDays = Math.round(
+        (currentMonday.getTime() - anchorMonday.getTime()) / 86_400_000,
+      );
+      return Math.max(1, Math.ceil(diffDays / 7));
+    } else {
+      const ethAnchor = gregorianToEthiopian(anchor);
+      const ethToday = gregorianToEthiopian(today);
+      const monthsDiff =
+        (ethToday.year - ethAnchor.year) * 12 +
+        (ethToday.month - ethAnchor.month);
+      return Math.max(1, monthsDiff);
+    }
+  }
+
   private assertWeeklyWindow(
     startGc: Date,
     endGc: Date,
-    isOverdue: boolean,
+    overdueN: number,
     prepayQty: number,
   ) {
     const days =
       Math.floor(
-        this.startOfDay(endGc).getTime() - this.startOfDay(startGc).getTime(),
-      ) /
-        86_400_000 +
-      1;
-    const expectedWeeks = isOverdue ? 1 + prepayQty : Math.max(1, prepayQty);
+        (this.startOfDay(endGc).getTime() -
+          this.startOfDay(startGc).getTime()) /
+          86_400_000,
+      ) + 1;
+    const totalPeriods = overdueN + prepayQty;
+    const expectedWeeks = totalPeriods <= 0 ? 1 : totalPeriods;
     if (days % 7 !== 0 || days / 7 !== expectedWeeks) {
       throw new BadRequestException(
         `Weekly coverage length must equal ${expectedWeeks} week(s) = ${expectedWeeks * 7} days.`,
+      );
+    }
+  }
+
+  private assertMonthlyWindow(
+    startGc: Date,
+    endGc: Date,
+    overdueN: number,
+    prepayQty: number,
+  ) {
+    const totalMonths = overdueN + prepayQty;
+    const monthsToShow = totalMonths <= 0 ? 1 : totalMonths;
+
+    const startEth = gregorianToEthiopian(startGc);
+    const endEth = gregorianToEthiopian(endGc);
+
+    let expYear = startEth.year;
+    let expMonth = startEth.month + monthsToShow - 1;
+    if (expMonth > 12) {
+      expYear += Math.floor((expMonth - 1) / 12);
+      expMonth = ((expMonth - 1) % 12) + 1;
+    }
+
+    if (endEth.year !== expYear || endEth.month !== expMonth) {
+      throw new BadRequestException(
+        `Monthly coverage must span ${monthsToShow} EC month(s) from ${startEth.year}-${startEth.month}.`,
+      );
+    }
+  }
+
+  private assertCoverageStartMatchesAnchor(
+    feePlan: 'WEEKLY' | 'MONTHLY',
+    startGc: Date,
+    activeUntil: Date | null,
+  ) {
+    const expected = activeUntil
+      ? (() => {
+          const d = this.startOfDay(activeUntil);
+          d.setDate(d.getDate() + 1);
+          return d;
+        })()
+      : feePlan === 'WEEKLY'
+        ? this.startOfWeekMonday(new Date())
+        : this.startOfEcMonth(new Date());
+
+    const provided = this.startOfDay(startGc);
+    if (provided.getTime() !== expected.getTime()) {
+      throw new BadRequestException(
+        `covered_start_date must equal ${this.ymdEAT(expected)} (active_until_date + 1 or current period start).`,
       );
     }
   }
@@ -238,7 +324,7 @@ export class PaymentsService {
     feePlan: 'WEEKLY' | 'MONTHLY',
     start: string,
     end: string,
-    isOverdue: boolean,
+    overdueN: number,
     prepayQty: number,
   ) {
     const startGc = new Date(start);
@@ -256,7 +342,9 @@ export class PaymentsService {
     }
 
     if (feePlan === 'WEEKLY') {
-      this.assertWeeklyWindow(startGc, endGc, isOverdue, prepayQty);
+      this.assertWeeklyWindow(startGc, endGc, overdueN, prepayQty);
+    } else {
+      this.assertMonthlyWindow(startGc, endGc, overdueN, prepayQty);
     }
 
     return { startGc, endGc };
@@ -264,7 +352,7 @@ export class PaymentsService {
 
   private computeTotal(
     feePlan: 'WEEKLY' | 'MONTHLY',
-    isOverdue: boolean,
+    overdueN: number,
     prepayQty: number,
     baseFee: number,
     interestAccrued: number,
@@ -272,11 +360,12 @@ export class PaymentsService {
     const interestSafe = Number.isFinite(interestAccrued)
       ? Math.max(0, interestAccrued)
       : 0;
-    const current = isOverdue ? baseFee : 0;
-    const interest = isOverdue ? interestSafe : 0;
+    const hasOverdue = overdueN > 0;
+    const overdueFee = hasOverdue ? overdueN * baseFee : 0;
+    const interest = hasOverdue ? interestSafe : 0;
     const future = prepayQty * baseFee;
     return (
-      Math.round((current + interest + future + Number.EPSILON) * 100) / 100
+      Math.round((overdueFee + interest + future + Number.EPSILON) * 100) / 100
     );
   }
 
@@ -287,25 +376,18 @@ export class PaymentsService {
     return { firstName, lastName };
   }
 
-  private formatCoverageSms(data: any): string {
-    if (!data) {
-      return 'ምንም መረጃ የለም።';
-    }
+  private formatCoverageSms(data: any): string | null {
+    if (!data) return null;
 
-    if (
-      data.not_full_filled ||
-      !data.assignments ||
-      data.assignments.length === 0
-    ) {
-      const plate = data.plate_number || 'Unknown';
-      if (data.not_full_filled) {
-        return `${plate} Inactive`;
-      }
-      return `${plate} የተመደበ መስመር የለም።`;
+    const hasRoutes =
+      !data.not_full_filled && data.assignments && data.assignments.length > 0;
+
+    if (!hasRoutes) {
+      return null;
     }
 
     const plate = data.plate_number;
-    const routes = data.assignments
+    return data.assignments
       .map((a: any, index: number, array: any[]) => {
         const startDate = new Date(a.start_date_gc);
         const endDate = new Date(a.end_date_gc);
@@ -323,8 +405,6 @@ export class PaymentsService {
         return routeText;
       })
       .join('\n');
-
-    return routes;
   }
 
   async applyPayment(ctx: UserContext, dto: PayDto) {
@@ -335,15 +415,18 @@ export class PaymentsService {
     this.assertPlanMatches(d.is_weekly, dto.fee_plan);
 
     const prepayQty = Math.max(0, dto.prepaid_qty ?? 0);
-    const isOverdue = this.isOverdueEAT(d.active_until_date ?? null);
+    const activeUntil = d.active_until_date ?? null;
+    const overdueN = this.countOverduePeriods(dto.fee_plan, activeUntil);
 
     const { startGc, endGc } = this.parseAndValidateWindow(
       dto.fee_plan,
       dto.covered_start_date,
       dto.covered_end_date,
-      isOverdue,
+      overdueN,
       prepayQty,
     );
+
+    this.assertCoverageStartMatchesAnchor(dto.fee_plan, startGc, activeUntil);
 
     const fees = await this.getFees(d.association_id);
     const baseFee =
@@ -355,7 +438,7 @@ export class PaymentsService {
 
     const total = this.computeTotal(
       dto.fee_plan,
-      isOverdue,
+      overdueN,
       prepayQty,
       baseFee,
       Number(d.interest_accrued ?? 0),
@@ -433,15 +516,17 @@ export class PaymentsService {
       plate_number: this.normalizePlate(dto.plate_number) ?? d.vehicle_plate,
     });
 
-    const smsMessage = this.formatCoverageSms(coverage);
-
     if (!d.has_smartphone) {
-      try {
-        await this.smsGateway.sendSms(
-          this.toLocalEtMobile(d.phone_number),
-          smsMessage,
-        );
-      } catch (e: any) {}
+      const smsMessage = this.formatCoverageSms(coverage);
+
+      if (smsMessage) {
+        try {
+          await this.smsGateway.sendSms(
+            this.toLocalEtMobile(d.phone_number),
+            smsMessage,
+          );
+        } catch (e: any) {}
+      }
     }
 
     return {
@@ -450,10 +535,10 @@ export class PaymentsService {
           this.normalizePlate(dto.plate_number) ?? d.vehicle_plate ?? null,
         fee_plan: dto.fee_plan,
         breakdown: {
-          interest: isOverdue
-            ? Math.max(0, Number(d.interest_accrued ?? 0))
-            : 0,
-          current_fee: isOverdue ? baseFee : 0,
+          overdue_periods: overdueN,
+          overdue_fee: overdueN * baseFee,
+          interest:
+            overdueN > 0 ? Math.max(0, Number(d.interest_accrued ?? 0)) : 0,
           future_fee: prepayQty * baseFee,
           total,
         },
@@ -603,14 +688,21 @@ export class PaymentsService {
     this.assertPlanMatches(d.is_weekly, dto.fee_plan);
 
     const prepayQty = Math.max(0, dto.prepaid_qty ?? 0);
-    const isOverdue = this.isOverdueEAT(d.active_until_date ?? null);
+    const activeUntil = d.active_until_date ?? null;
+    const overdueN = this.countOverduePeriods(dto.fee_plan, activeUntil);
 
     this.parseAndValidateWindow(
       dto.fee_plan,
       dto.covered_start_date,
       dto.covered_end_date,
-      isOverdue,
+      overdueN,
       prepayQty,
+    );
+
+    this.assertCoverageStartMatchesAnchor(
+      dto.fee_plan,
+      new Date(dto.covered_start_date),
+      activeUntil,
     );
 
     const fees = await this.getFees(d.association_id);
@@ -619,7 +711,7 @@ export class PaymentsService {
 
     const total = this.computeTotal(
       dto.fee_plan,
-      isOverdue,
+      overdueN,
       prepayQty,
       baseFee,
       Number(d.interest_accrued ?? 0),
@@ -718,15 +810,19 @@ export class PaymentsService {
     });
     if (!driver) throw new NotFoundException('Driver not found');
 
+    const anchor = new Date(parsed.covered_start_date);
+    anchor.setDate(anchor.getDate() - 1);
+
     const fees = await this.getFees(driver.association_id);
     const baseFee =
       parsed.fee_plan === 'WEEKLY' ? fees.weekly_fee : fees.monthly_fee;
-    const isOverdue = this.isOverdueEAT(driver.active_until_date ?? null);
+
+    const overdueN = this.countOverduePeriods(parsed.fee_plan, anchor);
     const prepayQty = Math.max(0, parsed.prepaid_qty ?? 0);
 
     const expected = this.computeTotal(
       parsed.fee_plan,
-      isOverdue,
+      overdueN,
       prepayQty,
       baseFee,
       Number(driver.interest_accrued ?? 0),

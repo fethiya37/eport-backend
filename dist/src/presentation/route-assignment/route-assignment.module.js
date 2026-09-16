@@ -14,16 +14,20 @@ const prisma_module_1 = require("../../../prisma/prisma.module");
 const route_assignment_repository_1 = require("../../domain/repositories/route-assignment.repository");
 const prisma_route_assignment_repository_1 = require("../../infrastructure/repositories/prisma-route-assignment.repository");
 const activity_log_module_1 = require("../activity-log/activity-log.module");
+const sms_module_1 = require("../sms/sms.module");
 let RouteAssignmentModule = class RouteAssignmentModule {
 };
 exports.RouteAssignmentModule = RouteAssignmentModule;
 exports.RouteAssignmentModule = RouteAssignmentModule = __decorate([
     (0, common_1.Module)({
-        imports: [prisma_module_1.PrismaModule, activity_log_module_1.ActivityLogModule],
+        imports: [prisma_module_1.PrismaModule, activity_log_module_1.ActivityLogModule, sms_module_1.SmsModule],
         controllers: [route_assignment_controller_1.RouteAssignmentController],
         providers: [
             route_assignment_service_1.RouteAssignmentService,
-            { provide: route_assignment_repository_1.ROUTE_ASSIGNMENT_REPOSITORY, useClass: prisma_route_assignment_repository_1.PrismaRouteAssignmentRepository },
+            {
+                provide: route_assignment_repository_1.ROUTE_ASSIGNMENT_REPOSITORY,
+                useClass: prisma_route_assignment_repository_1.PrismaRouteAssignmentRepository,
+            },
         ],
         exports: [route_assignment_service_1.RouteAssignmentService],
     })

@@ -27,8 +27,8 @@ __decorate([
     (0, class_validator_1.MinLength)(13),
     (0, class_validator_1.MaxLength)(13),
     (0, no_html_decorator_1.NoHtml)({ message: 'phone_number must not include HTML or script tags' }),
-    (0, class_validator_1.Matches)(/^\+2519\d{8}$/, {
-        message: 'phone_number must be in +2519XXXXXXXX format',
+    (0, class_validator_1.Matches)(/^\+251\d{9}$/, {
+        message: 'phone_number must be +251 followed by exactly 9 digits',
     }),
     __metadata("design:type", String)
 ], LoginDto.prototype, "phone_number", void 0);

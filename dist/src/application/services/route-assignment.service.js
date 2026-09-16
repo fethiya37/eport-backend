@@ -20,14 +20,18 @@ const client_1 = require("@prisma/client");
 const prisma_service_1 = require("../../../prisma/prisma.service");
 const ethio_period_util_1 = require("../../common/utils/ethio-period.util");
 const activity_log_service_1 = require("../services/activity-log.service");
+const sms_gateway_service_1 = require("./sms-gateway.service");
+const ethio_period_util_2 = require("../../common/utils/ethio-period.util");
 let RouteAssignmentService = class RouteAssignmentService {
     repo;
     prisma;
     activityLog;
-    constructor(repo, prisma, activityLog) {
+    smsGateway;
+    constructor(repo, prisma, activityLog, smsGateway) {
         this.repo = repo;
         this.prisma = prisma;
         this.activityLog = activityLog;
+        this.smsGateway = smsGateway;
     }
     parseGcDate(d) {
         if (d instanceof Date)
@@ -68,6 +72,76 @@ let RouteAssignmentService = class RouteAssignmentService {
         });
         return !!found;
     }
+    toLocalEtMobile(phone) {
+        if (!phone)
+            return '';
+        const digits = phone.replace(/\D/g, '');
+        if (digits.startsWith('251'))
+            return digits.slice(3);
+        return digits;
+    }
+    formatRouteAssignmentSms(vehicle, assignments) {
+        if (assignments.length === 0)
+            return '';
+        const plate = vehicle.plate_number;
+        return assignments
+            .map((a, index, array) => {
+            const startDate = new Date(a.start_date);
+            const endDate = new Date(a.end_date);
+            const dateRange = (0, ethio_period_util_2.formatSimpleEthiopianDateRange)(startDate, endDate);
+            const routeText = `ከ${a.route.departure}→${a.route.arrival} ከ${dateRange}`;
+            if (index === 0 && array.length === 1) {
+                return `${plate} ${routeText} ተመድበዋል`;
+            }
+            if (index === 0) {
+                return `${plate} ${routeText}`;
+            }
+            if (index === array.length - 1) {
+                return `${routeText} ተመድበዋል`;
+            }
+            return routeText;
+        })
+            .join('\n');
+    }
+    async sendSmsOnAssignmentCreation(vehicleId, associationId) {
+        try {
+            const vehicle = await this.prisma.vehicle.findUnique({
+                where: { id: vehicleId },
+                include: {
+                    driver: {
+                        include: {
+                            user: {
+                                select: { phone_number: true },
+                            },
+                        },
+                    },
+                },
+            });
+            if (!vehicle?.driver)
+                return;
+            const driver = vehicle.driver;
+            if (driver.has_smartphone || !driver.active_until_date)
+                return;
+            const assignments = await this.prisma.routeAssignment.findMany({
+                where: {
+                    vehicle_id: vehicleId,
+                    association_id: associationId,
+                    payment_status: 'ACTIVE',
+                    end_date: { lte: driver.active_until_date },
+                },
+                include: {
+                    route: true,
+                },
+                orderBy: { start_date: 'asc' },
+            });
+            if (assignments.length === 0)
+                return;
+            const smsMessage = this.formatRouteAssignmentSms(vehicle, assignments);
+            await this.smsGateway.sendSms(this.toLocalEtMobile(driver.phone_number), smsMessage);
+        }
+        catch (error) {
+        }
+    }
     async bulkUpsert(ctx, dto) {
         const association_id = (0, roles_util_1.isAdminLike)(ctx.user_type)
             ? (dto.association_id ?? ctx.association_id ?? null)
@@ -76,6 +150,7 @@ let RouteAssignmentService = class RouteAssignmentService {
             throw new common_1.BadRequestException('association_id is required');
         const now = new Date();
         const rows = [];
+        const affectedVehicleIds = new Set();
         for (const it of dto.items) {
             const start_date = this.parseGcDate(it.start_date);
             const end_date = this.parseGcDate(it.end_date);
@@ -119,6 +194,7 @@ let RouteAssignmentService = class RouteAssignmentService {
                 history_status: it.history_status ?? undefined,
                 payment_status,
             });
+            affectedVehicleIds.add(it.vehicle_id);
         }
         const saved = await this.repo.upsertMany(rows);
         for (const a of saved) {
@@ -128,6 +204,9 @@ let RouteAssignmentService = class RouteAssignmentService {
                 entity: 'RouteAssignment',
                 entity_id: a.id,
             });
+        }
+        for (const vehicleId of affectedVehicleIds) {
+            await this.sendSmsOnAssignmentCreation(vehicleId, association_id);
         }
         return saved;
     }
@@ -413,6 +492,7 @@ exports.RouteAssignmentService = RouteAssignmentService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, common_1.Inject)(route_assignment_repository_1.ROUTE_ASSIGNMENT_REPOSITORY)),
     __metadata("design:paramtypes", [Object, prisma_service_1.PrismaService,
-        activity_log_service_1.ActivityLogService])
+        activity_log_service_1.ActivityLogService,
+        sms_gateway_service_1.SmsGatewayService])
 ], RouteAssignmentService);
 //# sourceMappingURL=route-assignment.service.js.map

@@ -29,6 +29,8 @@ import {
   etMonthStart,
 } from '../../common/utils/ethio-period.util';
 import { ActivityLogService } from '../services/activity-log.service';
+import { SmsGatewayService } from './sms-gateway.service';
+import { formatSimpleEthiopianDateRange } from '../../common/utils/ethio-period.util';
 
 @Injectable()
 export class RouteAssignmentService {
@@ -37,6 +39,7 @@ export class RouteAssignmentService {
     private readonly repo: IRouteAssignmentRepository,
     private readonly prisma: PrismaService,
     private readonly activityLog: ActivityLogService,
+    private readonly smsGateway: SmsGatewayService,
   ) {}
 
   private parseGcDate(d: string | Date): Date {
@@ -90,6 +93,98 @@ export class RouteAssignmentService {
     return !!found;
   }
 
+  private toLocalEtMobile(phone?: string): string {
+    if (!phone) return '';
+    const digits = phone.replace(/\D/g, '');
+    if (digits.startsWith('251')) return digits.slice(3);
+    return digits;
+  }
+
+  private formatRouteAssignmentSms(vehicle: any, assignments: any[]): string {
+    if (assignments.length === 0) return '';
+
+    const plate = vehicle.plate_number;
+
+    return assignments
+      .map((a, index, array) => {
+        const startDate = new Date(a.start_date);
+        const endDate = new Date(a.end_date);
+        const dateRange = formatSimpleEthiopianDateRange(startDate, endDate);
+        const routeText = `ከ${a.route.departure}→${a.route.arrival} ከ${dateRange}`;
+
+        if (index === 0 && array.length === 1) {
+          return `${plate} ${routeText} ተመድበዋል`;
+        }
+
+        if (index === 0) {
+          return `${plate} ${routeText}`;
+        }
+
+        if (index === array.length - 1) {
+          return `${routeText} ተመድበዋል`;
+        }
+
+        return routeText;
+      })
+      .join('\n');
+  }
+
+  private async sendSmsOnAssignmentCreation(
+    vehicleId: number,
+    associationId: number,
+  ) {
+    try {
+      // Get vehicle with driver and user info
+      const vehicle = await this.prisma.vehicle.findUnique({
+        where: { id: vehicleId },
+        include: {
+          driver: {
+            include: {
+              user: {
+                select: { phone_number: true },
+              },
+            },
+          },
+        },
+      });
+
+      if (!vehicle?.driver) return;
+
+      const driver = vehicle.driver;
+
+      // Only send SMS if:
+      // 1. Driver doesn't have a smartphone
+      // 2. Driver has active_until_date
+      if (driver.has_smartphone || !driver.active_until_date) return;
+
+      // Get all active assignments for this vehicle
+      const assignments = await this.prisma.routeAssignment.findMany({
+        where: {
+          vehicle_id: vehicleId,
+          association_id: associationId,
+          payment_status: 'ACTIVE',
+          end_date: { lte: driver.active_until_date },
+        },
+        include: {
+          route: true,
+        },
+        orderBy: { start_date: 'asc' },
+      });
+
+      if (assignments.length === 0) return;
+
+      // Format and send SMS
+      const smsMessage = this.formatRouteAssignmentSms(vehicle, assignments);
+
+      await this.smsGateway.sendSms(
+        this.toLocalEtMobile(driver.phone_number),
+        smsMessage,
+      );
+    } catch (error) {
+      // Silently fail - SMS is best effort
+    }
+  }
+
   async bulkUpsert(ctx: UserContext, dto: BulkUpsertAssignmentsDto) {
     const association_id = isAdminLike(ctx.user_type)
       ? (dto.association_id ?? ctx.association_id ?? null)
@@ -100,6 +195,7 @@ export class RouteAssignmentService {
 
     const now = new Date();
     const rows: RouteAssignmentUpsertRow[] = [];
+    const affectedVehicleIds = new Set<number>();
 
     for (const it of dto.items) {
       const start_date = this.parseGcDate(it.start_date as any);
@@ -165,6 +261,8 @@ export class RouteAssignmentService {
         history_status: it.history_status ?? undefined,
         payment_status,
       });
+
+      affectedVehicleIds.add(it.vehicle_id);
     }
 
     const saved = await this.repo.upsertMany(rows);
@@ -176,6 +274,11 @@ export class RouteAssignmentService {
         entity: 'RouteAssignment',
         entity_id: a.id,
       });
+    }
+
+    // Send SMS notifications for created/updated assignments
+    for (const vehicleId of affectedVehicleIds) {
+      await this.sendSmsOnAssignmentCreation(vehicleId, association_id);
     }
 
     return saved;

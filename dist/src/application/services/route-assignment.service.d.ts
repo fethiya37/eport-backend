@@ -6,16 +6,21 @@ import { ApproveAssignmentsDto } from '../../presentation/route-assignment/dto/a
 import { UpdateAssignmentDto } from '../../presentation/route-assignment/dto/update-assignment.dto';
 import { RouteAssignmentFilterDto } from '../../presentation/route-assignment/dto/find-filter.dto';
 import { ActivityLogService } from '../services/activity-log.service';
+import { SmsGatewayService } from './sms-gateway.service';
 export declare class RouteAssignmentService {
     private readonly repo;
     private readonly prisma;
     private readonly activityLog;
-    constructor(repo: IRouteAssignmentRepository, prisma: PrismaService, activityLog: ActivityLogService);
+    private readonly smsGateway;
+    constructor(repo: IRouteAssignmentRepository, prisma: PrismaService, activityLog: ActivityLogService, smsGateway: SmsGatewayService);
     private parseGcDate;
     private assertAssociationScope;
     private existsRoute;
     private existsVehicleInAssociation;
     private existsVehicleOverlap;
+    private toLocalEtMobile;
+    private formatRouteAssignmentSms;
+    private sendSmsOnAssignmentCreation;
     bulkUpsert(ctx: UserContext, dto: BulkUpsertAssignmentsDto): Promise<{
         id: number;
         association_id: number;

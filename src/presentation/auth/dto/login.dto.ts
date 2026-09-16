@@ -18,8 +18,8 @@ export class LoginDto {
   @MinLength(13)
   @MaxLength(13)
   @NoHtml({ message: 'phone_number must not include HTML or script tags' })
-  @Matches(/^\+2519\d{8}$/, {
-    message: 'phone_number must be in +2519XXXXXXXX format',
+  @Matches(/^\+251\d{9}$/, {
+    message: 'phone_number must be +251 followed by exactly 9 digits',
   })
   phone_number!: string;
 

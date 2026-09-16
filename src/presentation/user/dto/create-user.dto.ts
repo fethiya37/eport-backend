@@ -19,7 +19,9 @@ export class CreateUserDto {
   @IsNotEmpty()
   @MaxLength(13)
   @NoHtml({ message: 'phone_number must not include HTML or script tags' })
-  @Matches(/^\+2519\d{8}$/u, { message: 'phone_number must be in +2519XXXXXXXX format' })
+  @Matches(/^\+251\d{9}$/u, {
+    message: 'phone_number must be +251 followed by exactly 9 digits',
+  })
   phone_number!: string;
 
   @ApiProperty({ enum: UserType, example: UserType.Admin })
@@ -33,7 +35,10 @@ export class CreateUserDto {
   @NoHtml({ message: 'name must not include HTML or script tags' })
   name?: string | null;
 
-  @ApiPropertyOptional({ example: 1, description: 'Required only if user_type = Association' })
+  @ApiPropertyOptional({
+    example: 1,
+    description: 'Required only if user_type = Association',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()

@@ -19,9 +19,9 @@ export declare class PaymentsService {
     private assertPaymentsActor;
     private pad2;
     private ymdEAT;
-    private todayEatYmd;
-    private isOverdueEAT;
     private startOfDay;
+    private startOfWeekMonday;
+    private startOfEcMonth;
     private toLocalEtMobile;
     private assertFeeConfig;
     private getFees;
@@ -30,7 +30,10 @@ export declare class PaymentsService {
     private normalizePlate;
     private resolveDriver;
     private assertPlanMatches;
+    private countOverduePeriods;
     private assertWeeklyWindow;
+    private assertMonthlyWindow;
+    private assertCoverageStartMatchesAnchor;
     private parseAndValidateWindow;
     private computeTotal;
     private splitName;
@@ -40,8 +43,9 @@ export declare class PaymentsService {
             plate_number: any;
             fee_plan: "WEEKLY" | "MONTHLY";
             breakdown: {
+                overdue_periods: number;
+                overdue_fee: number;
                 interest: number;
-                current_fee: number;
                 future_fee: number;
                 total: number;
             };

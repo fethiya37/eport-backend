@@ -40,7 +40,9 @@ __decorate([
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.MaxLength)(13),
     (0, no_html_decorator_1.NoHtml)({ message: 'phone_number must not include HTML or script tags' }),
-    (0, class_validator_1.Matches)(/^\+2519\d{8}$/u, { message: 'phone_number must be in +2519XXXXXXXX format' }),
+    (0, class_validator_1.Matches)(/^\+251\d{9}$/u, {
+        message: 'phone_number must be +251 followed by exactly 9 digits',
+    }),
     __metadata("design:type", String)
 ], UpdateDriverDto.prototype, "phone_number", void 0);
 __decorate([
@@ -49,7 +51,9 @@ __decorate([
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.MaxLength)(30),
     (0, no_html_decorator_1.NoHtml)({ message: 'license_no must not include HTML or script tags' }),
-    (0, class_validator_1.Matches)(/^[A-Za-z0-9-]+$/u, { message: 'license_no contains invalid characters' }),
+    (0, class_validator_1.Matches)(/^[A-Za-z0-9-]+$/u, {
+        message: 'license_no contains invalid characters',
+    }),
     __metadata("design:type", Object)
 ], UpdateDriverDto.prototype, "license_no", void 0);
 __decorate([
@@ -71,13 +75,19 @@ __decorate([
     __metadata("design:type", Boolean)
 ], UpdateDriverDto.prototype, "has_smartphone", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ example: '2032-06-30', description: 'Active/paid through (YYYY-MM-DD)' }),
+    (0, swagger_1.ApiPropertyOptional)({
+        example: '2032-06-30',
+        description: 'Active/paid through (YYYY-MM-DD)',
+    }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsDateString)(),
     __metadata("design:type", Object)
 ], UpdateDriverDto.prototype, "active_until_date", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ example: 125.5, description: 'Total interest accrued (Decimal(10,2))' }),
+    (0, swagger_1.ApiPropertyOptional)({
+        example: 125.5,
+        description: 'Total interest accrued (Decimal(10,2))',
+    }),
     (0, class_validator_1.IsOptional)(),
     (0, class_transformer_1.Type)(() => Number),
     (0, class_validator_1.IsNumber)({ allowNaN: false, allowInfinity: false }),

@@ -10,8 +10,9 @@ export declare class PaymentsController {
             plate_number: any;
             fee_plan: "WEEKLY" | "MONTHLY";
             breakdown: {
+                overdue_periods: number;
+                overdue_fee: number;
                 interest: number;
-                current_fee: number;
                 future_fee: number;
                 total: number;
             };
