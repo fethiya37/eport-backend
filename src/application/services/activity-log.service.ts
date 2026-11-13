@@ -17,7 +17,14 @@ export class ActivityLogService {
 
   private getUserId(ctx: UserContext | null): number | null {
     if (!ctx) return null;
-    return (ctx as any).user_id ?? null;
+    const anyCtx = ctx as any;
+    return anyCtx.userId ?? anyCtx.user_id ?? null;
+  }
+
+  private getAssociationId(ctx: UserContext | null): number | null {
+    if (!ctx) return null;
+    const anyCtx = ctx as any;
+    return anyCtx.association_id ?? anyCtx.associationId ?? null;
   }
 
   async log(
@@ -32,7 +39,7 @@ export class ActivityLogService {
   ): Promise<void> {
     const payload: ActivityLogCreate = {
       user_id: this.getUserId(ctx),
-      association_id: ctx?.association_id ?? null,
+      association_id: this.getAssociationId(ctx),
       action: `${input.module}:${input.action}`,
       entity_type: input.entity ?? null,
       entity_id: input.entity_id ?? null,

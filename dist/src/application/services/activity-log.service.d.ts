@@ -4,6 +4,7 @@ export declare class ActivityLogService {
     private readonly logs;
     constructor(logs: IActivityLogRepository);
     private getUserId;
+    private getAssociationId;
     log(ctx: UserContext | null, input: {
         module: string;
         action: string;

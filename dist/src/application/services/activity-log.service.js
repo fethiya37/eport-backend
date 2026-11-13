@@ -24,12 +24,19 @@ let ActivityLogService = class ActivityLogService {
     getUserId(ctx) {
         if (!ctx)
             return null;
-        return ctx.user_id ?? null;
+        const anyCtx = ctx;
+        return anyCtx.userId ?? anyCtx.user_id ?? null;
+    }
+    getAssociationId(ctx) {
+        if (!ctx)
+            return null;
+        const anyCtx = ctx;
+        return anyCtx.association_id ?? anyCtx.associationId ?? null;
     }
     async log(ctx, input) {
         const payload = {
             user_id: this.getUserId(ctx),
-            association_id: ctx?.association_id ?? null,
+            association_id: this.getAssociationId(ctx),
             action: `${input.module}:${input.action}`,
             entity_type: input.entity ?? null,
             entity_id: input.entity_id ?? null,
